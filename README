@@ -1,0 +1,12 @@
+VNA: Vector Network Analyzer Bindings for Python
+Copyright © 2023 D Scott Guthridge <scott-guthridge@rompromity.net>
+
+Library for vector network analyzers: provides calibration using 8 and
+16 term T parameters, 12-term E parameters (classic SOLT) and others,
+parameter conversion, and loading and storing of network parameter data
+in Touchstone 1, Touchstone 2 and network parameter data (.npd) formats.
+
+Source home: https://github.com/scott-guthridge/python3-vna
+
+To report bugs, open a git issue.  To ask questions, make suggestions
+or volunteer, post to git discussions.
