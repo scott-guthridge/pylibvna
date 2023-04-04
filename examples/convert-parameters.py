@@ -27,8 +27,13 @@ usage = """
       ri  real, imaginary
       ma  magnitude, angle
       dB  decibels, angle
-    
-    Specifiers are case-insensitive.\n"
+
+    Specifiers are case-insensitive."
+
+    File Types
+      Touchstone v1:          .s1p, .s2p, .s3p, .s4p
+      Touchstone v2:          .ts
+      Network Parameter Data: .npd
 """
 
 parser = argparse.ArgumentParser(usage=usage)
