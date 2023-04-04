@@ -7,6 +7,7 @@ usage = """
     where format is a comma-separated list of:
       s[ri|ma|dB]  scattering parameters
       t[ri|ma|dB]  scattering-transfer parameters
+      u[ri|ma|dB]  inverse scattering-transfer parameters
       z[ri|ma]     impedance parameters
       y[ri|ma]     admittance parameters
       h[ri|ma]     hybrid parameters

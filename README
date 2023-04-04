@@ -6,7 +6,10 @@ Library for vector network analyzers: provides calibration using 8 and
 parameter conversion, and loading and storing of network parameter data
 in Touchstone 1, Touchstone 2 and network parameter data (.npd) formats.
 
-Source home: https://github.com/scott-guthridge/python3-vna
+Git REPO: https://github.com/scott-guthridge/python3-vna
+
+You must install libvna (https://github.com/scott-guthridge/libvna),
+the C backend, for this package to work.
 
 To report bugs, open a git issue.  To ask questions, make suggestions
 or volunteer, post to git discussions.
