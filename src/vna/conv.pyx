@@ -16,8 +16,8 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #
 
-# cython: language_level=3
-import  numpy as np
+import numpy as np
+cimport numpy as np
 
 #
 # fn_2x2: pointer to function taking two double complex [2][2] matrices

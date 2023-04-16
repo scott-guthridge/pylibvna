@@ -9,12 +9,13 @@ class build_py(_build_py):
 
     def initialize_options(self):
         super().initialize_options()
+        self.distribution.compiler_directives={'language_level' : "3"}
         if self.distribution.ext_modules is None:
             self.distribution.ext_modules = []
 
         self.distribution.ext_modules.append(
             Extension(name="vna.conv",
-                      sources=["src/vna/conv.pyx"],
+                      sources=["src/vna/conv.pyx", "src/vna/conv.pxd"],
                       define_macros=[('NPY_NO_DEPRECATED_API',
                                       'NPY_1_7_API_VERSION')],
                       include_dirs=[get_include(), "/usr/local/include"],
@@ -22,7 +23,15 @@ class build_py(_build_py):
         )
         self.distribution.ext_modules.append(
             Extension(name="vna.data",
-                      sources=["src/vna/data.pyx"],
+                      sources=["src/vna/data.pyx", "src/vna/data.pxd"],
+                      define_macros=[('NPY_NO_DEPRECATED_API',
+                                      'NPY_1_7_API_VERSION')],
+                      include_dirs=[get_include(), "/usr/local/include"],
+                      libraries=["vna", "m"])
+        )
+        self.distribution.ext_modules.append(
+            Extension(name="vna.cal",
+                      sources=["src/vna/cal.pyx", "src/vna/cal.pxd"],
                       define_macros=[('NPY_NO_DEPRECATED_API',
                                       'NPY_1_7_API_VERSION')],
                       include_dirs=[get_include(), "/usr/local/include"],

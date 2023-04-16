@@ -1,3 +1,4 @@
+#cython: language_level=3
 #
 # Python Bindings for Vector Network Analyzer Library
 # Copyright © 2022 D Scott Guthridge <scott_guthridge@rompromity.net>

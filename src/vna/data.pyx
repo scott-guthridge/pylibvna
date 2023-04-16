@@ -16,23 +16,23 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #
 
-# cython: language_level=3
 from cpython.exc cimport PyErr_SetFromErrno
+from cpython.pycapsule cimport PyCapsule_New
+import errno
 from libc.stdio cimport FILE, fdopen, fclose
+import numpy as np
+cimport numpy as np
 from posix.unistd cimport close, dup, lseek, off_t
 from threading import local
-import errno
 import warnings
-cimport numpy as np
-import  numpy as np
+
 
 np.import_array()   # otherwise, PyArray_SimpleNewFromData segfaults
 
-cpdef enum Type:
+cpdef enum PType:
     # Note: current cython version does not allow a docstring here.
     # """
-    # enum Type:
-    #    Select the network parameter data type.
+    # Select the network parameter data type.
     #
     # Values:
     #    UNDEF: unspecified data (matrices may be rectangular)
@@ -62,8 +62,7 @@ cpdef enum Type:
 cpdef enum FileType:
     # Note: current cython version does not allow a docstring here.
     # """
-    # enum FileType:
-    #     Select the file type used to save network parameter data.
+    # Select the file type used to save network parameter data.
     #
     # Values:
     #     AUTO:        determine the type based on filename extension (default)
@@ -100,7 +99,7 @@ cdef void _error_fn(const char *message, void *error_arg,
     self = <Data>error_arg
     if self._thread_local.exception is not None:
         return
-    umessage = (<bytes>message).decode("utf8")
+    umessage = (<bytes>message).decode("UTF-8")
     if   category == VNAERR_SYSTEM:
         if errno.errorcode == errno.ENOMEM:
             self._thread_local.exception = MemoryError(umessage)
@@ -1161,7 +1160,7 @@ cdef class Data:
 
     def __cinit__(
             self,
-            ptype: Type = Type.UNDEF,
+            ptype: PType = PType.UNDEF,
             rows: int = 0,
             columns: int = 0,
             frequencies: int = 0):
@@ -1170,7 +1169,7 @@ cdef class Data:
             Construct an instance of class vna.data.Data
 
         Parameters:
-            ptype: Type
+            ptype: PType
                 UNDEF, S, T, U, Z, Y, H, G, A, B, ZIN
 
             rows: int
@@ -1188,14 +1187,13 @@ cdef class Data:
             MemoryError: if out of memory
             ValueError:  if rows, columns and ptype are not valid
         """
-        self.vdp = vnadata_alloc_and_init(
-            <vnaerr_error_fn_t *>&_error_fn, <void *>self,
-            <vnadata_parameter_type_t>ptype, rows, columns, frequencies)
-        if self.vdp == NULL:
-            PyErr_SetFromErrno(OSError)
         self._thread_local = local()
         self._thread_local.exception = None
         self._thread_local.warning = None
+        self.vdp = vnadata_alloc_and_init(
+            <vnaerr_error_fn_t *>&_error_fn, <void *>self,
+            <vnadata_parameter_type_t>ptype, rows, columns, frequencies)
+        self._handle_error(0 if self.vdp else -1)
 
     def __dealloc__(self):
         """
@@ -1212,7 +1210,7 @@ cdef class Data:
             initialize all z0 entries to 50 ohms.
 
         Parameters:
-            ptype: Type
+            ptype: PType
                 Set the parameter type: UNDEF, S, T, U, Z, Y,
                 H, G, A, B, ZIN
 
@@ -1244,7 +1242,7 @@ cdef class Data:
             To convert parameters, use convert.
 
         Parameters:
-            ptype: Type
+            ptype: PType
                 Set the parameter type: UNDEF, S, T, U, Z, Y,
                 H, G, A, B, ZIN
 
@@ -1267,8 +1265,8 @@ cdef class Data:
     @property
     def ptype(self):
         """
-        ptype: Type
-            Get the parameter type as an enum value.  Values of Type are:
+        ptype: PType
+            Get the parameter type as an enum value.  Values of PType are:
                 UNDEF, S, T, U, Z, Y, H, G, A, B, ZIN
         """
         return vnadata_get_type(self.vdp)
@@ -1311,6 +1309,12 @@ cdef class Data:
             Get the current number of frequencies.
         """
         return vnadata_get_frequencies(self.vdp)
+
+    def _get_vdp(self):
+        # """
+        # vdp: PyCapsule containing the C vnadata_t pointer
+        # """
+        return PyCapsule_New(<void *>self.vdp, NULL, NULL)
 
     ######################################################################
     # The Frequency Vector
@@ -1517,9 +1521,9 @@ cdef class Data:
     # Parameter Conversion
     ######################################################################
 
-    def convert(self, Type new_type):
+    def convert(self, PType new_ptype):
         """
-        convert(self, new_type: Type):
+        convert(self, new_type: PType):
             Convert to a new parameter type
 
         Parameters:
@@ -1538,7 +1542,7 @@ cdef class Data:
         result = Data()
         cdef int rc
         rc = vnadata_convert(self.vdp, result.vdp,
-                             <vnadata_parameter_type_t>new_type)
+                             <vnadata_parameter_type_t>new_ptype)
         self._handle_error(rc)
         return result
 
@@ -1553,7 +1557,7 @@ cdef class Data:
 
         Parameters:
             self:     vna.data.Data class reference
-            filename: pathname to file (unicode OK)
+            filename: pathname to file
 
         Raises:
             OSError:        if can't open file
@@ -1561,7 +1565,7 @@ cdef class Data:
             AssertionError: if internal error
         """
         if isinstance(filename, unicode):
-            filename = filename.encode("utf8")
+            filename = (<unicode>filename).encode("UTF-8")
         cdef const unsigned char[:] cfilename = filename
         cdef int rc
         rc = vnadata_load(self.vdp, <const char *>&cfilename[0])
@@ -1597,7 +1601,7 @@ cdef class Data:
             close(fd2)
             self._handle_error(-1)
         if isinstance(filename, unicode):
-            filename = filename.encode("utf8")
+            filename = (<unicode>filename).encode("UTF-8")
         cdef const unsigned char[:] cfilename = filename
         cdef int rc
         rc = vnadata_fload(self.vdp, fp, <const char *>&cfilename[0])
@@ -1613,7 +1617,7 @@ cdef class Data:
 
         Parameters:
             self:     vna.data.Data class reference
-            filename: pathname to file (unicode OK)
+            filename: pathname to file
 
         Raises:
             OSError:        if can't open file
@@ -1621,7 +1625,7 @@ cdef class Data:
             AssertionError: if internal error
         """
         if isinstance(filename, unicode):
-            filename = filename.encode("utf8")
+            filename = (<unicode>filename).encode("UTF-8")
         cdef const unsigned char[:] cfilename = filename
         cdef int rc
         rc = vnadata_save(self.vdp, <const char *>&cfilename[0])
@@ -1657,7 +1661,7 @@ cdef class Data:
             close(fd2)
             self._handle_error(-1)
         if isinstance(filename, unicode):
-            filename = filename.encode("utf8")
+            filename = (<unicode>filename).encode("UTF-8")
         cdef const unsigned char[:] cfilename = filename
         cdef int rc
         rc = vnadata_fsave(self.vdp, fp, <const char *>&cfilename[0])
@@ -1681,7 +1685,7 @@ cdef class Data:
             AssertionError: if internal error
         """
         if isinstance(filename, unicode):
-            filename = filename.encode("utf8")
+            filename = (<unicode>filename).encode("UTF-8")
         cdef const unsigned char[:] cfilename = filename
         cdef int rc
         rc = vnadata_cksave(self.vdp, <const char *>&cfilename[0])
@@ -1742,13 +1746,14 @@ cdef class Data:
         cdef const char *fmt = vnadata_get_format(self.vdp)
         if fmt == NULL:
             self._handle_error(-1)
-        return (<bytes>fmt).decode("utf8")
+        return (<bytes>fmt).decode("UTF-8")
 
     @format.setter
     def format(self, value):
         # no docstring for setter
-        value = value.encode("utf8")
-        cdef int rc = vnadata_set_format(self.vdp, value)
+        if isinstance(value, unicode):
+            value = (<unicode>value).encode("UTF-8")
+        cdef int rc = vnadata_set_format(self.vdp, <const char *>value)
         self._handle_error(rc)
 
     @property

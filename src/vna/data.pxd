@@ -1,3 +1,4 @@
+#cython: language_level=3
 #
 # Python Bindings for Vector Network Analyzer Library
 # Copyright © 2023 D Scott Guthridge <scott_guthridge@rompromity.net>
@@ -34,7 +35,7 @@ cdef extern from "<vnaerr.h>":
     ctypedef void vnaerr_error_fn_t(const char *message, void *error_arg,
                                     vnaerr_category_t category)
 
-cdef extern from "<vnadata.h>" nogil:
+cdef extern from "<vnadata.h>":
     ctypedef enum vnadata_parameter_type_t:
         pass    # see ParameterType
 
