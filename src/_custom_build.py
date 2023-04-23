@@ -9,7 +9,6 @@ class build_py(_build_py):
 
     def initialize_options(self):
         super().initialize_options()
-        self.distribution.compiler_directives={'language_level' : "3"}
         if self.distribution.ext_modules is None:
             self.distribution.ext_modules = []
 

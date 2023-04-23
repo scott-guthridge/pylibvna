@@ -1,3 +1,4 @@
+#cython: language_level=3
 #
 # Python Bindings for Vector Network Analyzer Library
 # Copyright © 2023 D Scott Guthridge <scott_guthridge@rompromity.net>
@@ -76,6 +77,123 @@ cdef void _error_fn(const char *message, void *error_arg,
         self._thread_local.exception = Exception(umessage)
 
 
+cdef object _property_to_py(vnaproperty_t *root):
+    # """
+    # Convert a vnaproperty_t tree to tree of python objects.
+    # """
+    cdef int i
+    cdef int count
+    cdef int ptype = vnaproperty_type(root, ".")
+    cdef const char *value
+    cdef const char **keys = NULL
+    cdef char *quoted = NULL
+    cdef vnaproperty_t *subtree
+
+    if root == NULL:
+        return None
+
+    if ptype == ord("s"):
+        value = vnaproperty_get(root, ".")
+        return value.decode("UTF-8")
+
+    if ptype == ord("m"):
+        result = {}
+        keys = vnaproperty_keys(root, "{}")
+        assert(keys != NULL)
+        try:
+            i = 0
+            while keys[i] != NULL:
+                quoted = vnaproperty_quote_key(keys[i])
+                if quoted == NULL:
+                    raise MemoryError()
+                subtree = vnaproperty_get_subtree(root, "%s", quoted)
+                free(quoted)
+                quoted = NULL
+                strkey = keys[i].decode("UTF-8")
+                result[strkey] = _property_to_py(subtree)
+                i += 1
+        finally:
+            free(quoted)
+            free(keys)
+        return result
+
+    if ptype == ord("l"):
+        result = []
+        count = vnaproperty_count(root, "[]")
+        assert(count >= 0)
+        for i in range(count):
+            subtree = vnaproperty_get_subtree(root, "[%d]", i)
+            result.append(_property_to_py(subtree))
+        return result
+
+    raise AssertionError(f"_property_to_py: unknown type {ptype}")
+
+
+cdef void _py_to_property(object root, vnaproperty_t **rootptr):
+    # """
+    # Convert a tree of python objects to vnaproperty_t tree
+    # """
+    cdef int i
+    cdef int rc
+    cdef char *quoted = NULL
+    cdef vnaproperty_t **subtreeptr
+    cdef const unsigned char[:] cstring
+
+    if root is None:
+        rootptr[0] = NULL
+        return
+
+    if isinstance(root, str):
+        if isinstance(root, unicode):
+            root = (<unicode>root).encode("UTF-8")
+        cstring = root
+        rc = vnaproperty_set(rootptr, ".=%s", <const char *>&cstring[0])
+        if rc == -1:
+            raise OSError(errno.errorcode)
+        return
+
+    if isinstance(root, bytes):
+        cstring = root
+        rc = vnaproperty_set(rootptr, ".=%s", <const char *>&cstring[0])
+        if rc == -1:
+            raise OSError(errno.errorcode)
+        return
+
+    if isinstance(root, dict):
+        if vnaproperty_set_subtree(rootptr, "{}") == NULL:
+            raise MemoryError()
+        for key, value in root.items():
+            if isinstance(key, unicode):
+                key  = (<unicode>key).encode("UTF-8")
+            elif not isinstance(key, bytes):
+                raise ValueError("dictionary key must be str or bytes")
+            cstring = key
+            quoted = vnaproperty_quote_key(<const char *>&cstring[0])
+            if quoted == NULL:
+                raise MemoryError()
+            subtreeptr = vnaproperty_set_subtree(rootptr, "%s", quoted)
+            if subtreeptr == NULL:
+                free(quoted)
+                quoted = NULL
+                raise MemoryError()
+            free(quoted)
+            quoted = NULL
+            _py_to_property(value, subtreeptr)
+        return
+
+    if isinstance(root, list):
+        if vnaproperty_set_subtree(rootptr, "[]") == NULL:
+            raise MemoryError()
+        for i, value in enumerate(root):
+            subtreeptr = vnaproperty_set_subtree(rootptr, "[%d]", i)
+            if subtreeptr == NULL:
+                raise MemoryError()
+            _py_to_property(value, subtreeptr)
+        return
+
+    raise AssertionError(f"_py_to_property: invalid type {type(root)}")
+
+
 cdef class Parameter:
     """
     A measured or defined element of an S-parameter matrix.
@@ -98,7 +216,7 @@ cdef class Parameter:
 cdef class Solver:
     cdef vnacal_new_t *vnp
 
-    def __cinit__(self, ctype: CalType, rows, columns, frequencies : int):
+    def __cinit__(self, ctype: CalType, rows, columns, frequencies: int):
         self.vnp = NULL
 
     #ZZ several methods needed here
@@ -347,7 +465,37 @@ cdef class Calibration:
             free(b_clfpp)
             free(a_clfpp)
 
-    # ZZ: add getter and setter for properties
+    @property
+    def properties(self):
+        """
+        Return a tree of dictionaries, lists, scalars and None
+        representing the user-defined properties of this calibration.
+        """
+        cdef vnacal_t *vcp = self.calset.vcp
+        cdef int ci = self.ci
+        cdef vnaproperty_t *root = vnacal_property_get_subtree(vcp, ci, ".")
+        return _property_to_py(root)
+
+    @properties.setter
+    def properties(self, value):
+        """
+        Set the user-defined properties for this calibration from a
+        tree of dictionaries, lists, scalars and None objects.
+        """
+        cdef vnacal_t *vcp = self.calset.vcp
+        cdef int ci = self.ci
+        cdef vnaproperty_t **rootptr
+        cdef vnaproperty_t *new_root = NULL
+        success = False
+        try:
+            _py_to_property(value, &new_root)
+            rootptr = vnacal_property_set_subtree(vcp, ci, ".")
+            rootptr[0] = new_root
+            new_root = NULL
+            success = True
+        finally:
+            if not success:
+                vnaproperty_delete(&new_root, ".")
 
 
 cdef class _CalHelper:
@@ -418,6 +566,10 @@ cdef class _CalHelper:
 
 
 cdef class CalSet:
+    """
+    One or more vector network analyzer calibrations with a
+    common save file
+    """
     cdef vnacal_t *vcp
     cdef object _thread_local
     cdef object _index_to_ci
@@ -513,6 +665,36 @@ cdef class CalSet:
         helper = _CalHelper()
         helper.calset = self
         return helper
+
+    @property
+    def properties(self):
+        """
+        Return a tree of dictionaries, lists, scalars and None
+        representing the user-defined properties of this CalSet.
+        """
+        cdef vnacal_t *vcp = self.vcp
+        cdef vnaproperty_t *root = vnacal_property_get_subtree(vcp, -1, ".")
+        return _property_to_py(root)
+
+    @properties.setter
+    def properties(self, value):
+        """
+        Set the user-defined properties for this CalSet from a
+        tree of dictionaries, lists, scalars and None objects.
+        """
+        cdef vnacal_t *vcp = self.vcp
+        cdef vnaproperty_t **rootptr
+        cdef vnaproperty_t *new_root = NULL
+        success = False
+        try:
+            _py_to_property(value, &new_root)
+            rootptr = vnacal_property_set_subtree(vcp, -1, ".")
+            rootptr[0] = new_root
+            new_root = NULL
+            success = True
+        finally:
+            if not success:
+                vnaproperty_delete(&new_root, ".")
 
 
     ######################################################################
