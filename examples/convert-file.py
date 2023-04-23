@@ -22,7 +22,7 @@ usage = """
       IL           insertion loss
       RL           return loss
       VSWR         voltage standing wave ratio
-    
+
     Coordinates
       ri  real, imaginary
       ma  magnitude, angle
