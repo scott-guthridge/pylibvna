@@ -22,13 +22,13 @@ from cpython.pycapsule cimport PyCapsule_New
 import errno
 from libc.stdio cimport FILE, fdopen, fclose
 import numpy as np
-cimport numpy as np
+cimport numpy as cnp
 from posix.unistd cimport close, dup, lseek, off_t
 from threading import local
 import warnings
 
 
-np.import_array()   # otherwise, PyArray_SimpleNewFromData segfaults
+cnp.import_array()   # otherwise, PyArray_SimpleNewFromData segfaults
 
 cpdef enum PType:
     # Note: current cython version does not allow a docstring here.
@@ -358,13 +358,13 @@ cdef class _FrequencyVectorHelper:
         # """
         cdef vnadata_t *vdp = self.data.vdp
         cdef int frequencies = vnadata_get_frequencies(vdp)
-        cdef np.npy_intp shape[1]
-        shape[0] = <np.npy_intp>frequencies
+        cdef cnp.npy_intp shape[1]
+        shape[0] = <cnp.npy_intp>frequencies
         cdef const double *lfp = vnadata_get_frequency_vector(vdp)
         if lfp == NULL:
             self.data._handle_error(-1)
-        return np.PyArray_SimpleNewFromData(
-            1, &shape[0], np.NPY_DOUBLE, <void *>lfp)
+        return cnp.PyArray_SimpleNewFromData(
+            1, &shape[0], cnp.NPY_DOUBLE, <void *>lfp)
 
     def __copy__(self):
         # """
@@ -415,15 +415,15 @@ cdef class _DataArrayHelper:
         cdef vnadata_t *vdp = self.data.vdp
         cdef int rows = vnadata_get_rows(vdp)
         cdef int columns = vnadata_get_columns(vdp)
-        cdef np.npy_intp shape[2]
-        shape[0] = <np.npy_intp>rows
-        shape[1] = <np.npy_intp>columns
+        cdef cnp.npy_intp shape[2]
+        shape[0] = <cnp.npy_intp>rows
+        shape[1] = <cnp.npy_intp>columns
         cdef double complex *clfp
         clfp = vnadata_get_matrix(vdp, findex)
         if clfp == NULL:
             self.data._handle_error(-1)
-        return np.PyArray_SimpleNewFromData(
-            2, &shape[0], np.NPY_COMPLEX128, <void *>clfp)
+        return cnp.PyArray_SimpleNewFromData(
+            2, &shape[0], cnp.NPY_COMPLEX128, <void *>clfp)
 
     def __len__(self):
         # """
@@ -874,13 +874,13 @@ cdef class _Z0VectorHelper:
         cdef int rows = vnadata_get_rows(vdp)
         cdef int columns = vnadata_get_columns(vdp)
         cdef int ports = max(rows, columns)
-        cdef np.npy_intp shape[1]
-        shape[0] = <np.npy_intp>ports
+        cdef cnp.npy_intp shape[1]
+        shape[0] = <cnp.npy_intp>ports
         cdef const double complex *clfp = vnadata_get_z0_vector(vdp)
         if clfp == NULL:
             self.data._handle_error(-1)
-        return np.PyArray_SimpleNewFromData(
-            1, &shape[0], np.NPY_COMPLEX128, <void *>clfp)
+        return cnp.PyArray_SimpleNewFromData(
+            1, &shape[0], cnp.NPY_COMPLEX128, <void *>clfp)
 
     def __copy__(self):
         # """
