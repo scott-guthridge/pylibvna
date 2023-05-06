@@ -92,34 +92,35 @@ cdef enum IndexClass:
     IDX_III = 0x7
 
 cdef void _error_fn(const char *message, void *error_arg,
-                    vnaerr_category_t category):
+                    vnaerr_category_t category) noexcept:
     # """
     # C callback function for vnaerr
     # """
     self = <Data>error_arg
-    if self._thread_local.exception is not None:
+    if self._thread_local._vna_data_exception is not None:
         return
     umessage = (<bytes>message).decode("UTF-8")
     if   category == VNAERR_SYSTEM:
         if errno.errorcode == errno.ENOMEM:
-            self._thread_local.exception = MemoryError(umessage)
+            self._thread_local._vna_data_exception = MemoryError(umessage)
         else:
-            self._thread_local.exception = OSError(errno.errorcode, umessage)
+            self._thread_local._vna_data_exception = OSError(
+                    errno.errorcode, umessage)
     elif category == VNAERR_USAGE:
-        self._thread_local.exception = ValueError(umessage)
+        self._thread_local._vna_data_exception = ValueError(umessage)
     elif category == VNAERR_VERSION:
-        self._thread_local.exception = ValueError(umessage)
+        self._thread_local._vna_data_exception = ValueError(umessage)
     elif category == VNAERR_SYNTAX:
-        self._thread_local.exception = SyntaxError(umessage, None)
+        self._thread_local._vna_data_exception = SyntaxError(umessage, None)
     elif category == VNAERR_WARNING:
-        if self._thread_local.warning is None:
-            self._thread_local.warning = umessage
+        if self._thread_local._vna_data_warning is None:
+            self._thread_local._vna_data_warning = umessage
     elif category == VNAERR_MATH:
-        self._thread_local.exception = ArithmeticError(umessage)
+        self._thread_local._vna_data_exception = ArithmeticError(umessage)
     elif category == VNAERR_INTERNAL:
-        self._thread_local.exception = AssertionError(umessage)
+        self._thread_local._vna_data_exception = AssertionError(umessage)
     else:
-        self._thread_local.exception = Exception(umessage)
+        self._thread_local._vna_data_exception = Exception(umessage)
 
 
 def _convert_indices(shape, indices):
@@ -1106,10 +1107,10 @@ cdef class Data:
         # Raises:
         #    See exceptions in _error_fn.
         # """
-        exception = self._thread_local.exception
-        warning = self._thread_local.warning
-        self._thread_local.exception = None
-        self._thread_local.warning = None
+        exception = self._thread_local._vna_data_exception
+        warning = self._thread_local._vna_data_warning
+        self._thread_local._vna_data_exception = None
+        self._thread_local._vna_data_warning = None
         if rc == -1 and exception is None:
             PyErr_SetFromErrno(OSError)
         if exception is not None:
@@ -1150,8 +1151,8 @@ cdef class Data:
             ValueError:  if rows, columns and ptype are not valid
         """
         self._thread_local = local()
-        self._thread_local.exception = None
-        self._thread_local.warning = None
+        self._thread_local._vna_data_exception = None
+        self._thread_local._vna_data_warning = None
         self.vdp = vnadata_alloc_and_init(
             <vnaerr_error_fn_t *>&_error_fn, <void *>self,
             <vnadata_parameter_type_t>ptype, rows, columns, frequencies)
