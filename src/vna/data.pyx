@@ -94,8 +94,7 @@ cdef enum IndexClass:
 cdef void _error_fn(const char *message, void *error_arg,
                     vnaerr_category_t category):
     # """
-    # _error_fn(message, error_arg, category):
-    #     C callback function for vnaerr
+    # C callback function for vnaerr
     # """
     self = <Data>error_arg
     if self._thread_local.exception is not None:
@@ -125,10 +124,9 @@ cdef void _error_fn(const char *message, void *error_arg,
 
 def _convert_indices(shape, indices):
     # """
-    # _convert_indices(shape, indices):
-    #     Given the shape of an array and an arbitrary index expression,
-    #     convert to a list of non-zero integer indices or tuples suitable
-    #     for use as the arguments to the range operator.
+    # Given the shape of an array and an arbitrary index expression,
+    # convert to a list of non-zero integer indices or tuples suitable
+    # for use as the arguments to the range operator.
     #
     # Parameters
     # ----------
@@ -229,8 +227,7 @@ def _convert_indices(shape, indices):
 
 def _form_double_array(shape, value):
     # """
-    # _form_double_array(shape, value):
-    #    Form value into the expected size array.
+    # Form value into the expected size array.
     #
     # Parameters:
     #    shape: list or tuple giving the required dimensions
@@ -252,8 +249,7 @@ def _form_double_array(shape, value):
 
 def _form_complex_array(shape, value):
     # """
-    # _form_complex_array(shape, value):
-    #     Form value into the expected size array.
+    # Form value into the expected size array.
     #
     # Parameters:
     #     shape: list or tuple giving the required dimensions
@@ -275,22 +271,19 @@ def _form_complex_array(shape, value):
 
 cdef class _FrequencyVectorHelper:
     # """
-    # class _FrequencyVectorHelper:
-    #     Helper class for frequency_vector
+    # Helper class for frequency_vector
     # """
     cdef Data data
 
     def __len__(self):
         # """
-        # __len__(self):
-        #     Return the number of frequencies
+        # Return the number of frequencies
         # """
         return self.data.frequencies
 
     def __getitem__(self, indices):
         # """
-        # __getitem__(self, indices):
-        #    Get subscripted item [].
+        # Get subscripted item [].
         # """
         cdef vnadata_t *vdp = self.data.vdp
         cdef int frequencies = vnadata_get_frequencies(vdp)
@@ -320,8 +313,7 @@ cdef class _FrequencyVectorHelper:
 
     def __setitem__(self, indices, value):
         # """
-        # __setitem__(self, indices, value):
-        #     Assign to subscripted item [].
+        # Assign to subscripted item [].
         # """
         cdef vnadata_t *vdp = self.data.vdp
         cdef int frequencies = vnadata_get_frequencies(vdp)
@@ -353,8 +345,7 @@ cdef class _FrequencyVectorHelper:
 
     def __array__(self):
         # """
-        # __array__(self):
-        #     Return the vector of frequencies.
+        # Return the vector of frequencies.
         # """
         cdef vnadata_t *vdp = self.data.vdp
         cdef int frequencies = vnadata_get_frequencies(vdp)
@@ -368,15 +359,13 @@ cdef class _FrequencyVectorHelper:
 
     def __copy__(self):
         # """
-        # __copy__(self):
-        #     Copy as array.
+        # Copy as array.
         # """
         return np.asarray(self)
 
     def __iter__(self):
         # """
-        # __iter__(self):
-        #     Iterate over the parameter matrices.
+        # Iterate over the parameter matrices.
         # """
         cdef int frequencies = vnadata_get_frequencies(self.data.vdp)
         cdef vnadata_t *vdp = self.data.vdp
@@ -385,8 +374,7 @@ cdef class _FrequencyVectorHelper:
 
     def __reversed__(self):
         # """
-        # __reversed(self):
-        #     Iterate over the parameter matrices in reverse.
+        # Iterate over the parameter matrices in reverse.
         # """
         cdef int frequencies = vnadata_get_frequencies(self.data.vdp)
         cdef vnadata_t *vdp = self.data.vdp
@@ -395,15 +383,13 @@ cdef class _FrequencyVectorHelper:
 
 cdef class _DataArrayHelper:
     # """
-    # class _DataArrayHelper
-    #     Helper class for data_array.
+    # Helper class for data_array.
     # """
     cdef Data data
 
     def _get_matrix(self, int findex):
         # """
-        # _get_matrix(self, findex: int):
-        #     Return the parameter matrix at given frequency index.
+        # Return the parameter matrix at given frequency index.
         #
         # Parameters:
         #     self: _DataArrayHelper object
@@ -427,15 +413,13 @@ cdef class _DataArrayHelper:
 
     def __len__(self):
         # """
-        # __len__(self):
-        #     Return the number of frequencies.
+        # Return the number of frequencies.
         # """
         return self.data.frequencies
 
     def __getitem__(self, indices):
         # """
-        # __getitem__(self, indices):
-        #     Return subscripted item [].
+        # Return subscripted item [].
         # """
         cdef vnadata_t *vdp = self.data.vdp
         cdef int frequencies = vnadata_get_frequencies(vdp)
@@ -562,8 +546,7 @@ cdef class _DataArrayHelper:
 
     def __setitem__(self, indices, value):
         # """
-        # __setitem__(self, indices, value):
-        #     Assign to subscripted item [].
+        # Assign to subscripted item [].
         # """
         # cdef vnadata_t *vdp = self.data.vdp
         cdef vnadata_t *vdp = self.data.vdp
@@ -739,8 +722,7 @@ cdef class _DataArrayHelper:
 
     def __array__(self):
         # """
-        # __array__(self):
-        #     Return the vector of parameter matrices as a 3D array.
+        # Return the vector of parameter matrices as a 3D array.
         # """
         cdef vnadata_t *vdp = self.data.vdp
         cdef int frequencies = vnadata_get_frequencies(vdp)
@@ -756,15 +738,13 @@ cdef class _DataArrayHelper:
 
     def __copy__(self):
         # """
-        # __copy__(self):
-        #     Copy as array.
+        # Copy as array.
         # """
         return np.asarray(self)
 
     def __iter__(self):
         # """
-        # __iter__(self):
-        #     Iterate over the parameter matrices.
+        # Iterate over the parameter matrices.
         # """
         cdef int frequencies = vnadata_get_frequencies(self.data.vdp)
         for findex in range(frequencies):
@@ -772,8 +752,7 @@ cdef class _DataArrayHelper:
 
     def __reversed__(self):
         # """
-        # __reversed__(self):
-        #     Iterate over the parameter matrices in reverse.
+        # Iterate over the parameter matrices in reverse.
         # """
         cdef int frequencies = vnadata_get_frequencies(self.data.vdp)
         for findex in range(frequencies)[::-1]:
@@ -781,15 +760,13 @@ cdef class _DataArrayHelper:
 
 cdef class _Z0VectorHelper:
     # """
-    # class _Z0VectorHelper:
-    #     Helper class for the z0 vector.
+    # Helper class for the z0 vector.
     # """
     cdef Data data
 
     def __len__(self):
         # """
-        # __len__(self):
-        #     Return the number of ports.
+        # Return the number of ports.
         # """
         cdef vnadata_t *vdp = self.data.vdp
         cdef int rows = vnadata_get_rows(vdp)
@@ -799,8 +776,7 @@ cdef class _Z0VectorHelper:
 
     def __getitem__(self, indices):
         # """
-        # __getitem__(self, indices):
-        #     Get subscripted item [].
+        # Get subscripted item [].
         # """
         cdef vnadata_t *vdp = self.data.vdp
         cdef int rows = vnadata_get_rows(vdp)
@@ -832,8 +808,7 @@ cdef class _Z0VectorHelper:
 
     def __setitem__(self, indices, value):
         # """
-        # __setitem__(self, indices, value):
-        #     Assign to subscripted item [].
+        # Assign to subscripted item [].
         # """
         cdef vnadata_t *vdp = self.data.vdp
         cdef int rows = vnadata_get_rows(vdp)
@@ -867,8 +842,7 @@ cdef class _Z0VectorHelper:
 
     def __array__(self):
         # """
-        # __array__(self):
-        #     Return the vector of frequencies.
+        # Return the vector of frequencies.
         # """
         cdef vnadata_t *vdp = self.data.vdp
         cdef int rows = vnadata_get_rows(vdp)
@@ -884,15 +858,13 @@ cdef class _Z0VectorHelper:
 
     def __copy__(self):
         # """
-        # __copy__(self):
-        #     Copy as array.
+        # Copy as array.
         # """
         return np.asarray(self)
 
     def __iter__(self):
         # """
-        # __iter__(self):
-        #     Iterate over the parameter matrices.
+        # Iterate over the parameter matrices.
         # """
         cdef vnadata_t *vdp = self.data.vdp
         cdef int rows = vnadata_get_rows(vdp)
@@ -903,8 +875,7 @@ cdef class _Z0VectorHelper:
 
     def __reversed__(self):
         # """
-        # __reversed__(self):
-        #     Iterate over the parameter matrices in reverse.
+        # Iterate over the parameter matrices in reverse.
         # """
         cdef vnadata_t *vdp = self.data.vdp
         cdef int rows = vnadata_get_rows(vdp)
@@ -915,23 +886,20 @@ cdef class _Z0VectorHelper:
 
 cdef class _FZ0ArrayHelper:
     # """
-    # Class _FZ0ArrayHelper:
-    #     Helper class for the fz0 vector.
+    # Helper class for the fz0 vector.
     # """
     cdef Data data
 
     def __len__(self):
         # """
-        # __len__(self):
-        #     Return the number of ports.
+        # Return the number of ports.
         # """
         cdef vnadata_t *vdp = self.data.vdp
         return vnadata_get_frequencies(vdp)
 
     def __getitem__(self, indices):
         # """
-        # __getitem__(self, indices):
-        #     Get subscripted item [].
+        # Get subscripted item [].
         # """
         cdef vnadata_t *vdp = self.data.vdp
         cdef int frequencies = vnadata_get_frequencies(vdp)
@@ -992,8 +960,7 @@ cdef class _FZ0ArrayHelper:
 
     def __setitem__(self, indices, value):
         # """
-        # __setitem__(self, indices, value):
-        #     Assign to subscripted item [].
+        # Assign to subscripted item [].
         # """
         cdef vnadata_t *vdp = self.data.vdp
         cdef int frequencies = vnadata_get_frequencies(vdp)
@@ -1065,8 +1032,7 @@ cdef class _FZ0ArrayHelper:
 
     def __array__(self):
         # """
-        # __array__(self):
-        #     Return the fz0 vector.
+        # Return the fz0 vector.
         # """
         cdef vnadata_t *vdp = self.data.vdp
         cdef int frequencies = vnadata_get_frequencies(vdp)
@@ -1081,15 +1047,13 @@ cdef class _FZ0ArrayHelper:
 
     def __copy__(self):
         # """
-        # __copy__(self):
-        #     Copy as array.
+        # Copy as array.
         # """
         return np.asarray(self)
 
     def __iter__(self):
         # """
-        # __iter__(self):
-        #     Iterate over the frequencies.
+        # Iterate over the frequencies.
         # """
         cdef vnadata_t *vdp = self.data.vdp
         cdef int frequencies = vnadata_get_frequencies(vdp)
@@ -1098,8 +1062,7 @@ cdef class _FZ0ArrayHelper:
 
     def __reversed__(self):
         # """
-        # __reversed__(self):
-        #     Iterate over the frequencies reverse.
+        # Iterate over the frequencies reverse.
         # """
         cdef vnadata_t *vdp = self.data.vdp
         cdef int frequencies = vnadata_get_frequencies(vdp)
@@ -1109,20 +1072,19 @@ cdef class _FZ0ArrayHelper:
 
 cdef class Data:
     """
-    class Data:
-        Store and manage electrical network parameter data, e.g.
-        as loaded from a Touchstone file.  The class contains a vector
-        of frequency points (frequency_vector), a frequencies x rows
-        x columns array of network parameter data (data_array), and a
-        per-port array of complex reference impedances.  The reference
-        impedances can be the same across all frequencies (z0_vector)
-        or can be different for each frequency (fz0_array).
+    Store and manage electrical network parameter data, e.g.  as loaded
+    from a Touchstone file.  The class contains a vector of frequency
+    points (frequency_vector), a frequencies x rows x columns array of
+    network parameter data (data_array), and a per-port array of complex
+    reference impedances.  The reference impedances can be the same across
+    all frequencies (z0_vector) or can be different for each frequency
+    (fz0_array).
 
-        The class supports loading and saving in Touchstone versions 1
-        (.s2p) and 2 (.ts), and in a more general space-separated column
-        Network Parameter Data (.npd) format.
+    The class supports loading and saving in Touchstone versions 1 (.s2p)
+    and 2 (.ts), and in a more general space-separated column Network
+    Parameter Data (.npd) format.
 
-        The class supports conversion between parameter types.
+    The class supports conversion between parameter types.
 
     """
     cdef vnadata_t *vdp
@@ -1166,8 +1128,7 @@ cdef class Data:
             columns: int = 0,
             frequencies: int = 0):
         """
-        init(self, ptype: rows, columns, frequencies):
-            Construct an instance of class vna.data.Data
+        Construct an instance of class vna.data.Data
 
         Parameters:
             ptype: PType
@@ -1198,17 +1159,15 @@ cdef class Data:
 
     def __dealloc__(self):
         """
-        __dealloc__(self)
-            Free C resources when a vna.data.Data object is garbage collected.
+        Free C resources when a vna.data.Data object is garbage collected.
         """
         vnadata_free(self.vdp)
 
     def init(self, ptype, rows, columns, frequencies):
         """
-        init(self, ptype, rows, columns, frequencies):
-            Set the ptype and dimensions as indicated by the arguments.
-            Initialize all frequency and data elements to zero and
-            initialize all z0 entries to 50 ohms.
+        Set the ptype and dimensions as indicated by the arguments.
+        Initialize all frequency and data elements to zero and initialize
+        all z0 entries to 50 ohms.
 
         Parameters:
             ptype: PType
@@ -1233,14 +1192,13 @@ cdef class Data:
 
     def resize(self, ptype, rows, columns, frequencies):
         """
-        resize(self, ptype, rows, columns, frequencies):
-            Change the parameter type and dimensions without clearing or
-            converting data.  Existing values remain undisturbed when
-            the matrix type, number of rows or number of frequencies
-            is changed, but shift to other cells when the number of
-            columns is changed.  Changing the parameter type with this
-            function does NOT convert existing data to the new type.
-            To convert parameters, use convert.
+        Change the parameter type and dimensions without clearing or
+        converting data.  Existing values remain undisturbed when the
+        matrix type, number of rows or number of frequencies is changed,
+        but shift to other cells when the number of columns is changed.
+        Changing the parameter type with this function does NOT convert
+        existing data to the new type.  To convert parameters, use
+        convert.
 
         Parameters:
             ptype: PType
@@ -1266,9 +1224,8 @@ cdef class Data:
     @property
     def ptype(self):
         """
-        ptype: PType
-            Get the parameter type as an enum value.  Values of PType are:
-                UNDEF, S, T, U, Z, Y, H, G, A, B, ZIN
+        Get the parameter type as an enum value.  Values of PType are:
+            UNDEF, S, T, U, Z, Y, H, G, A, B, ZIN
         """
         return vnadata_get_type(self.vdp)
 
@@ -1282,38 +1239,34 @@ cdef class Data:
     @property
     def ptype_name(self):
         """
-        type_name: string
-            Return the parameter type as a string.
+        Return the parameter type as a string.
         """
         return vnadata_get_type_name(vnadata_get_type(self.vdp))
 
     @property
     def rows(self):
         """
-        rows: int
-            Get the current number of rows.
+        Get the current number of rows.
         """
         return vnadata_get_rows(self.vdp)
 
     @property
     def columns(self):
         """
-        columns: int
-            Get the current number of columns.
+        Get the current number of columns.
         """
         return vnadata_get_columns(self.vdp)
 
     @property
     def frequencies(self):
         """
-        frequencies: int
-            Get the current number of frequencies.
+        Get the current number of frequencies.
         """
         return vnadata_get_frequencies(self.vdp)
 
     def _get_vdp(self):
         # """
-        # vdp: PyCapsule containing the C vnadata_t pointer
+        # PyCapsule containing the C vnadata_t pointer
         # """
         return PyCapsule_New(<void *>self.vdp, NULL, NULL)
 
@@ -1324,9 +1277,8 @@ cdef class Data:
     @property
     def frequency_vector(self):
         """
-        frequency_vector: vector of double
-            Get or set the frequency vector.  Slicing operations are
-            supported.
+        Get or set the frequency vector.  Slicing operations are
+        supported.
         """
         cdef _FrequencyVectorHelper helper = _FrequencyVectorHelper()
         helper.data = self
@@ -1355,11 +1307,10 @@ cdef class Data:
 
     def add_frequency(self, frequency):
         """
-        add_frequency(self, frequency):
-            Add a new frequency entry.  The corresponding new data
-            matrix is initialized to zeros.  This function is useful
-            when you don't know in advance how many frequency points
-            will be given and want to add them one by one dynamically.
+        Add a new frequency entry.  The corresponding new data matrix
+        is initialized to zeros.  This function is useful when you don't
+        know in advance how many frequency points will be given and want
+        to add them one by one dynamically.
 
         Parameters:
             frequency: new frequency value to add
@@ -1375,9 +1326,8 @@ cdef class Data:
     @property
     def data_array(self):
         """
-        data_array: (frequencies x rows x columns) array of complex
-            Get or set network parameter data.  Slicing operations
-            are supported.
+        Get or set network parameter data.  Slicing operations are
+        supported.
         """
         cdef _DataArrayHelper helper = _DataArrayHelper()
         helper.data = self
@@ -1413,11 +1363,10 @@ cdef class Data:
     @property
     def z0_vector(self):
         """
-        z0_vector: number of ports long vector of complex
-            Get or set reference impedances for each port.  If the
-            dimensions have been established, setting this value to
-            a scalar sets all ports to the same reference impedance.
-            The default value is 50 ohms.
+        Get or set reference impedances for each port.  If the dimensions
+        have been established, setting this value to a scalar sets all
+        ports to the same reference impedance.  The default value is
+        50 ohms.
         """
         cdef _Z0VectorHelper helper = _Z0VectorHelper()
         helper.data = self
@@ -1464,17 +1413,15 @@ cdef class Data:
     @property
     def has_fz0(self):
         """
-        has_fz0(self):
-            Return True if frequency-dependent system impedances are in
-            effect.
+        Return True if frequency-dependent system impedances are in
+        effect.
         """
         return vnadata_has_fz0(self.vdp)
 
     @property
     def fz0_array(self):
         """
-        fz0_array: (frequencies x ports) complex array
-            Get or set frequency-dependent reference impedances for each port.
+        Get or set frequency-dependent reference impedances for each port.
         """
         cdef _FZ0ArrayHelper helper = _FZ0ArrayHelper()
         helper.data = self
@@ -1524,8 +1471,7 @@ cdef class Data:
 
     def convert(self, PType new_ptype):
         """
-        convert(self, new_type: PType):
-            Convert to a new parameter type
+        Convert to a new parameter type
 
         Parameters:
             self:     vna.data.Data class reference
@@ -1553,8 +1499,7 @@ cdef class Data:
 
     def load(self, filename):
         """
-        load(self, filename):
-            Load network parameter data from filename.
+        Load network parameter data from filename.
 
         Parameters:
             self:     vna.data.Data class reference
@@ -1574,8 +1519,7 @@ cdef class Data:
 
     def fload(self, filehandle, filename):
         """
-        fload(self, filehandle, filename):
-            Load network parameter data from an open file handle.
+        Load network parameter data from an open file handle.
 
         Parameters:
             self:       vna.data.Data class reference
@@ -1613,8 +1557,7 @@ cdef class Data:
 
     def save(self, filename):
         """
-        save(self, filename):
-            Save network parameter data to filename.
+        Save network parameter data to filename.
 
         Parameters:
             self:     vna.data.Data class reference
@@ -1634,8 +1577,7 @@ cdef class Data:
 
     def fsave(self, filehandle, filename):
         """
-        fsave(self, filehandle, filename):
-            Save network parameter data to an open file handle.
+        Save network parameter data to an open file handle.
 
         Parameters:
             self:       vna.data.Data class reference
@@ -1673,8 +1615,7 @@ cdef class Data:
 
     def cksave(self, filename):
         """
-        cksave(self, filename):
-            Test if parameter data is consistent with file type.
+        Test if parameter data is consistent with file type.
 
         Parameters:
             self:     vna.data.Data class reference
@@ -1695,7 +1636,7 @@ cdef class Data:
     @property
     def filetype(self):
         """
-        filetype: FileType enum
+        Return file type:
             AUTO         Determine based on filename extension (default)
             TOUCHSTONE1  Use Touchstone version 1 format (.s2p)
             TOUCHSTONE2  Use Touchstone version 2 format (.ts)
@@ -1714,8 +1655,7 @@ cdef class Data:
     @property
     def format(self):
         """
-        format: string
-            Get or set the save format.
+        Get or set the save format.
 
         Valid values:
             S[ri|ma|dB]   scattering parameters
@@ -1760,9 +1700,8 @@ cdef class Data:
     @property
     def fprecision(self):
         """
-        fprecision: int
-            Number of significant figures to use for frequency values
-            when saving parameters to a file.
+        Number of significant figures to use for frequency values when
+        saving parameters to a file.
         """
         cdef int rc = vnadata_get_fprecision(self.vdp)
         self._handle_error(rc)
@@ -1777,9 +1716,8 @@ cdef class Data:
     @property
     def dprecision(self):
         """
-        dprecision: int
-            Number of significant figures to use for data values
-            when saving parameters to a file.
+        Number of significant figures to use for data values when saving
+        parameters to a file.
         """
         cdef int rc = vnadata_get_dprecision(self.vdp)
         self._handle_error(rc)
@@ -1797,12 +1735,14 @@ cdef class Data:
 
     def __len__(self):
         """
-        __len__(self):
-             Return the number of frequencies.
+        Return the number of frequencies.
         """
         return vnadata_get_frequencies(self.vdp)
 
     def __copy__(self):
+        """
+        Make a copy of the Data object.
+        """
         result = Data()
         rc = vnadata_convert(self.vdp, result.vdp,
                              <vnadata_parameter_type_t>self.ptype)
@@ -1811,8 +1751,7 @@ cdef class Data:
 
     def __iter__(self):
         """
-        __iter__(self):
-            Return frequency, parameter matrix tuples.
+        Return frequency, parameter matrix tuples.
         """
         if self.has_fz0:
             for findex in range(self.frequencies):
@@ -1825,8 +1764,7 @@ cdef class Data:
 
     def __reversed__(self):
         """
-        __reversed__(self):
-            Return frequency, parameter matrix tuples in reverse.
+        Return frequency, parameter matrix tuples in reverse.
         """
         if self.has_fz0:
             for findex in range(self.frequencies)[::-1]:
