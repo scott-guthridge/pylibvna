@@ -19,7 +19,7 @@
 
 from libc.stdio cimport FILE
 
-cdef extern from "<stdbool.h>" nogil:
+cdef extern from "<stdbool.h>":
     ctypedef bint bool
 
 cdef extern from "<vnaerr.h>":

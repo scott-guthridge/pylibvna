@@ -24,7 +24,7 @@ cimport numpy as np
 # fn_2x2: pointer to function taking two double complex [2][2] matrices
 #
 ctypedef void (*fn_2x2)(const double complex (*in_2x2)[2],
-                        double complex (*out_2x2)[2]) nogil
+                        double complex (*out_2x2)[2])
 
 #
 # fn_2x2_with_z0: pointer to function taking two double complex [2][2]
@@ -32,14 +32,14 @@ ctypedef void (*fn_2x2)(const double complex (*in_2x2)[2],
 #
 ctypedef void (*fn_2x2_with_z0)(const double complex (*in_2x2)[2],
                                 double complex (*out_2x2)[2],
-                                const double complex *z0) nogil
+                                const double complex *z0)
 
 #
 # fn_NxN: pointer to function taking the addresses of the first elements
 #       of two double complex matrices
 #
 ctypedef void (*fn_NxN)(const double complex *in_2x2,
-                        double complex *out_2x2, int) nogil
+                        double complex *out_2x2, int)
 
 #
 # fn_NxN_with_z0: pointer to function taking the addresses of the first
@@ -48,7 +48,7 @@ ctypedef void (*fn_NxN)(const double complex *in_2x2,
 #
 ctypedef void (*fn_NxN_with_z0)(const double complex *in_NxN,
                                 double complex *out_NxN,
-                                const double complex *z0, int n) nogil
+                                const double complex *z0, int n)
 
 #
 # fn_2x2_to_zin: pointer to function taking a double complex [2][2] matrix,
@@ -56,7 +56,7 @@ ctypedef void (*fn_NxN_with_z0)(const double complex *in_NxN,
 #
 ctypedef void (*fn_2x2_to_zin)(const double complex (*in_2x2)[2],
                                double complex *zi,
-                               const double complex *z0) nogil
+                               const double complex *z0)
 
 #
 # fn_NxN_to_zin: pointer to function taking the address of the first
@@ -65,7 +65,7 @@ ctypedef void (*fn_2x2_to_zin)(const double complex (*in_2x2)[2],
 #
 ctypedef void (*fn_NxN_to_zin)(const double complex *in_NxN,
                                double complex *zi, const double complex *z0,
-                               int n) nogil
+                               int n)
 
 #
 # canonicalize_z0: return z0 as [m, n] where m is number of outer elements
