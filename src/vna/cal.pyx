@@ -24,13 +24,13 @@ from libc.stdio cimport FILE, fdopen, fclose
 from libc.stdlib cimport malloc, free
 from libc.string cimport memcpy
 import numpy as np
-cimport numpy as np
+cimport numpy as npc
 from threading import local
 import warnings
 import vna.data
 from vna.data import Data
 
-np.import_array()   # otherwise, PyArray_SimpleNewFromData segfaults
+npc.import_array()   # otherwise, PyArray_SimpleNewFromData segfaults
 
 cpdef enum CalType:
     # """
@@ -47,34 +47,35 @@ cpdef enum CalType:
 
 
 cdef void _error_fn(const char *message, void *error_arg,
-                    vnaerr_category_t category):
+                    vnaerr_category_t category) noexcept:
     # """
     # C callback function for vnaerr
     # """
     self = <CalSet>error_arg
-    if self._thread_local.exception is not None:
+    if self._thread_local._vna_cal_exception is not None:
         return
     umessage = (<bytes>message).decode("utf8")
     if   category == VNAERR_SYSTEM:
         if errno.errorcode == errno.ENOMEM:
-            self._thread_local.exception = MemoryError(umessage)
+            self._thread_local._vna_cal_exception = MemoryError(umessage)
         else:
-            self._thread_local.exception = OSError(errno.errorcode, umessage)
+            self._thread_local._vna_cal_exception = OSError(errno.errorcode,
+                                                            umessage)
     elif category == VNAERR_USAGE:
-        self._thread_local.exception = ValueError(umessage)
+        self._thread_local._vna_cal_exception = ValueError(umessage)
     elif category == VNAERR_VERSION:
-        self._thread_local.exception = ValueError(umessage)
+        self._thread_local._vna_cal_exception = ValueError(umessage)
     elif category == VNAERR_SYNTAX:
-        self._thread_local.exception = SyntaxError(umessage, None)
+        self._thread_local._vna_cal_exception = SyntaxError(umessage, None)
     elif category == VNAERR_WARNING:
-        if self._thread_local.warning is None:
-            self._thread_local.warning = umessage
+        if self._thread_local._vna_cal_warning is None:
+            self._thread_local._vna_cal_warning = umessage
     elif category == VNAERR_MATH:
-        self._thread_local.exception = ArithmeticError(umessage)
+        self._thread_local._vna_cal_exception = ArithmeticError(umessage)
     elif category == VNAERR_INTERNAL:
-        self._thread_local.exception = AssertionError(umessage)
+        self._thread_local._vna_cal_exception = AssertionError(umessage)
     else:
-        self._thread_local.exception = Exception(umessage)
+        self._thread_local._vna_cal_exception = Exception(umessage)
 
 
 cdef object _property_to_py(vnaproperty_t *root):
@@ -196,30 +197,617 @@ cdef void _py_to_property(object root, vnaproperty_t **rootptr):
 
 cdef class Parameter:
     """
-    A measured or defined element of an S-parameter matrix.
+    A known or unknown parameter of a calibration standard
     """
     cdef CalSet calset
-    cdef int ci
+    cdef int pindex
 
-    def __cinit__(self, calset, ci: int):
-        self.calset = calset
-        self.ci = ci
+    def __cinit__(self):
+        self.calset = None
+        self.pindex = -1
 
-    cdef get_value(self, double frequency):
+    def __init__(self):
+        raise TypeError("This class cannot be instantiated directly.")
+
+    def __dealloc__(self):
+        cdef CalSet calset = self.calset
+        cdef pindex = self.pindex
+        if calset is not None and pindex >= 3:
+            vnacal_delete_parameter(calset.vcp, pindex)
+
+    def get_value(self, frequency):
         cdef vnacal_t *vcp = self.calset.vcp
         cdef complex result
-        result = vnacal_get_parameter_value(vcp, self.ci, frequency)
+        result = vnacal_get_parameter_value(vcp, self.pindex, frequency)
         self.calset._handle_error(0)
         return result
 
 
-cdef class Solver:
-    cdef vnacal_new_t *vnp
+cdef object _prepare_C_array(object array, object name, int frequencies,
+        double complex ***clfppp, int *rows, int *columns):
+    # """
+    # Given a (rows x columns x frequencies) array-like object, return
+    # a flattened rows x columns matrix of pointers to frequencies long
+    # vectors of values expected by the C code.  Because the resulting
+    # C array points into the python ndarray, we have to make sure the
+    # ndarray remains referenced while the C array is in-use, thus array
+    # is passed by reference.
+    # """
+    array = np.asarray(array, dtype=np.complex128, order="C")
+    if array.ndim != 3:
+        raise ValueError(f"{name} must be a (rows x columns x frequencies) "
+                         f"array")
+    cdef int r = array.shape[0]
+    cdef int c = array.shape[1]
+    if array.shape[2] != frequencies:
+        raise ValueError(f"third dimension of {name} must be {frequencies}")
+    cdef double complex[:, :, ::1] v = array
+    cdef double complex **clfpp = <double complex **>malloc(
+            r * c * sizeof(double complex *))
+    if clfpp == NULL:
+        raise MemoryError()
+    cdef int i
+    cdef int j
+    cdef int k
+    try:
+        k = 0
+        for i in range(r):
+            for j in range(c):
+                clfpp[k] = &v[i, j, 0]
+                k += 1
 
-    def __cinit__(self, ctype: CalType, rows, columns, frequencies: int):
+        clfppp[0] = clfpp
+        clfpp = NULL    # prevent free at finally
+        rows[0] = r
+        columns[0] = c
+        return array
+
+    finally:
+        free(<void *>clfpp)
+
+
+cdef class Solver:
+    cdef CalSet calset
+    cdef int frequencies
+    cdef vnacal_new_t *vnp
+    cdef double _pvalue_limit
+    cdef double _et_tolerance
+    cdef double _p_tolerance
+    cdef int _iteration_limit
+
+    def __cinit__(self):
+        calset = NULL
+        frequencies = 0
+        vnp = NULL
+        _pvalue_limit = 0.001
+        _et_tolerance = 1.0e-6
+        _p_tolerance = 1.0e-6
+        _iteration_limit = 30
+
+    def __init__(self):
+        raise TypeError("This class cannot be instantiated directly.")
+
+    def __dealloc__(self):
+        # Note that the reference on calset is released after this
+        # function returns.
+        vnacal_new_free(self.vnp)
         self.vnp = NULL
 
-    #ZZ several methods needed here
+    cdef Parameter _generalize_parameter(self, parameter):
+        # """
+        # If a number is found where a Parameter is expected, automatically
+        # convert it into a scalar parameter.
+        # """
+        if isinstance(parameter, Parameter):
+            return parameter
+        cdef double complex value
+        if isinstance(parameter, complex) or isinstance(parameter, float) \
+                or isinstance(parameter, int):
+            return self.make_scalar(parameter)
+        raise ValueError("parameter must be class Parameter or a number")
+
+    def make_scalar(self, double complex gamma):
+        """
+        Make a frequency-independent S parameter with value gamma.
+        """
+        cdef vnacal_t *vcp = self.calset.vcp
+        cdef int rc
+        if gamma == 0.0:        # special-case these values
+            rc = VNACAL_MATCH
+        elif gamma == +1.0:
+            rc = VNACAL_OPEN
+        elif gamma == -1.0:
+            rc = VNACAL_SHORT
+        else:
+            rc = vnacal_make_scalar_parameter(vcp, gamma)
+            self.calset._handle_error(rc)
+        cdef Parameter parameter = Parameter.__new__(Parameter)
+        parameter.calset = self.calset
+        parameter.pindex = rc
+        return parameter
+
+    def make_vector(self, frequency_vector, gamma_vector):
+        """
+        Make a frequency-dependent S parameter with values in gamma_vector.
+        """
+        cdef vnacal_t *vcp = self.calset.vcp
+        frequency_vector = np.asarray(frequency_vector, dtype=np.double,
+                                      order="C")
+        if frequency_vector.ndim != 1:
+            raise ValueError("frequency_vector must be a one-dimensional "
+                             "array")
+        gamma_vector = np.asarray(gamma_vector, dtype=np.complex128, order="C")
+        if gamma_vector.ndim != 1:
+            raise ValueError("gamma_vector must be a one-dimensional array")
+        if len(gamma_vector) != len(frequency_vector):
+            raise ValueError("gamma_vector must be same length as "
+                             "frequency_vector")
+        cdef const double [::1] fv_view = frequency_vector
+        cdef const double complex [::1] gv_view = gamma_vector
+        cdef int rc = vnacal_make_vector_parameter(vcp, &fv_view[0],
+                                                   len(frequency_vector),
+                                                   &gv_view[0])
+        self.calset._handle_error(rc)
+        cdef Parameter parameter = Parameter.__new__(Parameter)
+        parameter.calset = self.calset
+        parameter.pindex = rc
+        return parameter
+
+    def make_unknown(self, other):
+        """
+        Make an unknown S parameter with given initial value for which
+        the solver must solve.
+        """
+        cdef vnacal_t *vcp = self.calset.vcp
+        cdef Parameter c_other = self._generalize_parameter(other)
+        cdef int rc = vnacal_make_unknown_parameter(vcp, c_other.pindex)
+        self.calset._handle_error(rc)
+        cdef Parameter parameter = Parameter.__new__(Parameter)
+        parameter.calset = self.calset
+        parameter.pindex = rc
+        return parameter
+
+    def make_correlated(self, other, frequency_vector, sigma_vector):
+        cdef vnacal_t *vcp = self.calset.vcp
+        cdef Parameter c_other = self._generalize_parameter(other)
+        frequency_vector = np.asarray(frequency_vector, dtype=np.double,
+                                      order="C")
+        if frequency_vector.ndim != 1:
+            raise ValueError("frequency_vector must be a one-dimensional "
+                             "array")
+        sigma_vector = np.asarray(sigma_vector, dtype=np.complex128, order="C")
+        if sigma_vector.ndim != 1:
+            raise ValueError("sigma_vector must be a one-dimensional array")
+        if len(sigma_vector) != len(frequency_vector):
+            raise ValueError("sigma_vector must be same length as "
+                             "frequency_vector")
+        cdef const double [::1] fv_view = frequency_vector
+        cdef const double [::1] sv_view = sigma_vector
+        cdef int rc = vnacal_make_correlated_parameter(vcp, c_other.pindex,
+                                                       &fv_view[0],
+                                                       len(frequency_vector),
+                                                       &sv_view[0])
+        self.calset._handle_error(rc)
+        cdef Parameter parameter = Parameter.__new__(Parameter)
+        parameter.calset = self.calset
+        parameter.pindex = rc
+        return parameter
+
+    def add_single_reflect(self, a, b, s11, int port):
+        """
+        Add the measurement of a single reflect standard with parameter
+        s11 on the given VNA port.  VNA port numbers start at 1.
+        """
+        cdef int a_rows = 0
+        cdef int a_columns = 0
+        cdef int b_rows
+        cdef int b_columns
+        cdef double complex **a_clfpp = NULL
+        cdef double complex **b_clfpp = NULL
+        cdef Parameter c_s11
+        cdef int rc
+
+        try:
+            #
+            # Prepare a and b arrays.
+            #
+            if a is not None:
+                a = _prepare_C_array(a, "a", self.frequencies,
+                                     &a_clfpp, &a_rows, &a_columns)
+            b = _prepare_C_array(b, "b", self.frequencies,
+                                 &b_clfpp, &b_rows, &b_columns)
+
+            #
+            # Prepare S parameters
+            #
+            c_s11 = self._generalize_parameter(s11)
+
+            #
+            # Call add function
+            #
+            if a_clfpp != NULL:
+                rc = vnacal_new_add_single_reflect(self.vnp,
+                                                   a_clfpp, a_rows, a_columns,
+                                                   b_clfpp, b_rows, b_columns,
+                                                   c_s11.pindex, port)
+            else:
+                rc = vnacal_new_add_single_reflect_m(self.vnp,
+                                                     b_clfpp, b_rows, b_columns,
+                                                     c_s11.pindex, port)
+            self.calset._handle_error(rc)
+
+            return
+
+        finally:
+            free(<void *>b_clfpp)
+            free(<void *>a_clfpp)
+
+    def add_double_reflect(self, a, b, s11, s22, int port1, int port2):
+        """
+        Add the measurement of a double reflect standard with parameters
+        s11 and s22 on the given VNA ports.  VNA port numbers start at 1.
+        """
+        cdef int a_rows = 0
+        cdef int a_columns = 0
+        cdef int b_rows
+        cdef int b_columns
+        cdef double complex **a_clfpp = NULL
+        cdef double complex **b_clfpp = NULL
+        cdef Parameter c_s11
+        cdef Parameter c_s22
+        cdef int rc
+
+        try:
+            #
+            # Prepare a and b arrays.
+            #
+            if a is not None:
+                a = _prepare_C_array(a, "a", self.frequencies,
+                                     &a_clfpp, &a_rows, &a_columns)
+            b = _prepare_C_array(b, "b", self.frequencies,
+                                 &b_clfpp, &b_rows, &b_columns)
+
+            #
+            # Prepare S parameters
+            #
+            c_s11 = self._generalize_parameter(s11)
+            c_s22 = self._generalize_parameter(s22)
+
+            #
+            # Call add function
+            #
+            if a_clfpp != NULL:
+                rc = vnacal_new_add_double_reflect(self.vnp,
+                                                   a_clfpp, a_rows, a_columns,
+                                                   b_clfpp, b_rows, b_columns,
+                                                   s11.pindex, s22.pindex,
+                                                   port1, port2)
+            else:
+                rc = vnacal_new_add_double_reflect_m(self.vnp,
+                                                     b_clfpp, b_rows, b_columns,
+                                                     s11.pindex, s22.pindex,
+                                                     port1, port2)
+            self.calset._handle_error(rc)
+
+            return
+
+        finally:
+            free(<void *>b_clfpp)
+            free(<void *>a_clfpp)
+
+    def add_through(self, a, b, int port1, int port2):
+        """
+        Add the measurement of a perfect through standard between
+        port1 and port2.  VNA port numbers start at 1.
+        """
+        cdef int a_rows = 0
+        cdef int a_columns = 0
+        cdef int b_rows
+        cdef int b_columns
+        cdef double complex **a_clfpp = NULL
+        cdef double complex **b_clfpp = NULL
+        cdef int rc
+
+        try:
+            #
+            # Prepare a and b arrays.
+            #
+            if a is not None:
+                a = _prepare_C_array(a, "a", self.frequencies,
+                                     &a_clfpp, &a_rows, &a_columns)
+            b = _prepare_C_array(b, "b", self.frequencies,
+                                 &b_clfpp, &b_rows, &b_columns)
+
+            #
+            # Call add function
+            #
+            if a_clfpp != NULL:
+                rc = vnacal_new_add_through(self.vnp,
+                                            a_clfpp, a_rows, a_columns,
+                                            b_clfpp, b_rows, b_columns,
+                                            port1, port2)
+            else:
+                rc = vnacal_new_add_through_m(self.vnp,
+                                              b_clfpp, b_rows, b_columns,
+                                              port1, port2)
+            self.calset._handle_error(rc)
+
+            return
+
+        finally:
+            free(<void *>b_clfpp)
+            free(<void *>a_clfpp)
+
+    def add_line(self, a, b, s, int port1, int port2):
+        """
+        Add the measurement of an arbitrary two-port standard with S
+        parameter matrix s on the given VNA ports.  VNA port numbers
+        start at 1.
+        """
+        cdef int a_rows = 0
+        cdef int a_columns = 0
+        cdef int b_rows
+        cdef int b_columns
+        cdef double complex **a_clfpp = NULL
+        cdef double complex **b_clfpp = NULL
+        cdef int i
+        cdef int j
+        cdef Parameter c_parameter
+        cdef int si[2][2]
+        cdef int rc
+
+        try:
+            #
+            # Prepare a and b arrays.
+            #
+            if a is not None:
+                a = _prepare_C_array(a, "a", self.frequencies,
+                                     &a_clfpp, &a_rows, &a_columns)
+            b = _prepare_C_array(b, "b", self.frequencies,
+                                 &b_clfpp, &b_rows, &b_columns)
+
+            #
+            # Prepare S parameters
+            #
+            s = np.asarray(s, type=object)
+            if s.ndim < 2 or s.shape[0] != 2 or s.shape[1] != 2:
+                raise ValueError("s must be a 2x2 matrix of parameters")
+            for i in range(2):
+                for j in range(2):
+                    c_parameter = self._generalize_parameter(s[i, j])
+                    s[i, j] = c_parameter
+                    si[i][j] = c_parameter.pindex
+
+            #
+            # Call add function
+            #
+            if a_clfpp != NULL:
+                rc = vnacal_new_add_line(self.vnp,
+                                         a_clfpp, a_rows, a_columns,
+                                         b_clfpp, b_rows, b_columns,
+                                         &si[0][0], port1, port2)
+            else:
+                rc = vnacal_new_add_line_m(self.vnp,
+                                           b_clfpp, b_rows, b_columns,
+                                           &si[0][0], port1, port2)
+            self.calset._handle_error(rc)
+
+            return
+
+        finally:
+            free(<void *>b_clfpp)
+            free(<void *>a_clfpp)
+
+    def add_mapped_matrix(self, a, b, s, port_map):
+        """
+        Add the measurement of an arbitrary n-port standard with S
+        parameter matrix s, and map of ports of the standard to ports
+        of the VNA in port_map.  VNA port numbers start at 1.
+        """
+        cdef int a_rows = 0
+        cdef int a_columns = 0
+        cdef int b_rows
+        cdef int b_columns
+        cdef int s_rows
+        cdef int s_columns
+        cdef int s_ports
+        cdef double complex **a_clfpp = NULL
+        cdef double complex **b_clfpp = NULL
+        cdef int i
+        cdef int j
+        cdef int k
+        cdef Parameter c_parameter
+        cdef int *sip = NULL
+        cdef int [::1] iv
+        cdef int rc
+
+        try:
+            #
+            # Prepare a and b arrays.
+            #
+            if a is not None:
+                a = _prepare_C_array(a, "a", self.frequencies,
+                                     &a_clfpp, &a_rows, &a_columns)
+            b = _prepare_C_array(b, "b", self.frequencies,
+                                 &b_clfpp, &b_rows, &b_columns)
+
+            #
+            # Prepare S parameters
+            #
+            s = np.asarray(s, type=object)
+            if s.ndim < 2:
+                raise ValueError("s must be a matrix of parameters")
+            s_rows = s.shape[0]
+            s_columns = s.shape[1]
+            s_ports = s_rows if s_rows >= s_columns else s_columns
+            sip = <int *>malloc(s.rows * s.columns * sizeof(int))
+            if sip == NULL:
+                raise MemoryError()
+            k = 0
+            for i in range(s_rows):
+                for j in range(s_columns):
+                    c_parameter = self._generalize_parameter(s[i, j])
+                    s[i, j] = c_parameter
+                    sip[k] = c_parameter.pindex
+                    k += 1
+
+            #
+            # Prepare port map.
+            #
+            port_map = np.asarray(port_map, type=np.intc, order="C")
+            if port_map.ndim != 1 or port_map.shape[0] < s_ports:
+                raise ValueError(f"port_map must be a length {s_ports} vector")
+            iv = port_map
+
+            #
+            # Call add function
+            #
+            if a_clfpp != NULL:
+                rc = vnacal_new_add_mapped_matrix(self.vnp,
+                                                  a_clfpp, a_rows, a_columns,
+                                                  b_clfpp, b_rows, b_columns,
+                                                  sip, s_rows, s_columns,
+                                                  &iv[0])
+            else:
+                rc = vnacal_new_add_mapped_matrix_m(self.vnp,
+                                                    b_clfpp, b_rows, b_columns,
+                                                    sip, s_rows, s_columns,
+                                                    &iv[0])
+            self.calset._handle_error(rc)
+            return
+
+        finally:
+            free(<void *>b_clfpp)
+            free(<void *>a_clfpp)
+            free(<void *>sip)
+
+    def set_m_error(self, frequency_vector, noise_floor,
+                    tracking_error = None):
+        """
+        Enable measurement error modeling.  Specifying measurement
+        errors with this function can significanlty improve accuracy,
+        especially for well overdetermined systems as the 16 term models
+        typically are.
+
+        Parameters:
+            frequency_vector:
+                vector of ascending frequencies spanning at least the
+                calibration frequency range
+
+            noise_floor:
+                vector of noise floor root-power measurements at the
+                VNA detectors at each frequency when no signal is applied
+
+            tracking_error:
+                optional vector describing of additional root-power
+                noise source proportional to the measured signal
+
+            Both noise sources are assumed Gaussian and independent.
+        """
+        cdef double [::1] fv
+        cdef double [::1] nfv
+        cdef double [::1] trv
+        cdef double *trp = NULL
+        cdef int rc
+
+        frequency_vector = np.asarray(frequency_vector, dtype=np.double,
+                                      order="C")
+        if frequency_vector.ndim != 1:
+            raise ValueError("frequency_vector must be a one-dimensional "
+                             "array")
+        cdef int n = len(frequency_vector)
+        fv = frequency_vector
+        if noise_floor is None:
+            raise ValueError("noise_floor cannot be None")
+        noise_floor = np.asarray(noise_floor, dtype=np.double, order="C")
+        if len(noise_floor) != n:
+            raise ValueError("length of noise_floor vector must match "
+                             "that of frequency_vector")
+        nfv = noise_floor
+        if tracking_error is not None:
+            tracking_error = np.asarray(tracking_error, dtype=np.double,
+                                        order="C")
+            if len(tracking_error) != n:
+                raise ValueError("length of tracking_error vector must match "
+                                 "that of frequency_vector")
+            trv = tracking_error
+            trp = &trv[0]
+
+        rc = vnacal_new_set_m_error(self.vnp, &fv[0], n, &nfv[0], trp)
+        self.calset._handle_error(rc)
+        return
+
+    @property
+    def pvalue_limit(self):
+        """
+        p-value, below which to reject the null hypothesis that
+        the measurement errors are distributed according to the
+        values given in set_m_error.
+        """
+        return self._pvalue_limit
+
+    @pvalue_limit.setter
+    def pvalue_limit(self, double value):
+        # no docstring for setter
+        cdef int rc
+        rc = vnacal_new_set_pvalue_limit(self.vnp, value)
+        self.calset._handle_error(rc)
+        self._pvalue_limit = value
+
+    @property
+    def et_tolerance(self):
+        """
+        Degree of change in the root-mean-squared of the error terms
+        sufficiently low to stop iteration.  Default is 1.0e-6.
+        """
+        return self._et_tolerance
+
+    @et_tolerance.setter
+    def et_tolerance(self, double value):
+        # no docstring for setter
+        cdef int rc
+        rc = vnacal_new_set_et_tolerance(self.vnp, value)
+        self.calset._handle_error(rc)
+        self._et_tolerance = value
+
+    @property
+    def p_tolerance(self):
+        """
+        Degree of change in the root-mean-squared of the error terms
+        sufficiently low to stop iteration.  Default is 1.0e-6.
+        """
+        return self._et_tolerance
+
+    @p_tolerance.setter
+    def p_tolerance(self, double value):
+        # no docstring for setter
+        cdef int rc
+        rc = vnacal_new_set_p_tolerance(self.vnp, value)
+        self.calset._handle_error(rc)
+        self._p_tolerance = value
+
+    @property
+    def iteration_limit(self):
+        """
+        For iterative solutions, the maximum number of iterations
+        permitted before failing to converge.
+        """
+        return self._iteration_limit
+
+    @iteration_limit.setter
+    def iteration_limit(self, int value):
+        # no docstring for setter
+        cdef int rc
+        rc = vnacal_new_set_iteration_limit(self.vnp, value)
+        self.calset._handle_error(rc)
+        self._iteration_limit = value
+
+    def solve(self):
+        """
+        Solve for the error terms.
+        """
+        cdef int rc = vnacal_new_solve(self.vnp)
+        self.calset._handle_error(rc)
 
 
 cdef class Calibration:
@@ -322,120 +910,45 @@ cdef class Calibration:
             vna.data.Data object containing the corrected parameters
                
         """
-        #
-        # Get calibration type and dimensions
-        #
         cdef vnacal_t *vcp = self.calset.vcp
         cdef int ci = self.ci
-        cdef CalType cal_type = <CalType>vnacal_get_type(vcp, ci)
-        assert(<int>cal_type != -1)
-        cdef int cal_frequencies = vnacal_get_frequencies(vcp, ci)
-        assert(cal_frequencies != -1)
-        cdef int cal_rows = vnacal_get_rows(vcp, ci)
-        assert(cal_rows != -1)
-        cdef int cal_columns = vnacal_get_columns(vcp, ci)
-        assert(cal_columns != -1)
-        cdef int ports = max(cal_rows, cal_columns)
-
-        #
-        # Define vnacal_apply parameters
-        #
         cdef int frequencies
+        cdef const double [::1] f_view
         cdef const double *frequency_vector
-        cdef double complex **a_clfpp = NULL
         cdef int a_rows = 0
         cdef int a_columns = 0
+        cdef int b_rows
+        cdef int b_columns
+        cdef double complex **a_clfpp = NULL
         cdef double complex **b_clfpp = NULL
         cdef vnadata_t *vdp
-
-        #
-        # Define temporary variables and views
-        #
-        cdef int i
-        cdef int j
-        cdef int k
         cdef int rc
-        cdef const double [::1] v1
-        cdef double complex [:, :, ::1] v3
 
         #
         # Process frequency vector.  If f is None, default to the
         # calibration frequencies.
         #
         if f is None:
-            frequencies = cal_frequencies
+            frequencies = vnacal_get_frequencies(vcp, ci)
             frequency_vector = vnacal_get_frequency_vector(vcp, ci)
             assert(frequency_vector != NULL)
         else:
-            f_array = np.asarray(f, dytpe=np.double, order="C")
+            f_array = np.asarray(f, dtype=np.double, order="C")
             if f_array.ndim != 1:
                 raise ValueError("f must be a one-dimensional array or None")
             frequencies = f_array.shape[0]
-            v1 = f_array
-            frequency_vector = &v1[0]
+            f_view = f_array
+            frequency_vector = &f_view[0]
 
-        #
-        # Prepare a_array
-        #
-        if a is not None:
-            if cal_type == E12 or cal_type == UE14:
-                a_rows = 1
-            else:
-                a_rows = ports
-
-            a_columns = ports
-            a_array = np.asarray(a, dtype=np.complex128, order="C")
-            if a_array.ndim != 3 \
-                    or a_array.shape != (a_rows, ports, frequencies):
-                raise ValueError(f"a must be a {a_rows} x {ports} x "
-                                 f"{frequencies} complex matrix or None")
-
-        #
-        # Prepare b_array
-        #
-        if b is None:
-            raise ValueError(f"b must be a {ports} x "
-                             f"{ports} x {frequencies} array")
-        b_array = np.asarray(b, dtype=np.complex128, order="C")
-        if b_array.ndim != 3 or b_array.shape != (ports, ports, frequencies):
-            raise ValueError(f"b must have dimension {ports} x "
-                             f"{ports} x {frequencies}")
-
-        #
-        # Allocate C arrays
-        #
-        b_clfpp = <double complex **>malloc(
-                ports * ports * sizeof(double complex *))
-        if b_clfpp == NULL:
-            raise MemoryError()
-
-        if a is not None:
-            a_clfpp = <double complex **>malloc(
-                    a_rows * ports * sizeof(double complex *))
-            if a_clfpp == NULL:
-                free(b_clfpp)
-                raise MemoryError()
-
-        #
-        # Avoid leaking the C arrays...
-        #
         try:
             #
-            # Fill C arrays
+            # Process the input arrays.
             #
             if a is not None:
-                v3 = a_array
-                k = 0
-                for i in range(a_rows):
-                    for j in range(ports):
-                        a_clfpp[k] = &v3[i, j, 0]
-                        k += 1
-            v3 = b_array
-            k = 0
-            for i in range(ports):
-                for j in range(ports):
-                    b_clfpp[k] = &v3[i, j, 0]
-                    k += 1
+                a = _prepare_C_array(a, "a", frequencies,
+                                     &a_clfpp, &a_rows, &a_columns)
+            b = _prepare_C_array(b, "b", frequencies,
+                                 &b_clfpp, &b_rows, &b_columns)
 
             #
             # Prepare result object
@@ -450,20 +963,19 @@ cdef class Calibration:
                 rc = vnacal_apply(vcp, ci,
                                   frequency_vector, frequencies,
                                   a_clfpp, a_rows, a_columns,
-                                  b_clfpp, ports, ports,
+                                  b_clfpp, b_rows, b_columns,
                                   vdp)
             else:
                 rc = vnacal_apply_m(vcp, ci,
                                   frequency_vector, frequencies,
-                                  b_clfpp, ports, ports,
+                                  b_clfpp, b_rows, b_columns,
                                   vdp)
             self.calset._handle_error(rc)
-
             return result
 
         finally:
-            free(b_clfpp)
-            free(a_clfpp)
+            free(<void *>b_clfpp)
+            free(<void *>a_clfpp)
 
     @property
     def properties(self):
@@ -553,6 +1065,7 @@ cdef class _CalHelper:
         Iterate over the Calibrations
         """
         cdef CalSet calset = self.calset
+        cdef int i
         for i in range(len(calset._index_to_ci)):
             yield self[i]
 
@@ -561,8 +1074,19 @@ cdef class _CalHelper:
         Iterate reversed over the Calibrations
         """
         cdef CalSet calset = self.calset
+        cdef int i
         for i in reversed(range(len(calset._index_to_ci))):
             yield self[i]
+
+    def __string__(self):
+        """
+        Return a string representation of the Calibrations array
+        """
+        d = {}
+        cdef int i
+        for i, name in enumerate(self):
+            d[i] = name
+        return "Calibrations: " + str(d)
 
 
 cdef class CalSet:
@@ -581,8 +1105,8 @@ cdef class CalSet:
         cdef const unsigned char[:] cfilename
         self.vcp = NULL
         self._thread_local = local()
-        self._thread_local.exception = None
-        self._thread_local.warning = None
+        self._thread_local._vna_cal_exception = None
+        self._thread_local._vna_cal_warning = None
         if filename is not None:
             if isinstance(filename, unicode):
                 filename = (<unicode>filename).encode("UTF-8")
@@ -632,17 +1156,54 @@ cdef class CalSet:
         cdef int rc = vnacal_save(self.vcp, <const char *>&cfilename[0])
         self._handle_error(rc)
 
-    def add(self, solver: Solver, name: str) -> int:
+    def make_solver(self, CalType ctype, frequency_vector,
+                    int rows, int columns, double complex z0 = 50.0):
+        """
+        Create a new error term solver.
+        """
+        frequency_vector = np.asarray(frequency_vector, dtype=np.double,
+                                      order="C")
+        if frequency_vector.ndim != 1:
+            raise ValueError("frequency_vector must be 1 dimensional "
+                             "array-like")
+        cdef vnacal_t *vcp = self.vcp
+        cdef vnacal_new_t *vnp = NULL
+        vnp = vnacal_new_alloc(vcp, <vnacal_type_t>ctype, rows, columns,
+                               len(frequency_vector))
+        if vnp == NULL:
+            self._handle_error(-1)
+        cdef int rc
+        cdef const double [::1] fv_view = frequency_vector
+        rc = vnacal_new_set_frequency_vector(vnp, &fv_view[0])
+        if rc == -1:
+            vnacal_new_free(vnp)
+            self._handle_error(-1)
+        if z0 != 50.0:
+            rc = vnacal_new_set_z0(vnp, z0)
+            if rc == -1:
+                vnacal_new_free(vnp)
+                self._handle_error(-1)
+        cdef Solver solver = Solver.__new__(Solver)
+        solver.calset = self
+        solver.frequencies = len(frequency_vector)
+        solver.vnp = vnp
+        return solver
+
+    def add(self, Solver solver, name) -> int:
         """
         Add a new solved calibration to the CalSet.
         """
         cdef vnacal_t *vcp = self.vcp
         cdef vnacal_new_t *vnp = solver.vnp
-        cdef int rc = vnacal_add_calibration(vcp, name, vnp)
+        if isinstance(name, unicode):
+            name = (<unicode>name).encode("UTF-8")
+        cdef const unsigned char[:] c_name = name
+        cdef int rc = vnacal_add_calibration(vcp, <const char *>&c_name[0],
+                                             vnp)
         self._handle_error(rc)
         self._index_to_ci.append(rc)
 
-    def index(self, name: str) -> int:
+    def index(self, name) -> int:
         """
         Return the calibration index with the given name.
         """
@@ -713,10 +1274,10 @@ cdef class CalSet:
         # Raises:
         #    See exceptions in _error_fn.
         # """
-        exception = self._thread_local.exception
-        warning = self._thread_local.warning
-        self._thread_local.exception = None
-        self._thread_local.warning = None
+        exception = self._thread_local._vna_cal_exception
+        warning = self._thread_local._vna_cal_warning
+        self._thread_local._vna_cal_exception = None
+        self._thread_local._vna_cal_warning = None
         if rc == -1 and exception is None:
             PyErr_SetFromErrno(OSError)
         if exception is not None:

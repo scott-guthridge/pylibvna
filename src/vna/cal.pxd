@@ -103,6 +103,13 @@ cdef extern from "<vnacal.h>":
         VNACAL_UE14         =  6
         VNACAL_E12          =  7
 
+    enum:
+        VNACAL_MATCH        =  0
+        VNACAL_OPEN         =  1
+        VNACAL_SHORT        = -1
+        VNACAL_ZERO         =  0
+        VNACAL_ONE          =  1
+
     ctypedef struct vnacal_t:
         pass    # opaque
 
