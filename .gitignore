@@ -129,4 +129,5 @@ dmypy.json
 .pyre/
 
 # generated files
+/examples/SOLT.vnacal
 /src/vna/*.c
