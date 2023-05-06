@@ -382,6 +382,12 @@ cdef class _FrequencyVectorHelper:
         for findex in range(frequencies)[::-1]:
             yield vnadata_get_frequency(vdp, findex)
 
+    def __str__(self):
+        # """
+        # Show as string.
+        # """
+        return str(np.asarray(self))
+
 cdef class _DataArrayHelper:
     # """
     # Helper class for data_array.
@@ -759,6 +765,12 @@ cdef class _DataArrayHelper:
         for findex in range(frequencies)[::-1]:
             yield(self._get_matrix(findex))
 
+    def __str__(self):
+        # """
+        # Show as string.
+        # """
+        return str(np.asarray(self))
+
 cdef class _Z0VectorHelper:
     # """
     # Helper class for the z0 vector.
@@ -884,6 +896,12 @@ cdef class _Z0VectorHelper:
         cdef int ports = max(rows, columns)
         for port in range(ports)[::-1]:
             yield vnadata_get_z0(vdp, port)
+
+    def __str__(self):
+        # """
+        # Show as string.
+        # """
+        return str(np.asarray(self))
 
 cdef class _FZ0ArrayHelper:
     # """
@@ -1069,6 +1087,12 @@ cdef class _FZ0ArrayHelper:
         cdef int frequencies = vnadata_get_frequencies(vdp)
         for findex in range(frequencies)[::-1]:
             yield self[findex, :]
+
+    def __str__(self):
+        # """
+        # Show as string.
+        # """
+        return str(np.asarray(self))
 
 
 cdef class Data:
