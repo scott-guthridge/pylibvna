@@ -7,7 +7,7 @@
 #
 from enum import Enum
 from math import log10
-from numpy import complex128, empty, logspace, matmul, ones, pi
+from numpy import complex128, empty, flipud, hstack, logspace, matmul, ones, pi
 from matplotlib import ticker
 from matplotlib.pyplot import show, subplots
 from vna.cal import CalSet, CalType, Parameter, Solver
@@ -216,7 +216,6 @@ def apply_calibration():
     """
     Apply the calibration to measured data.
     """
-
     #
     # Load the calibration set from a file and select the cal_2x1
     # calibration we created above.
@@ -225,9 +224,11 @@ def apply_calibration():
     calibration = calset.calibrations["cal_2x1"]
 
     #
-    # Make a vector of frequencies for the measurements.  Note that most
-    # of the frequency points we're using here don't coincide with those
-    # used to make the calibration.
+    # Make a vector of frequencies for the measurements.  Note that
+    # except for the endpoints, the frequency points we're using here
+    # don't coincide with those used to make the calibration.  The apply
+    # function uses rational function interpolation to interpolate the
+    # error terms as needed.
     #
     f_vector = logspace(log10(F_MIN), log10(F_MAX), M_FREQUENCIES)
 
@@ -238,29 +239,32 @@ def apply_calibration():
     m1 = measure(Measurement.FORWARD_MEASUREMENT, f_vector)
 
     #
-    # Measure the device under test with connections reversed.
-    # Our simulated VNA measures only S11 and S21 directly; for S22 and
-    # S12, reverse the connections.  Normally, we would need to interact
-    # with the user or control a releay here to change the connections.
-    # If the VNA had a relay, though, we would have created a 2x2
-    # calibration above to also calibrate for the relay.
+    # Measure the device under test with connections reversed.  Our
+    # simulated VNA measures only S11 and S21 directly; by reversing
+    # the connections, we get S22 and S12.  Note, that even though we
+    # make the raw measurements separately, we need all four S parameters
+    # together to apply the correction because reflections caused by match
+    # errors on the VNA ports cause S11 and S21 to not be independent
+    # S12 and S22.
+    #
+    # Normally, we would need to interact with the user or control a
+    # relay to change the connections.  If the VNA has a relay, though,
+    # then we would have created a 2x2 calibration above to calibrate
+    # for the relay also.
     #
     m2 = measure(Measurement.REVERSE_MEASUREMENT, f_vector)
 
     #
-    # Assemble the 2x2 matrix of measurement vectors from our two
-    # measurements above.  Note that we have to flip m2 up-down
-    # because with ports reversed, VNA port 1 measures S22 rather
-    # than S12.
+    # Concatenate the two columns we measured above to form a
+    # (2 x 2 x frequencies) array.  We have to flip m2 up-down
+    # because, with ports reversed, VNA port 1 measures S22 and
+    # port 2 measures S12.
     #
-    measured = empty(shape=(M_ROWS, M_COLUMNS, M_FREQUENCIES),
-                     dtype=complex128, order="C")
-    measured[:, 0, :] = m1[:, 0, :]
-    measured[:, 1, :] = m2[::-1, 0, :]
+    measured = hstack((m1, flipud(m2)))
 
     #
     # Apply the calibration.  We're not using a reference matrix,
-    # so "a" is passed as None.
+    # so we pass "a" as None.
     #
     result = calibration.apply(f_vector, None, measured)
 
