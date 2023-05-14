@@ -24,6 +24,7 @@ from libc.stdio cimport FILE, fdopen, fclose
 import numpy as np
 cimport numpy as cnp
 from posix.unistd cimport close, dup, lseek, off_t
+import re
 from threading import local
 import warnings
 
@@ -91,6 +92,7 @@ cdef enum IndexClass:
     IDX_SII = 0x6
     IDX_III = 0x7
 
+
 cdef void _error_fn(const char *message, void *error_arg,
                     vnaerr_category_t category) noexcept:
     # """
@@ -111,7 +113,13 @@ cdef void _error_fn(const char *message, void *error_arg,
     elif category == VNAERR_VERSION:
         self._thread_local._vna_data_exception = ValueError(umessage)
     elif category == VNAERR_SYNTAX:
-        self._thread_local._vna_data_exception = SyntaxError(umessage, None)
+        m = re.match(r'(.*) \(line (\d+)\)', umessage)
+        if m:
+            details = (m.group(1), m.group(2), 1, "")
+        else:
+            details = ("", 1, 1, "")
+        # TODO: if >= version 3.10, add (m.group(2), 1) to end
+        self._thread_local._vna_data_exception = SyntaxError(umessage, details)
     elif category == VNAERR_WARNING:
         if self._thread_local._vna_data_warning is None:
             self._thread_local._vna_data_warning = umessage

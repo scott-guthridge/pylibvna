@@ -328,7 +328,12 @@ cdef class Solver:
 
     def make_vector(self, frequency_vector, gamma_vector):
         """
-        Make a frequency-dependent S parameter with values in gamma_vector.
+        Make a frequency-dependent S parameter with values in
+        gamma_vector.  The frequencies given here must cover the entire
+        span of the calibration frequency range, but do not have to
+        coincide with the calibration frequencies -- the function uses
+        rational function interpolation as needed to interpolate between
+        points.
         """
         cdef vnacal_t *vcp = self.calset.vcp
         frequency_vector = np.asarray(frequency_vector, dtype=np.double,
@@ -355,8 +360,8 @@ cdef class Solver:
 
     def make_unknown(self, other):
         """
-        Make an unknown S parameter with given initial value for which
-        the solver must solve.
+        Make an unknown S parameter that the Solver must determine
+        using the given starting value.
         """
         cdef vnacal_t *vcp = self.calset.vcp
         cdef Parameter c_other = self._generalize_parameter(other)
@@ -368,6 +373,16 @@ cdef class Solver:
         return parameter
 
     def make_correlated(self, other, frequency_vector, sigma_vector):
+        """
+        Make an unknown S parameter that is known to be correlated
+        with another (possibly unknown) parameter with per-frequency
+        standard deviation of the difference given by frequency_vector
+        and sigma_vector.  The frequencies given here must cover the
+        entire span of the calibration frequency range, but do not have
+        to coincide with the calibration frequencies -- the function
+        uses natural cubic spline interpolation as needed to interpolate
+        between points.
+        """
         cdef vnacal_t *vcp = self.calset.vcp
         cdef Parameter c_other = self._generalize_parameter(other)
         frequency_vector = np.asarray(frequency_vector, dtype=np.double,
@@ -480,12 +495,12 @@ cdef class Solver:
                 rc = vnacal_new_add_double_reflect(self.vnp,
                                                    a_clfpp, a_rows, a_columns,
                                                    b_clfpp, b_rows, b_columns,
-                                                   s11.pindex, s22.pindex,
+                                                   c_s11.pindex, c_s22.pindex,
                                                    port1, port2)
             else:
                 rc = vnacal_new_add_double_reflect_m(self.vnp,
                                                      b_clfpp, b_rows, b_columns,
-                                                     s11.pindex, s22.pindex,
+                                                     c_s11.pindex, c_s22.pindex,
                                                      port1, port2)
             self.calset._handle_error(rc)
 
@@ -569,7 +584,7 @@ cdef class Solver:
             #
             # Prepare S parameters
             #
-            s = np.asarray(s, type=object)
+            s = np.asarray(s, dtype=object)
             if s.ndim < 2 or s.shape[0] != 2 or s.shape[1] != 2:
                 raise ValueError("s must be a 2x2 matrix of parameters")
             for i in range(2):
@@ -634,7 +649,7 @@ cdef class Solver:
             #
             # Prepare S parameters
             #
-            s = np.asarray(s, type=object)
+            s = np.asarray(s, dtype=object)
             if s.ndim < 2:
                 raise ValueError("s must be a matrix of parameters")
             s_rows = s.shape[0]
@@ -654,7 +669,7 @@ cdef class Solver:
             #
             # Prepare port map.
             #
-            port_map = np.asarray(port_map, type=np.intc, order="C")
+            port_map = np.asarray(port_map, dtype=np.intc, order="C")
             if port_map.ndim != 1 or port_map.shape[0] < s_ports:
                 raise ValueError(f"port_map must be a length {s_ports} vector")
             iv = port_map
@@ -702,7 +717,7 @@ cdef class Solver:
                 optional vector describing of additional root-power
                 noise source proportional to the measured signal
 
-            Both noise sources are assumed Gaussian and independent.
+        Both noise sources are assumed Gaussian and independent.
         """
         cdef double [::1] fv
         cdef double [::1] nfv
@@ -743,6 +758,9 @@ cdef class Solver:
         p-value, below which to reject the null hypothesis that
         the measurement errors are distributed according to the
         values given in set_m_error.
+
+        This parameter has no effect if set_m_error is not called
+        to enable measurement error modeling.
         """
         return self._pvalue_limit
 
@@ -758,7 +776,7 @@ cdef class Solver:
     def et_tolerance(self):
         """
         Degree of change in the root-mean-squared of the error terms
-        sufficiently low to stop iteration.  Default is 1.0e-6.
+        sufficiently small to stop iteration.  Default is 1.0e-6.
         """
         return self._et_tolerance
 
@@ -773,8 +791,10 @@ cdef class Solver:
     @property
     def p_tolerance(self):
         """
-        Degree of change in the root-mean-squared of the error terms
-        sufficiently low to stop iteration.  Default is 1.0e-6.
+        Degree of change in the root-mean-squared of the unknown
+        parameters sufficiently small to stop iteration.  This parameter
+        has no effect if there are no unknown parameters in the S matrix.
+        Default is 1.0e-6.
         """
         return self._et_tolerance
 
@@ -789,8 +809,8 @@ cdef class Solver:
     @property
     def iteration_limit(self):
         """
-        For iterative solutions, the maximum number of iterations
-        permitted before failing to converge.
+        For iterative solutions, this parameter controls the maximum
+        number of iterations permitted to reach convergence.
         """
         return self._iteration_limit
 
@@ -815,7 +835,7 @@ cdef class Calibration:
     cdef int ci
 
     @property
-    def name(self):
+    def name(self) -> str:
         """
         Name of the calibration
         """
@@ -827,7 +847,7 @@ cdef class Calibration:
         return cp.decode("UTF-8")
 
     @property
-    def ctype(self):
+    def ctype(self) -> CalType:
         """
         Type of the calibration
         """
@@ -837,7 +857,7 @@ cdef class Calibration:
         return <CalType>ctype
 
     @property
-    def rows(self):
+    def rows(self) -> int:
         """
         Number of rows in the calibration
         """
@@ -848,7 +868,7 @@ cdef class Calibration:
         return rows
 
     @property
-    def columns(self):
+    def columns(self) -> int:
         """
         Number of columns in the calibration
         """
@@ -859,7 +879,7 @@ cdef class Calibration:
         return columns
 
     @property
-    def frequencies(self):
+    def frequencies(self) -> int:
         """
         Number of frequencies in the calibration
         """
@@ -887,7 +907,7 @@ cdef class Calibration:
     @property
     def z0(self):
         """
-        Reference frequency all all ports in the calibration
+        Reference frequency all all ports in the calibration.
         """
         cdef vnacal_t *vcp = self.calset.vcp
         cdef int ci = self.ci
@@ -980,8 +1000,9 @@ cdef class Calibration:
     @property
     def properties(self):
         """
-        Return a tree of dictionaries, lists, scalars and None
-        representing the user-defined properties of this calibration.
+        Reading from this property returns a tree of dictionaries, lists,
+        scalars and None representing the properties of this calibration.
+        Writing this this property replaces the property tree.
         """
         cdef vnacal_t *vcp = self.calset.vcp
         cdef int ci = self.ci
@@ -990,10 +1011,7 @@ cdef class Calibration:
 
     @properties.setter
     def properties(self, value):
-        """
-        Set the user-defined properties for this calibration from a
-        tree of dictionaries, lists, scalars and None objects.
-        """
+        # no docstring for setter
         cdef vnacal_t *vcp = self.calset.vcp
         cdef int ci = self.ci
         cdef vnaproperty_t **rootptr
@@ -1159,7 +1177,7 @@ cdef class CalSet:
     def make_solver(self, CalType ctype, frequency_vector,
                     int rows, int columns, double complex z0 = 50.0):
         """
-        Create a new error term solver.
+        Create and return a new error term solver.
         """
         frequency_vector = np.asarray(frequency_vector, dtype=np.double,
                                       order="C")
@@ -1230,8 +1248,9 @@ cdef class CalSet:
     @property
     def properties(self):
         """
-        Return a tree of dictionaries, lists, scalars and None
-        representing the user-defined properties of this CalSet.
+        Reading from this property returns a tree of dictionaries,
+        lists, scalars and None representing the global properties.
+        Writing this this property replaces the global property tree.
         """
         cdef vnacal_t *vcp = self.vcp
         cdef vnaproperty_t *root = vnacal_property_get_subtree(vcp, -1, ".")
@@ -1239,10 +1258,7 @@ cdef class CalSet:
 
     @properties.setter
     def properties(self, value):
-        """
-        Set the user-defined properties for this CalSet from a
-        tree of dictionaries, lists, scalars and None objects.
-        """
+        # no docstring for setter
         cdef vnacal_t *vcp = self.vcp
         cdef vnaproperty_t **rootptr
         cdef vnaproperty_t *new_root = NULL
