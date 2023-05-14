@@ -1,0 +1,6 @@
+- Move make_scalar, make_vector, make_unknown and make_correlated from
+  Solver to CalSet reflecting that their scope spans Solvers and their
+  lifetime is tied to the CalSet.
+
+- Split the simulated VNA code out of the example modules to focus the
+  examples on the intended detail.
