@@ -352,7 +352,7 @@ cdef class _FrequencyVectorHelper:
                 self.data._handle_error(rc)
                 i += 1
 
-    def __array__(self):
+    def __array__(self, *args, **kwargs):
         # """
         # Return the vector of frequencies.
         # """
@@ -363,8 +363,9 @@ cdef class _FrequencyVectorHelper:
         cdef const double *lfp = vnadata_get_frequency_vector(vdp)
         if lfp == NULL:
             self.data._handle_error(-1)
-        return cnp.PyArray_SimpleNewFromData(
+        a = cnp.PyArray_SimpleNewFromData(
             1, &shape[0], cnp.NPY_DOUBLE, <void *>lfp)
+        return np.asarray(a, *args, **kwargs)
 
     def __copy__(self):
         # """
@@ -735,7 +736,7 @@ cdef class _DataArrayHelper:
         else:
             assert(False)
 
-    def __array__(self):
+    def __array__(self, *args, **kwargs):
         # """
         # Return the vector of parameter matrices as a 3D array.
         # """
@@ -749,7 +750,7 @@ cdef class _DataArrayHelper:
                 for column in range(columns):
                     array[findex, row, column] = \
                             vnadata_get_cell(vdp, findex, row, column)
-        return array
+        return np.asarray(array, *args, **kwargs)
 
     def __copy__(self):
         # """
@@ -861,7 +862,7 @@ cdef class _Z0VectorHelper:
                 self.data._handle_error(rc)
                 i += 1
 
-    def __array__(self):
+    def __array__(self, *args, **kwargs):
         # """
         # Return the vector of frequencies.
         # """
@@ -874,8 +875,9 @@ cdef class _Z0VectorHelper:
         cdef const double complex *clfp = vnadata_get_z0_vector(vdp)
         if clfp == NULL:
             self.data._handle_error(-1)
-        return cnp.PyArray_SimpleNewFromData(
+        a = cnp.PyArray_SimpleNewFromData(
             1, &shape[0], cnp.NPY_COMPLEX128, <void *>clfp)
+        return np.asarray(a, *args, **kwargs)
 
     def __copy__(self):
         # """
@@ -1057,7 +1059,7 @@ cdef class _FZ0ArrayHelper:
         else:
             assert(False)
 
-    def __array__(self):
+    def __array__(self, *args, **kwargs):
         # """
         # Return the fz0 vector.
         # """
@@ -1070,7 +1072,7 @@ cdef class _FZ0ArrayHelper:
         for findex in range(frequencies):
             for port in range(ports):
                 array[findex, port] = vnadata_get_fz0(vdp, findex, port)
-        return array
+        return np.asarray(array, *args, **kwargs)
 
     def __copy__(self):
         # """
