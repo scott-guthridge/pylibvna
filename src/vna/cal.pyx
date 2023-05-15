@@ -1124,7 +1124,8 @@ cdef class CalSet:
     cdef Parameter _generalize_parameter(self, parameter):
         # """
         # If a number is found where a Parameter is expected, automatically
-        # convert it into a scalar parameter.
+        # convert it into a scalar parameter.  If a tuple(f_vector, g_vector)
+        # is found, automatically convert it to a vector parameter.
         # """
         if isinstance(parameter, Parameter):
             return parameter
@@ -1132,7 +1133,13 @@ cdef class CalSet:
         if isinstance(parameter, complex) or isinstance(parameter, float) \
                 or isinstance(parameter, int):
             return self.make_scalar(parameter)
-        raise ValueError("parameter must be class Parameter or a number")
+        if isinstance(parameter, tuple):
+            if len(parameter) != 2:
+                raise ValueError("expected Parameter, number or "
+                                 "tuple(frequency_vector, gamma_vector)")
+            return self.make_vector(*parameter)
+        raise ValueError("parameter must be class Parameter, a number, or "
+                         "tuple(frequency_vector, gamma_vector)")
 
     def make_scalar(self, double complex gamma):
         """

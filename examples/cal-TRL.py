@@ -323,8 +323,7 @@ def make_calibration():
     for findex, f in enumerate(f_vector):
         gl = ideal_gamma(f) * LINE_LENGTH
         l_ideal[findex] = exp(-gl)
-    line_guess = calset.make_vector(f_vector, l_ideal)
-    unknown_line = calset.make_unknown(line_guess)
+    unknown_line = calset.make_unknown((f_vector, l_ideal))
 
     # Make the line measurement and add.
     (_, a, b) = vna.measure(Measurement.LINE)
