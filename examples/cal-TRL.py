@@ -310,7 +310,7 @@ def make_calibration():
     solver.add_through(a, b, 1, 2)
 
     # Create the unknown reflect parameter with initial value -1 (short).
-    unknown_reflect = solver.make_unknown(-1)
+    unknown_reflect = calset.make_unknown(-1)
 
     # Make the reflect measurement.
     (_, a, b) = vna.measure(Measurement.REFLECT)
@@ -323,8 +323,8 @@ def make_calibration():
     for findex, f in enumerate(f_vector):
         gl = ideal_gamma(f) * LINE_LENGTH
         l_ideal[findex] = exp(-gl)
-    line_guess = solver.make_vector(f_vector, l_ideal)
-    unknown_line = solver.make_unknown(line_guess)
+    line_guess = calset.make_vector(f_vector, l_ideal)
+    unknown_line = calset.make_unknown(line_guess)
 
     # Make the line measurement and add.
     (_, a, b) = vna.measure(Measurement.LINE)
