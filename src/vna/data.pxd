@@ -1,4 +1,5 @@
 #cython: language_level=3
+#cython: binding=True
 #
 # Python Bindings for Vector Network Analyzer Library
 # Copyright © 2023 D Scott Guthridge <scott_guthridge@rompromity.net>

@@ -1,4 +1,5 @@
 #cython: language_level=3
+#cython: binding=True
 #
 # Python Bindings for Vector Network Analyzer Library
 # Copyright © 2023 D Scott Guthridge <scott_guthridge@rompromity.net>
@@ -408,7 +409,6 @@ cdef class _DataArrayHelper:
         # Return the parameter matrix at given frequency index.
         #
         # Parameters:
-        #     self: _DataArrayHelper object
         #     findex: frequency index
         #
         # Returns:
@@ -1135,7 +1135,6 @@ cdef class Data:
         # if rc is -1.  In either case, raise an exception or warning.
         #
         # Parameters:
-        #    self:  vna.data.Data class reference
         #    rc:    return value from C function
         #
         # Raises:
@@ -1509,7 +1508,6 @@ cdef class Data:
         Convert to a new parameter type
 
         Parameters:
-            self:     vna.data.Data class reference
             new_type: new parameter type
                 UNDEF, S, T, U, Z, Y, H, G, A, B, ZIN
 
@@ -1537,7 +1535,6 @@ cdef class Data:
         Load network parameter data from filename.
 
         Parameters:
-            self:     vna.data.Data class reference
             filename: pathname to file
 
         Raises:
@@ -1557,7 +1554,6 @@ cdef class Data:
         Load network parameter data from an open file handle.
 
         Parameters:
-            self:       vna.data.Data class reference
             filehandle: open file handle
             filename:   name of file used in error messages only
 
@@ -1595,7 +1591,6 @@ cdef class Data:
         Save network parameter data to filename.
 
         Parameters:
-            self:     vna.data.Data class reference
             filename: pathname to file
 
         Raises:
@@ -1615,7 +1610,6 @@ cdef class Data:
         Save network parameter data to an open file handle.
 
         Parameters:
-            self:       vna.data.Data class reference
             filehandle: open file handle to write
             filename:   name of file used in error messages only
 
@@ -1653,7 +1647,6 @@ cdef class Data:
         Test if parameter data is consistent with file type.
 
         Parameters:
-            self:     vna.data.Data class reference
             filename: proposed pathname to save file
 
         Raises:

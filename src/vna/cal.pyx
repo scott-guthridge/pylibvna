@@ -1,4 +1,5 @@
 #cython: language_level=3
+#cython: binding=True
 #
 # Python Bindings for Vector Network Analyzer Library
 # Copyright © 2023 D Scott Guthridge <scott_guthridge@rompromity.net>
@@ -215,7 +216,7 @@ cdef class Parameter:
         if calset is not None and pindex >= 3:
             vnacal_delete_parameter(calset.vcp, pindex)
 
-    def get_value(self, frequency):
+    def get_value(self, frequency) -> complex:
         cdef vnacal_t *vcp = self.calset.vcp
         cdef complex result
         result = vnacal_get_parameter_value(vcp, self.pindex, frequency)
@@ -790,7 +791,7 @@ cdef class Calibration:
         return result
 
     @property
-    def z0(self):
+    def z0(self) -> complex:
         """
         Reference frequency all all ports in the calibration.
         """
@@ -799,7 +800,7 @@ cdef class Calibration:
         cdef double complex z0 = vnacal_get_z0(vcp, ci)
         return z0
 
-    def apply(self, f, a, b):
+    def apply(self, f, a, b) -> Data:
         """
         Apply the calibration correction to measured data
 
@@ -1060,7 +1061,7 @@ cdef class CalSet:
         self._handle_error(rc)
 
     def make_solver(self, CalType ctype, frequency_vector,
-                    int rows, int columns, double complex z0 = 50.0):
+                    int rows, int columns, double complex z0 = 50.0) -> Solver:
         """
         Create and return a new error term solver.
         """
@@ -1092,7 +1093,7 @@ cdef class CalSet:
         solver.vnp = vnp
         return solver
 
-    def add(self, Solver solver, name) -> int:
+    def add(self, Solver solver, name):
         """
         Add a new solved calibration to the CalSet.
         """
@@ -1141,7 +1142,7 @@ cdef class CalSet:
         raise ValueError("parameter must be class Parameter, a number, or "
                          "tuple(frequency_vector, gamma_vector)")
 
-    def make_scalar(self, double complex gamma):
+    def make_scalar(self, double complex gamma) -> Parameter:
         """
         Make a frequency-independent S parameter with value gamma.
         """
@@ -1161,7 +1162,7 @@ cdef class CalSet:
         parameter.pindex = rc
         return parameter
 
-    def make_vector(self, frequency_vector, gamma_vector):
+    def make_vector(self, frequency_vector, gamma_vector) -> Parameter:
         """
         Make a frequency-dependent S parameter with values in
         gamma_vector.  The frequencies given here must cover the entire
@@ -1193,7 +1194,7 @@ cdef class CalSet:
         parameter.pindex = rc
         return parameter
 
-    def make_unknown(self, other):
+    def make_unknown(self, other) -> Parameter:
         """
         Make an unknown S parameter that the Solver must determine
         using the given starting value.
@@ -1207,7 +1208,8 @@ cdef class CalSet:
         parameter.pindex = rc
         return parameter
 
-    def make_correlated(self, other, frequency_vector, sigma_vector):
+    def make_correlated(self, other,
+                        frequency_vector, sigma_vector) -> Parameter:
         """
         Make an unknown S parameter that is known to be correlated
         with another (possibly unknown) parameter with per-frequency
