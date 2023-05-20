@@ -1063,8 +1063,7 @@ cdef class _FZ0ArrayHelper:
 
 cdef class Data:
     """
-    In-memory representation of electrical network parameter data,
-    e.g. as loaded from a Touchstone file.
+    In-memory representation of electrical network parameter data.
 
     Args:
         ptype (PType, optional): Type of parameter data to be stored:
@@ -1078,15 +1077,15 @@ cdef class Data:
             ZIN parameters, which are stored as a row vector.  Rows and
             columns can be any non-negative values for UNDEF parameters.
             Both dimensions default to zero.  Type and dimensions can be
-            changed using the :func:`init` or :func:`load` functions or
-            by assignment to the :py:attr:`type`, :py:attr:`data_array`,
-            or :py:attr:`fz0_array` attributes.
+            changed using the :func:`init`, :func:`resize` or :func:`load`
+            functions, or by assignment to the :py:attr:`type`,
+            :py:attr:`data_array`, or :py:attr:`fz0_array` attributes.
 
         frequencies (int, optional): Number of frequency points.
-            Number of frequencies defaults to zero.  The number
-            can be changed using the :func:`init`, :func:`load`, or
-            :func:`add_frequency` functions or by assignment to the
-            :py:attr:`frequency_vector` or or :py:attr:`fz0_array`
+            Number of frequencies defaults to zero.  The number can be
+            changed using the :func:`init`, :func:`resize`, :func:`load`,
+            or :func:`add_frequency` functions, or by assignment to
+            the :py:attr:`frequency_vector` or or :py:attr:`fz0_array`
             attributes.
 
     Raises:
@@ -1213,8 +1212,10 @@ cdef class Data:
     @property
     def ptype(self):
         """
-        Get the parameter type as a PType enum value.  Values are:
+        The parameter type as a PType enum value.  Values are:
             UNDEF, S, T, U, Z, Y, H, G, A, B, ZIN
+
+        Type: Ptype
         """
         return vnadata_get_type(self.vdp)
 
@@ -1228,28 +1229,36 @@ cdef class Data:
     @property
     def ptype_name(self):
         """
-        Return the parameter type as a string.
+        The parameter type as a string (read-only).
+
+        Type: str
         """
         return vnadata_get_type_name(vnadata_get_type(self.vdp))
 
     @property
     def rows(self):
         """
-        Get the current number of rows.
+        The number of rows (read-only).
+
+        Type: int
         """
         return vnadata_get_rows(self.vdp)
 
     @property
     def columns(self):
         """
-        Get the current number of columns.
+        The number of columns (read-only).
+
+        Type: int
         """
         return vnadata_get_columns(self.vdp)
 
     @property
     def frequencies(self):
         """
-        Get the current number of frequencies.
+        The number of frequencies (read-only).
+
+        Type: int
         """
         return vnadata_get_frequencies(self.vdp)
 
@@ -1268,6 +1277,8 @@ cdef class Data:
         """
         Get or set the frequency vector.  Slicing operations are
         supported.
+
+        Type: array[f_index] of float
         """
         cdef _FrequencyVectorHelper helper = _FrequencyVectorHelper()
         helper.data = self
@@ -1297,10 +1308,9 @@ cdef class Data:
     def add_frequency(self, double frequency):
         """
         Add a new frequency entry.  The corresponding new data submatrix
-        (:py:attr"`data_array`\[findex, :, :]) is initialized to
-        zeros.  This function is useful when you don't know in advance
-        how many frequency points will be given and want to add them
-        one by one dynamically.
+        (:py:attr:`data_array`\[f_index, :, :]) is initialized to zeros.
+        This function is useful when the number of frequency points is
+        not known in advance.
 
         Args:
             frequency (float): new frequency value to add
@@ -1316,9 +1326,10 @@ cdef class Data:
     @property
     def data_array(self):
         """
-        Get or set network parameter data as an array
-        (:py:attr:`data_array`\[findex, row, column]).
+        Access network parameter data as an array.
         Slicing operations are supported.
+
+        Type: array [f_index, row, column] of complex
         """
         cdef _DataArrayHelper helper = _DataArrayHelper()
         helper.data = self
@@ -1358,6 +1369,8 @@ cdef class Data:
         have been established, setting this value to a scalar sets all
         ports to the same reference impedance.  The default value is
         50 ohms.
+
+        Type: array[port] of complex
         """
         cdef _Z0VectorHelper helper = _Z0VectorHelper()
         helper.data = self
@@ -1406,15 +1419,18 @@ cdef class Data:
         """
         Return True if frequency-dependent system impedances are in
         effect.
+
+        Type: bool
         """
         return vnadata_has_fz0(self.vdp)
 
     @property
     def fz0_array(self):
         """
-        Get or set frequency-dependent reference impedances as an array
-        (:py:attr:`fz0_array`\[findex, port]).  Slicing operations
-        are supported.
+        Access frequency-dependent reference impedances as an array.
+        Slicing operations are supported.
+
+        Type: array[f_index, port] of complex
         """
         cdef _FZ0ArrayHelper helper = _FZ0ArrayHelper()
         helper.data = self
@@ -1624,6 +1640,8 @@ cdef class Data:
         - TOUCHSTONE1: Use Touchstone version 1 (.s2p)
         - TOUCHSTONE2: Use Touchstone version 2 (.ts)
         - NPD:         Use network parameter data (.ndp)
+
+        Type: FileType
         """
         cdef int rc = vnadata_get_filetype(self.vdp)
         self._handle_error(rc)
@@ -1673,6 +1691,8 @@ cdef class Data:
         1 imposing further restrictions on the maximum number of ports
         (4), and disallowing per-port Z0 values.  The only file format
         that can store all formats is .npd.
+
+        Type: str
         """
         cdef const char *fmt = vnadata_get_format(self.vdp)
         if fmt == NULL:
@@ -1692,6 +1712,8 @@ cdef class Data:
         """
         Set or get the number of significant figures to use for frequency
         values when saving parameters to a file.
+
+        Type: int
         """
         cdef int rc = vnadata_get_fprecision(self.vdp)
         self._handle_error(rc)
@@ -1708,6 +1730,8 @@ cdef class Data:
         """
         Set or get the number of significant figures to use for data
         values when saving parameters to a file.
+
+        Type: int
         """
         cdef int rc = vnadata_get_dprecision(self.vdp)
         self._handle_error(rc)
