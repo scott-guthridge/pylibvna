@@ -33,19 +33,19 @@ cpdef enum PType:
     # Select the network parameter data type.
     # Values:
     #
-    # - UNDEF: unspecified data (matrices may be rectangular)
-    # - S:     scattering paramters
-    # - T:     scattering-transfer parameters
-    # - U:     inverse scattering-transfer parameters
-    # - Z:     impedance parameters
-    # - Y:     admittance parameters
-    # - H:     hybrid parameters
-    # - G:     inverse hybrid parameters
-    # - A:     ABCD parameters
-    # - B:     inverse ABCD parameters
-    # - ZIN:   input impedances (single row-vector)
+    # - ANY: unspecified data (matrices may be rectangular)
+    # - S:   scattering paramters
+    # - T:   scattering-transfer parameters
+    # - U:   inverse scattering-transfer parameters
+    # - Z:   impedance parameters
+    # - Y:   admittance parameters
+    # - H:   hybrid parameters
+    # - G:   inverse hybrid parameters
+    # - A:   ABCD parameters
+    # - B:   inverse ABCD parameters
+    # - ZIN: input impedances (single row-vector)
     # """
-    UNDEF =  0
+    ANY =  0
     S     =  1
     T     =  2
     U     =  3
@@ -1067,7 +1067,8 @@ cdef class Data:
 
     Args:
         ptype (PType, optional): Type of parameter data to be stored:
-            UNDEF, S, T, U, Z, Y, H, G, A, B, ZIN.  The default is UNDEF.
+            ANY, S, T, U, Z, Y, H, G, A, B, ZIN.  The default is ANY,
+            which stores raw data without interpretation.
 
         rows (int, optional):
         columns (int, optional):
@@ -1075,7 +1076,7 @@ cdef class Data:
             be equal for S, Z and Y parameters.  They must both be 2
             for T, U, H, G, A and B parameters.  Rows must be 1 for
             ZIN parameters, which are stored as a row vector.  Rows and
-            columns can be any non-negative values for UNDEF parameters.
+            columns can be any non-negative values for ANY parameters.
             Both dimensions default to zero.  Type and dimensions can be
             changed using the :func:`init`, :func:`resize` or :func:`load`
             functions, or by assignment to the :py:attr:`type`,
@@ -1137,7 +1138,7 @@ cdef class Data:
     # Allocation and Initialization
     ######################################################################
 
-    def __cinit__(self, ptype: PType = PType.UNDEF,
+    def __cinit__(self, ptype: PType = PType.ANY,
                   int rows = 0, int columns = 0, int frequencies = 0):
         self._thread_local = local()
         self._thread_local._vna_data_exception = None
@@ -1160,8 +1161,8 @@ cdef class Data:
         all z0 entries to 50 ohms.
 
         Args:
-            ptype (PType): Set the parameter type: UNDEF, S, T, U, Z, Y,
-                H, G, A, B, ZIN.
+            ptype (PType): Set the parameter type:
+                ANY, S, T, U, Z, Y, H, G, A, B, ZIN.
 
             rows (int):
             columns (int):
@@ -1169,7 +1170,7 @@ cdef class Data:
                 must be equal for S, Z and Y parameters.  They must both
                 be 2 for T, U, H, G, A and B parameters.  Rows must
                 be 1 for ZIN parameters.  Rows and columns can be any
-                non-negative values for UNDEF parameters.
+                non-negative values for ANY parameters.
 
             frequencies (int):
                 Number of frequency points
@@ -1190,8 +1191,8 @@ cdef class Data:
         convert.
 
         Args:
-            ptype (PType): Set the parameter type: UNDEF, S, T, U, Z, Y,
-                H, G, A, B, ZIN.
+            ptype (PType): Set the parameter type:
+                ANY, S, T, U, Z, Y, H, G, A, B, ZIN.
 
             rows (int):
             columns (int):
@@ -1199,7 +1200,7 @@ cdef class Data:
                 must be equal for S, Z and Y parameters.  They must both
                 be 2 for T, U, H, G, A and B parameters.  Rows must
                 be 1 for ZIN parameters.  Rows and columns can be any
-                non-negative values for UNDEF parameters.
+                non-negative values for ANY parameters.
 
             frequencies (int):
                 Number of frequency points
@@ -1213,9 +1214,9 @@ cdef class Data:
     def ptype(self):
         """
         The parameter type as a PType enum value.  Values are:
-            UNDEF, S, T, U, Z, Y, H, G, A, B, ZIN
+            ANY, S, T, U, Z, Y, H, G, A, B, ZIN
 
-        Type: Ptype
+        Type: PType
         """
         return vnadata_get_type(self.vdp)
 
@@ -1484,14 +1485,14 @@ cdef class Data:
 
         Args:
             new_type (PType): new parameter type:
-                UNDEF, S, T, U, Z, Y, H, G, A, B, ZIN.
+                ANY, S, T, U, Z, Y, H, G, A, B, ZIN.
 
         Returns:
             A new Data object in the requested type.  The original
             object is left unchanged.
 
         Raises:
-            ValueError: if new type if requested conversion is invalid
+            ValueError: if conversion to new_type is invalid
         """
         result = Data()
         cdef int rc

@@ -20,8 +20,10 @@ class TestData:
     """
     Test data to compare against.
     """
+    __test__ = False
+
     def __init__(self,
-                 ptype=vd.PType.UNDEF,
+                 ptype=vd.PType.ANY,
                  rows=0,
                  columns=0,
                  frequencies=0,
@@ -242,7 +244,7 @@ class TestModule(unittest.TestCase):
         self.assertFalse(d.has_fz0)
 
     def test_zero_values(self):
-        d = vd.Data(vd.PType.UNDEF, 2, 3, 5)
+        d = vd.Data(vd.PType.ANY, 2, 3, 5)
         self.assertEqual(d.rows, 2)
         self.assertEqual(d.columns, 3)
         self.assertEqual(d.frequencies, 5)
@@ -251,25 +253,25 @@ class TestModule(unittest.TestCase):
         self.assertEqual(np.asarray(d.data_array).shape, (5, 2, 3))
         self.assertEqual(len(d.z0_vector), 3)
         self.assertFalse(d.has_fz0)
-        t = TestData(vd.PType.UNDEF, 2, 3, 5)
+        t = TestData(vd.PType.ANY, 2, 3, 5)
         self.assertTrue(t.isequal(d))
 
     def test_fill1(self):
-        t = TestData(vd.PType.UNDEF, 1, 2, 3, False)
+        t = TestData(vd.PType.ANY, 1, 2, 3, False)
         t.randomize()
         d = vd.Data()
         t.fill(d)
         self.assertTrue(t.isequal(d))
 
     def test_fill2(self):
-        t = TestData(vd.PType.UNDEF, 1, 2, 3, True)
+        t = TestData(vd.PType.ANY, 1, 2, 3, True)
         t.randomize()
         d = vd.Data()
         t.fill(d)
         self.assertTrue(t.isequal(d))
 
     def test_init(self):
-        td1 = TestData(vd.PType.UNDEF, 3, 4, 5, True)
+        td1 = TestData(vd.PType.ANY, 3, 4, 5, True)
         td1.randomize()
         d = vd.Data()
         td1.fill(d)
@@ -278,7 +280,7 @@ class TestModule(unittest.TestCase):
         self.assertTrue(td2.isequal(d))
 
     def test_get_frequency_vector(self):
-        t = TestData(vd.PType.UNDEF, 5, 2, 3, False)
+        t = TestData(vd.PType.ANY, 5, 2, 3, False)
         t.randomize()
         d = vd.Data()
         t.fill(d)
@@ -317,7 +319,7 @@ class TestModule(unittest.TestCase):
             _ = d.frequency_vector[-4]
 
     def test_set_frequency_vector(self):
-        t = TestData(vd.PType.UNDEF, 5, 2, 3, False)
+        t = TestData(vd.PType.ANY, 5, 2, 3, False)
         t.randomize()
         d = vd.Data()
         t.fill(d)
@@ -352,7 +354,7 @@ class TestModule(unittest.TestCase):
                                        [1.0, 2.0, 3.0, 4.0]))
 
     def test_get_data_vector(self):
-        t = TestData(vd.PType.UNDEF, 4, 3, 11, False)
+        t = TestData(vd.PType.ANY, 4, 3, 11, False)
         t.randomize()
         d = vd.Data()
         t.fill(d)
@@ -407,7 +409,7 @@ class TestModule(unittest.TestCase):
             i -= 1
 
     def test_set_data_vector(self):
-        t = TestData(vd.PType.UNDEF, 4, 3, 11, False)
+        t = TestData(vd.PType.ANY, 4, 3, 11, False)
         t.randomize()
         d = vd.Data()
         t.fill(d)
@@ -507,12 +509,12 @@ class TestModule(unittest.TestCase):
         self.assertEqual(d.frequencies, 5)
         self.assertEqual(d.rows, 3)
         self.assertEqual(d.columns, 3)
-        t.resize(vd.PType.UNDEF, 3, 3, 5, False)
+        t.resize(vd.PType.ANY, 3, 3, 5, False)
         t.data_array = v
         self.assertTrue(t.isequal(d))
 
     def test_get_z0_vector(self):
-        t = TestData(vd.PType.UNDEF, 3, 5, 2, False)
+        t = TestData(vd.PType.ANY, 3, 5, 2, False)
         t.randomize()
         d = vd.Data()
         t.fill(d)
@@ -548,7 +550,7 @@ class TestModule(unittest.TestCase):
             _ = d.z0_vector[-6]
 
     def test_set_z0_vector(self):
-        t = TestData(vd.PType.UNDEF, 5, 3, 2, False)
+        t = TestData(vd.PType.ANY, 5, 3, 2, False)
         t.randomize()
         d = vd.Data()
         t.fill(d)
@@ -583,7 +585,7 @@ class TestModule(unittest.TestCase):
             d.z0_vector = v
 
         # Test that resize from (0 x 0) doesn't raise on same v
-        d.resize(vd.PType.UNDEF, 0, 0, 2)
+        d.resize(vd.PType.ANY, 0, 0, 2)
         self.assertEqual(d.rows, 0)
         self.assertEqual(d.columns, 0)
         d.z0_vector = v
@@ -591,7 +593,7 @@ class TestModule(unittest.TestCase):
         self.assertEqual(d.columns, 3)
 
     def test_get_fz0_vector(self):
-        t = TestData(vd.PType.UNDEF, 3, 4, 5, True)
+        t = TestData(vd.PType.ANY, 3, 4, 5, True)
         t.randomize()
         d = vd.Data()
         t.fill(d)
@@ -637,7 +639,7 @@ class TestModule(unittest.TestCase):
             _ = d.fz0_array[-6]
 
     def test_set_fz0_vector(self):
-        t = TestData(vd.PType.UNDEF, 4, 3, 5, True)
+        t = TestData(vd.PType.ANY, 4, 3, 5, True)
         t.randomize()
         d = vd.Data()
         t.fill(d)
@@ -678,7 +680,7 @@ class TestModule(unittest.TestCase):
             d.fz0_array = v
 
         # Test that resize from (0 x 0) doesn't raise on same v
-        d.resize(vd.PType.UNDEF, 0, 0, 0)
+        d.resize(vd.PType.ANY, 0, 0, 0)
         self.assertEqual(d.rows, 0)
         self.assertEqual(d.columns, 0)
         d.fz0_array = v
