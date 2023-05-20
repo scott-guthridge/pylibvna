@@ -1,22 +1,17 @@
 #cython: language_level=3
 #cython: binding=True
-#
 # Python Bindings for Vector Network Analyzer Library
 # Copyright © 2023 D Scott Guthridge <scott_guthridge@rompromity.net>
-#
 # This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published
 # by the Free Software Foundation, either version 3 of the License, or
 # (at your option) any later version.
-#
 # This program is distributed in the hope that it will be useful,
 # but WITHOUT ANY WARRANTY; without even the implied warranty of
 # MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
 # General Public License for more details.
-#
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
-#
 
 from cpython.exc cimport PyErr_SetFromErrno
 from cpython.pycapsule cimport PyCapsule_New
@@ -36,19 +31,19 @@ cpdef enum PType:
     # Note: current cython version does not allow a docstring here.
     # """
     # Select the network parameter data type.
-    #
     # Values:
-    #    UNDEF: unspecified data (matrices may be rectangular)
-    #    S:     scattering paramters
-    #    T:     scattering-transfer parameters
-    #    U:     inverse scattering-transfer parameters
-    #    Z:     impedance parameters
-    #    Y:     admittance parameters
-    #    H:     hybrid parameters
-    #    G:     inverse hybrid parameters
-    #    A:     ABCD parameters
-    #    B:     inverse ABCD parameters
-    #    ZIN:   input impedances (single row-vector)
+    #
+    # - UNDEF: unspecified data (matrices may be rectangular)
+    # - S:     scattering paramters
+    # - T:     scattering-transfer parameters
+    # - U:     inverse scattering-transfer parameters
+    # - Z:     impedance parameters
+    # - Y:     admittance parameters
+    # - H:     hybrid parameters
+    # - G:     inverse hybrid parameters
+    # - A:     ABCD parameters
+    # - B:     inverse ABCD parameters
+    # - ZIN:   input impedances (single row-vector)
     # """
     UNDEF =  0
     S     =  1
@@ -66,7 +61,6 @@ cpdef enum FileType:
     # Note: current cython version does not allow a docstring here.
     # """
     # Select the file type used to save network parameter data.
-    #
     # Values:
     #     AUTO:        determine the type based on filename extension (default)
     #     TOUCHSTONE1: use Touchstone version 1 format (.s2p)
@@ -79,11 +73,9 @@ cpdef enum FileType:
     NPD         = 3
 
 cdef enum IndexClass:
-    #
     # IndexClass:
     #     Bitmasks giving which data_array subscripts are integers
     #     vs. slices.
-    #
     IDX_SSS = 0x0
     IDX_ISS = 0x1
     IDX_SIS = 0x2
@@ -137,30 +129,22 @@ def _convert_indices(shape, indices):
     # Given the shape of an array and an arbitrary index expression,
     # convert to a list of non-zero integer indices or tuples suitable
     # for use as the arguments to the range operator.
-    #
-    # Parameters
-    # ----------
-    # shape: tuple
-    #     The shape of the array being indexed
-    #
-    # indices: integer, slice, ellipsis, or tuple of these
-    #     The index expression to __getitem__ or __setitem__
-    #
-    # Returns
-    # -------
-    # mask: int
-    #     Bitmask showing the locations of the integer indices with lsb
-    #     representing the first (leftmost) index
-    #
-    # return_list: list
-    #     List of items: non-negative integer representing an integer index
-    #     or a tuple suitable as the arguments for the range operator,
-    #     one for each element in shape
-    #
-    # Raises
-    # ------
-    #     IndexError
-    #         The index expression is invalid or an index is out of bounds.
+    # Args:
+    #     shape (tuple): The shape of the array being indexed
+    #     indices: The index expression to __getitem__ or __setitem__, which
+    #         can be any of: integer, slice, ellipsis, or tuple of these
+    # Returns:
+    #     tuple(mask, return_list):
+    #     - mask (int):
+    #         Bitmask showing the locations of the integer indices with lsb
+    #         representing the first (leftmost) index
+    #     - return_list (list):
+    #         List of items: non-negative integer representing an integer index
+    #         or a tuple suitable as the arguments for the range operator,
+    #         one for each element in shape
+    # Raises:
+    #     IndexError: The index expression is invalid or an index is
+    #         out of bounds.
     # """
 
     # Bitmask of positions with integer (as opposed to slice) subscripts
@@ -238,14 +222,11 @@ def _convert_indices(shape, indices):
 def _form_double_array(shape, value):
     # """
     # Form value into the expected size array.
-    #
-    # Parameters:
+    # Args:
     #    shape: list or tuple giving the required dimensions
     #    value: array-like object
-    #
     # Return:
     #    An array in C order with the given dimensions.
-    #
     # """
     array = np.asarray(value, dtype=np.double, order="C")
     if array.shape == shape:
@@ -260,14 +241,11 @@ def _form_double_array(shape, value):
 def _form_complex_array(shape, value):
     # """
     # Form value into the expected size array.
-    #
-    # Parameters:
+    # Args:
     #     shape: list or tuple giving the required dimensions
     #     value: array-like object
-    #
     # Return:
     #     A complex array in C order with the given dimensions.
-    #
     # """
     array = np.asarray(value, dtype=np.complex128, order="C")
     if array.shape == shape:
@@ -407,10 +385,8 @@ cdef class _DataArrayHelper:
     def _get_matrix(self, int findex):
         # """
         # Return the parameter matrix at given frequency index.
-        #
-        # Parameters:
-        #     findex: frequency index
-        #
+        # Args:
+        #     findex (int): frequency index
         # Returns:
         #    copy of matrix
         # """
@@ -445,20 +421,16 @@ cdef class _DataArrayHelper:
         cdef int findex, row, column
         cdef int i, j, k
 
-        #
         # Convert indices to a list of tuple arguments suitable for
         # the range operator.  The returned mask gives the positions
         # with integer indices.
-        #
         (mask, indices) = _convert_indices((frequencies, rows, columns),
                                            indices)
         assert len(indices) == 3
 
-        #
         # Handle each case starting with the common case of no slices.
         # Note that at the time of writing, cython doesn't support
         # match-case.
-        #
         if mask == IDX_III:
             return vnadata_get_cell(vdp, indices[0], indices[1], indices[2])
 
@@ -481,17 +453,13 @@ cdef class _DataArrayHelper:
             return a
 
         if mask == IDX_ISS:
-            #
             # If we're given an index of the form [int, :, :], optimize
             # by using _get_matrix.
-            #
             findex = indices[0]
             if indices[1] == (0, rows, 1) and indices[2] == (0, columns, 1):
                 return self._get_matrix(findex)
 
-            #
             # Else, iterate over the slices.
-            #
             r_range = range(*indices[1])
             c_range = range(*indices[2])
             a = np.empty((len(r_range), len(c_range)), dtype=np.complex128)
@@ -576,20 +544,16 @@ cdef class _DataArrayHelper:
         cdef double complex [:, ::1] v2
         cdef double complex [:, :, ::1] v3
 
-        #
         # Convert indices to a list of tuple arguments suitable for
         # the range operator.  The returned mask gives the positions
         # with integer indices.
-        #
         (mask, indices) = _convert_indices((frequencies, rows, columns),
                                            indices)
         assert len(indices) == 3
 
-        #
         # Handle each case starting with the common case of no slices.
         # Note that at the time of writing, cython doesn't support
         # match-case.
-        #
         if mask == IDX_III:
             array = _form_complex_array((1,), value)
             rc = vnadata_set_cell(vdp, indices[0], indices[1], indices[2],
@@ -619,10 +583,8 @@ cdef class _DataArrayHelper:
                 j += 1
 
         elif mask == IDX_ISS:
-            #
             # If we're given an index of the form [int, :, :], optimize
             # by using vnadata_set_matrix.
-            #
             findex = indices[0]
             if indices[1] == (0, rows, 1) and indices[2] == (0, columns, 1):
                 array = _form_complex_array((rows, columns), value)
@@ -630,9 +592,7 @@ cdef class _DataArrayHelper:
                 rc = vnadata_set_matrix(vdp, findex, &v2[0][0])
                 self.data._handle_error(rc)
 
-            #
             # Else, iterate over the slices.
-            #
             else:
                 r_range = range(*indices[1])
                 c_range = range(*indices[2])
@@ -696,10 +656,8 @@ cdef class _DataArrayHelper:
                 i += 1
 
         elif mask == IDX_SSS:
-            #
             # If we're given an index of the form [x:y, :, :], optimize
             # by using vnadata_set_matrix.
-            #
             f_range = range(*indices[0])
             f_len = len(f_range)
             if indices[1] == (0, rows, 1) and indices[2] == (0, columns, 1):
@@ -710,9 +668,7 @@ cdef class _DataArrayHelper:
                     rc = vnadata_set_matrix(vdp, findex, &v3[i, 0, 0])
                     i += 1
 
-            #
             # Else, iterate over the slices.
-            #
             else:
                 r_range = range(*indices[1])
                 c_range = range(*indices[2])
@@ -1107,17 +1063,44 @@ cdef class _FZ0ArrayHelper:
 
 cdef class Data:
     """
-    Store and manage electrical network parameter data, e.g.  as loaded
-    from a Touchstone file.  The class contains a vector of frequency
-    points (frequency_vector), a frequencies x rows x columns array of
-    network parameter data (data_array), and a per-port array of complex
-    reference impedances.  The reference impedances can be the same across
-    all frequencies (z0_vector) or can be different for each frequency
-    (fz0_array).
+    In-memory representation of electrical network parameter data,
+    e.g. as loaded from a Touchstone file.
 
-    The class supports loading and saving in Touchstone versions 1 (.s2p)
-    and 2 (.ts), and in a more general space-separated column Network
-    Parameter Data (.npd) format.
+    Args:
+        ptype (PType, optional): Type of parameter data to be stored:
+            UNDEF, S, T, U, Z, Y, H, G, A, B, ZIN.  The default is UNDEF.
+
+        rows (int, optional):
+        columns (int, optional):
+            Dimensions of the parameter matrix.  Rows and columns must
+            be equal for S, Z and Y parameters.  They must both be 2
+            for T, U, H, G, A and B parameters.  Rows must be 1 for
+            ZIN parameters, which are stored as a row vector.  Rows and
+            columns can be any non-negative values for UNDEF parameters.
+            Both dimensions default to zero.  Type and dimensions can be
+            changed using the :func:`init` or :func:`load` functions or
+            by assignment to the :py:attr:`type`, :py:attr:`data_array`,
+            or :py:attr:`fz0_array` attributes.
+
+        frequencies (int, optional): Number of frequency points.
+            Number of frequencies defaults to zero.  The number
+            can be changed using the :func:`init`, :func:`load`, or
+            :func:`add_frequency` functions or by assignment to the
+            :py:attr:`frequency_vector` or or :py:attr:`fz0_array`
+            attributes.
+
+    Raises:
+        ValueError: if rows, columns and ptype are not valid
+
+    This class stores a vector of frequency points (frequency_vector),
+    a frequencies x rows x columns array of network parameter data
+    (data_array), and a per-port array of complex reference impedances.
+    The reference impedances can be the same across all frequencies
+    (z0_vector) or can be different for each frequency (fz0_array).
+
+    The class supports loading and saving in Touchstone versions 1
+    (.s2p) and 2 (.ts), and in a more general space-separated field
+    Network Parameter Data (.npd) format.
 
     The class supports conversion between parameter types.
 
@@ -1134,8 +1117,8 @@ cdef class Data:
         # Check if _error_fn has saved an exception for this thread or
         # if rc is -1.  In either case, raise an exception or warning.
         #
-        # Parameters:
-        #    rc:    return value from C function
+        # Args:
+        #    rc: Return value from C function
         #
         # Raises:
         #    See exceptions in _error_fn.
@@ -1155,34 +1138,8 @@ cdef class Data:
     # Allocation and Initialization
     ######################################################################
 
-    def __cinit__(
-            self,
-            ptype: PType = PType.UNDEF,
-            rows: int = 0,
-            columns: int = 0,
-            frequencies: int = 0):
-        """
-        Construct an instance of class vna.data.Data
-
-        Parameters:
-            ptype: PType
-                UNDEF, S, T, U, Z, Y, H, G, A, B, ZIN
-
-            rows: int
-            columns: int
-                Dimensions of the parameter matrix.  Rows and columns
-                must be equal for S, Z and Y parameters.  They must both
-                be 2 for T, U, H, G, A and B parameters.  Rows must
-                be 1 for ZIN parameters.  Rows and columns can be any
-                non-negative values for UNDEF parameters.
-
-            frequencies: int
-                Number of frequency points
-
-        Raises:
-            MemoryError: if out of memory
-            ValueError:  if rows, columns and ptype are not valid
-        """
+    def __cinit__(self, ptype: PType = PType.UNDEF,
+                  int rows = 0, int columns = 0, int frequencies = 0):
         self._thread_local = local()
         self._thread_local._vna_data_exception = None
         self._thread_local._vna_data_warning = None
@@ -1203,20 +1160,19 @@ cdef class Data:
         Initialize all frequency and data elements to zero and initialize
         all z0 entries to 50 ohms.
 
-        Parameters:
-            ptype: PType
-                Set the parameter type: UNDEF, S, T, U, Z, Y,
-                H, G, A, B, ZIN
+        Args:
+            ptype (PType): Set the parameter type: UNDEF, S, T, U, Z, Y,
+                H, G, A, B, ZIN.
 
-            rows: int
-            columns: int
+            rows (int):
+            columns (int):
                 Dimensions of the parameter matrix.  Rows and columns
                 must be equal for S, Z and Y parameters.  They must both
                 be 2 for T, U, H, G, A and B parameters.  Rows must
                 be 1 for ZIN parameters.  Rows and columns can be any
                 non-negative values for UNDEF parameters.
 
-            frequencies: int
+            frequencies (int):
                 Number of frequency points
 
         """
@@ -1234,20 +1190,19 @@ cdef class Data:
         existing data to the new type.  To convert parameters, use
         convert.
 
-        Parameters:
-            ptype: PType
-                Set the parameter type: UNDEF, S, T, U, Z, Y,
-                H, G, A, B, ZIN
+        Args:
+            ptype (PType): Set the parameter type: UNDEF, S, T, U, Z, Y,
+                H, G, A, B, ZIN.
 
-            rows: int
-            columns: int
+            rows (int):
+            columns (int):
                 Dimensions of the parameter matrix.  Rows and columns
                 must be equal for S, Z and Y parameters.  They must both
                 be 2 for T, U, H, G, A and B parameters.  Rows must
                 be 1 for ZIN parameters.  Rows and columns can be any
                 non-negative values for UNDEF parameters.
 
-            frequencies: int
+            frequencies (int):
                 Number of frequency points
 
         """
@@ -1258,7 +1213,7 @@ cdef class Data:
     @property
     def ptype(self):
         """
-        Get the parameter type as an enum value.  Values of PType are:
+        Get the parameter type as a PType enum value.  Values are:
             UNDEF, S, T, U, Z, Y, H, G, A, B, ZIN
         """
         return vnadata_get_type(self.vdp)
@@ -1339,15 +1294,16 @@ cdef class Data:
         rc = vnadata_set_frequency_vector(self.vdp, &cvector[0])
         self._handle_error(rc)
 
-    def add_frequency(self, frequency):
+    def add_frequency(self, double frequency):
         """
-        Add a new frequency entry.  The corresponding new data matrix
-        is initialized to zeros.  This function is useful when you don't
-        know in advance how many frequency points will be given and want
-        to add them one by one dynamically.
+        Add a new frequency entry.  The corresponding new data submatrix
+        (:py:attr"`data_array`\[findex, :, :]) is initialized to
+        zeros.  This function is useful when you don't know in advance
+        how many frequency points will be given and want to add them
+        one by one dynamically.
 
-        Parameters:
-            frequency: new frequency value to add
+        Args:
+            frequency (float): new frequency value to add
         """
         cdef int rc
         rc = vnadata_add_frequency(self.vdp, frequency)
@@ -1360,8 +1316,9 @@ cdef class Data:
     @property
     def data_array(self):
         """
-        Get or set network parameter data.  Slicing operations are
-        supported.
+        Get or set network parameter data as an array
+        (:py:attr:`data_array`\[findex, row, column]).
+        Slicing operations are supported.
         """
         cdef _DataArrayHelper helper = _DataArrayHelper()
         helper.data = self
@@ -1455,7 +1412,9 @@ cdef class Data:
     @property
     def fz0_array(self):
         """
-        Get or set frequency-dependent reference impedances for each port.
+        Get or set frequency-dependent reference impedances as an array
+        (:py:attr:`fz0_array`\[findex, port]).  Slicing operations
+        are supported.
         """
         cdef _FZ0ArrayHelper helper = _FZ0ArrayHelper()
         helper.data = self
@@ -1507,9 +1466,9 @@ cdef class Data:
         """
         Convert to a new parameter type
 
-        Parameters:
-            new_type: new parameter type
-                UNDEF, S, T, U, Z, Y, H, G, A, B, ZIN
+        Args:
+            new_type (PType): new parameter type:
+                UNDEF, S, T, U, Z, Y, H, G, A, B, ZIN.
 
         Returns:
             A new Data object in the requested type.  The original
@@ -1517,7 +1476,6 @@ cdef class Data:
 
         Raises:
             ValueError: if new type if requested conversion is invalid
-            MemoryError: if cannot allocate memory for new object
         """
         result = Data()
         cdef int rc
@@ -1532,15 +1490,15 @@ cdef class Data:
 
     def load(self, filename):
         """
-        Load network parameter data from filename.
+        Load network parameter data from filename, automatically resetting
+        the type and dimensions as needed.
 
-        Parameters:
-            filename: pathname to file
+        Args:
+            filename (str): pathname to file
 
         Raises:
-            OSError:        if can't open file
-            SyntaxError:    if file is badly formed
-            AssertionError: if internal error
+            OSError:     if can't open file
+            SyntaxError: if the file is badly formed
         """
         if isinstance(filename, unicode):
             filename = (<unicode>filename).encode("UTF-8")
@@ -1551,16 +1509,16 @@ cdef class Data:
 
     def fload(self, filehandle, filename):
         """
-        Load network parameter data from an open file handle.
+        Load network parameter data from an open file handle,
+        automatically resetting the type and dimensions as needed.
 
-        Parameters:
+        Args:
             filehandle: open file handle
-            filename:   name of file used in error messages only
+            filename:   name of file (used in error messages only)
 
         Raises:
-            OSError:        if can't read file
-            SyntaxError:    if file is badly formed
-            AssertionError: if internal error
+            OSError:     if can't read file
+            SyntaxError: if the file is badly formed
         """
         # TODO enhancement: catch the UnsupportedOperation exception
         #    around the  call to fileno(), e.g. if passed something like
@@ -1590,13 +1548,12 @@ cdef class Data:
         """
         Save network parameter data to filename.
 
-        Parameters:
-            filename: pathname to file
+        Args:
+            filename (str): pathname to file
 
         Raises:
             OSError:        if can't open file
             ValueError:     if file type inconsistent with parameter data
-            AssertionError: if internal error
         """
         if isinstance(filename, unicode):
             filename = (<unicode>filename).encode("UTF-8")
@@ -1609,14 +1566,13 @@ cdef class Data:
         """
         Save network parameter data to an open file handle.
 
-        Parameters:
+        Args:
             filehandle: open file handle to write
             filename:   name of file used in error messages only
 
         Raises:
             OSError:        if can't read file
             ValueError:     if file type inconsistent with parameter data
-            AssertionError: if internal error
         """
         # TODO enhancement: catch the UnsupportedOperation exception
         #    around the  call to fileno(), e.g. if passed something like
@@ -1646,13 +1602,11 @@ cdef class Data:
         """
         Test if parameter data is consistent with file type.
 
-        Parameters:
-            filename: proposed pathname to save file
+        Args:
+            filename (str): proposed pathname to save file
 
         Raises:
-            OSError:        if system error
-            ValueError:     if file type inconsistent with parameter data
-            AssertionError: if internal error
+            ValueError: if file type inconsistent with parameter data
         """
         if isinstance(filename, unicode):
             filename = (<unicode>filename).encode("UTF-8")
@@ -1664,11 +1618,12 @@ cdef class Data:
     @property
     def filetype(self):
         """
-        Return file type:
-            AUTO         Determine based on filename extension (default)
-            TOUCHSTONE1  Use Touchstone version 1 format (.s2p)
-            TOUCHSTONE2  Use Touchstone version 2 format (.ts)
-            NPD          Use network parameter data format (.ndp)
+        Set or return the file type:
+
+        - AUTO:        Determine type based on filename extension (default)
+        - TOUCHSTONE1: Use Touchstone version 1 (.s2p)
+        - TOUCHSTONE2: Use Touchstone version 2 (.ts)
+        - NPD:         Use network parameter data (.ndp)
         """
         cdef int rc = vnadata_get_filetype(self.vdp)
         self._handle_error(rc)
@@ -1683,34 +1638,41 @@ cdef class Data:
     @property
     def format(self):
         """
-        Get or set the save format.
+        Get or set the file format.
 
         Valid values:
-            S[ri|ma|dB]   scattering parameters
-            T[ri|ma|dB]   scattering-transfer parameters
-            U[ri|ma|dB]   inverse scattering-transfer parameters
-            Z[ri|ma]      impedance parameters
-            Y[ri|ma]      admittance parameters
-            H[ri|ma]      hybrid parameters
 
-            G[ri|ma]      inverse-hybrid parameters
-            A[ri|ma]      ABCD parameters
-            B[ri|ma]      inverse ABCD parameters
-            Zin[ri|ma]    impedance looking into each port
-            PRC           Zin as parallel resistance and capacitance
-            PRL           Zin as parallel resistance and inductance
-            SRC           Zin as series resistance and capacitance
-            SRL           Zin as series resistance and inducatance
-            IL            insertion loss (dB)
-            RL            return loss (dB)
-            VSWR          voltage standing wave ratio
+        - S[ri|ma|dB]:  scattering parameters
+        - T[ri|ma|dB]:  scattering-transfer parameters
+        - U[ri|ma|dB]:  inverse scattering-transfer parameters
+        - Z[ri|ma]:     impedance parameters
+        - Y[ri|ma]:     admittance parameters
+        - H[ri|ma]:     hybrid parameters
+        - G[ri|ma]:     inverse-hybrid parameters
+        - A[ri|ma]:     ABCD parameters
+        - B[ri|ma]:     inverse ABCD parameters
+        - Zin[ri|ma]:   impedance looking into each port
+        - PRC:          Zin as parallel resistance and capacitance
+        - PRL:          Zin as parallel resistance and inductance
+        - SRC:          Zin as series resistance and capacitance
+        - SRL:          Zin as series resistance and inducatance
+        - IL:           insertion loss (dB)
+        - RL:           return loss (dB)
+        - VSWR:         voltage standing wave ratio
 
         where the ri,  ma  or  dB  suffix  is  an  optional  coordinate
         system modifier:
 
-            ri   real, imaginary
-            ma   magnitude, angle
-            dB   decibels, angle
+        - ri:  real, imaginary
+        - ma:  magnitude, angle
+        - dB:  decibels, angle
+
+        Format specifiers are case-insensitive.  Note that not all
+        formats can be represented in all file formats.  Touchstone
+        formats support only S, Y, Z, H, and G parameters, with version
+        1 imposing further restrictions on the maximum number of ports
+        (4), and disallowing per-port Z0 values.  The only file format
+        that can store all formats is .npd.
         """
         cdef const char *fmt = vnadata_get_format(self.vdp)
         if fmt == NULL:
@@ -1728,8 +1690,8 @@ cdef class Data:
     @property
     def fprecision(self):
         """
-        Number of significant figures to use for frequency values when
-        saving parameters to a file.
+        Set or get the number of significant figures to use for frequency
+        values when saving parameters to a file.
         """
         cdef int rc = vnadata_get_fprecision(self.vdp)
         self._handle_error(rc)
@@ -1744,8 +1706,8 @@ cdef class Data:
     @property
     def dprecision(self):
         """
-        Number of significant figures to use for data values when saving
-        parameters to a file.
+        Set or get the number of significant figures to use for data
+        values when saving parameters to a file.
         """
         cdef int rc = vnadata_get_dprecision(self.vdp)
         self._handle_error(rc)
