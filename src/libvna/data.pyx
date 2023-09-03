@@ -1150,7 +1150,7 @@ cdef class Data:
 
     def __dealloc__(self):
         """
-        Free C resources when a vna.data.Data object is garbage collected.
+        Free C resources when a libvna.data.Data object is garbage collected.
         """
         vnadata_free(self.vdp)
 

@@ -10,8 +10,8 @@ from math import log10
 from numpy import complex128, empty, flipud, hstack, logspace, matmul, ones, pi
 from matplotlib import ticker
 from matplotlib.pyplot import show, subplots
-from vna.cal import CalSet, CalType, Parameter, Solver
-from vna.data import Data
+from libvna.cal import CalSet, CalType, Parameter, Solver
+from libvna.data import Data
 
 #
 # Set frequency range.

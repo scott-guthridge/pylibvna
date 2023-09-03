@@ -29,9 +29,9 @@ from math import sqrt
 from matplotlib import ticker
 from matplotlib.pyplot import show, subplots
 import numpy as np
-from vna.cal import CalSet, CalType, Parameter, Solver
-from vna.conv import atos, stoa, ztos
-from vna.data import Data, PType
+from libvna.cal import CalSet, CalType, Parameter, Solver
+from libvna.conv import atos, stoa, ztos
+from libvna.data import Data, PType
 from warnings import warn
 
 # Misc constants:

@@ -18,7 +18,7 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #
 from libc.stdio cimport FILE
-cimport vna.data as vd
+cimport libvna.data as vd
 
 cdef extern from "<stdarg.h>":
     ctypedef struct va_list:

@@ -13,24 +13,24 @@ class build_py(_build_py):
             self.distribution.ext_modules = []
 
         self.distribution.ext_modules.append(
-            Extension(name="vna.conv",
-                      sources=["src/vna/conv.pyx", "src/vna/conv.pxd"],
+            Extension(name="libvna.conv",
+                      sources=["src/libvna/conv.pyx"],
                       define_macros=[('NPY_NO_DEPRECATED_API',
                                       'NPY_1_7_API_VERSION')],
                       include_dirs=[get_include(), "/usr/local/include"],
                       libraries=["vna", "m"])
         )
         self.distribution.ext_modules.append(
-            Extension(name="vna.data",
-                      sources=["src/vna/data.pyx", "src/vna/data.pxd"],
+            Extension(name="libvna.data",
+                      sources=["src/libvna/data.pyx"],
                       define_macros=[('NPY_NO_DEPRECATED_API',
                                       'NPY_1_7_API_VERSION')],
                       include_dirs=[get_include(), "/usr/local/include"],
                       libraries=["vna", "m"])
         )
         self.distribution.ext_modules.append(
-            Extension(name="vna.cal",
-                      sources=["src/vna/cal.pyx", "src/vna/cal.pxd"],
+            Extension(name="libvna.cal",
+                      sources=["src/libvna/cal.pyx"],
                       define_macros=[('NPY_NO_DEPRECATED_API',
                                       'NPY_1_7_API_VERSION')],
                       include_dirs=[get_include(), "/usr/local/include"],

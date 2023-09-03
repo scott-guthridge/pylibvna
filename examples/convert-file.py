@@ -1,6 +1,6 @@
 #!/usr/bin/python3
 import argparse
-from vna.data import Data, FileType
+from libvna.data import Data, FileType
 
 usage = """
     %s [-f format] input-file output-file

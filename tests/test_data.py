@@ -1,11 +1,11 @@
 #!/usr/bin/python3
 """
-Test the vna.data module.
+Test the libvna.data module.
 """
 import os
 import unittest
 import numpy as np
-import vna.data as vd
+import libvna.data as vd
 
 M_SQRT1_2 = 1.41421356237309504880
 
@@ -730,7 +730,7 @@ class TestModule(unittest.TestCase):
               -9.999959999980000e-01 -2.828424296309200e-03j]]])
 
         #
-        # Make ABCD parameters for the filter and store in vna.Data object
+        # Make ABCD parameters for the filter and store in libvna.Data object
         #
         A = vd.Data(vd.PType.A, 2, 2, len(frequency_vector))
         A.frequency_vector = frequency_vector

@@ -28,8 +28,8 @@ import numpy as np
 cimport numpy as npc
 from threading import local
 import warnings
-import vna.data
-from vna.data import Data
+import libvna.data
+from libvna.data import Data
 
 npc.import_array()   # otherwise, PyArray_SimpleNewFromData segfaults
 
@@ -813,7 +813,7 @@ cdef class Calibration:
                voltages from each DUT port
 
         Return:
-            vna.data.Data object containing the corrected parameters
+            libvna.data.Data object containing the corrected parameters
                
         """
         cdef vnacal_t *vcp = self.calset.vcp
@@ -859,7 +859,7 @@ cdef class Calibration:
             #
             # Prepare result object
             #
-            result = vna.data.Data()
+            result = libvna.data.Data()
             vdp = <vnadata_t *>PyCapsule_GetPointer(result._get_vdp(), NULL)
 
             #
@@ -1293,7 +1293,7 @@ cdef class CalSet:
         # if rc is -1.  In either case, raise an exception or warning.
         #
         # Parameters:
-        #    self:  vna.data.Data class reference
+        #    self:  libvna.data.Data class reference
         #    rc:    return value from C function
         #
         # Raises:

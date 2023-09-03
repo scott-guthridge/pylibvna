@@ -1,11 +1,11 @@
 #!/usr/bin/python3
 """
-Test the vna.conv module.
+Test the libvna.conv module.
 """
 
 import unittest
 import numpy as np
-import vna.conv as vc
+import libvna.conv as vc
 
 TRIALS = 1
 

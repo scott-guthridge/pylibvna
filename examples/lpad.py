@@ -1,6 +1,6 @@
 #!/usr/bin/python3
 import numpy as np
-from vna.conv import ztos, stozi
+from libvna.conv import ztos, stozi
 
 #
 # Find the Z parameters for the 75-ohm 50-ohm impedance maching L-pad

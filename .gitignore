@@ -130,4 +130,4 @@ dmypy.json
 
 # generated files
 /examples/SOLT.vnacal
-/src/vna/*.c
+/src/libvna/*.c
