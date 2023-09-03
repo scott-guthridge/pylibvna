@@ -17,7 +17,7 @@ requires-python = ">=3.7"
 repository = "https://github.com/scott-guthridge/pylibvna"
 
 [project.optional-dependencies]
-test = ["pytest", "unittest"]
+test = ["unittest"]
 
 [tool.setuptools]
 py-modules = ["_custom_build"]

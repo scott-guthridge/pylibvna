@@ -8,4 +8,4 @@ fast_install:
 	pip install -e . --user
 
 test:
-	pytest tests
+	python -m unittest discover tests
