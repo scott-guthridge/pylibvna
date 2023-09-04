@@ -190,17 +190,10 @@ cdef helper_2x2_with_z0(fn_2x2_with_z0 fn, name, array, z0):
     # Call fn on each 2x2 array...
     #
     cdef int i
-    if z0.shape[0] == 1:
-        for i in range(vin.shape[0]):
-            fn(<const double complex (*)[2]>&cvin[i, 0, 0],
-               <double complex (*)[2]>&cvout[i, 0, 0],
-               &cz0[0][0])
-
-    else:
-        for i in range(vin.shape[0]):
-            fn(<const double complex (*)[2]>&cvin[i, 0, 0],
-               <double complex (*)[2]>&cvout[i, 0, 0],
-               &cz0[i][0])
+    for i in range(vin.shape[0]):
+        fn(<const double complex (*)[2]>&cvin[i, 0, 0],
+           <double complex (*)[2]>&cvout[i, 0, 0],
+           &cz0[i][0])
 
     return output
 
@@ -230,7 +223,7 @@ cdef helper_NxN(fn_NxN fn, name, array):
     cdef double complex [:, :, :] cvout = vout
 
     #
-    # Call fn on each 2x2 array...
+    # Call fn on each NxN array...
     #
     cdef int i
     for i in range(vin.shape[0]):
@@ -274,16 +267,11 @@ cdef helper_NxN_with_z0(fn_NxN_with_z0 fn, name, array, z0):
     cdef double complex [:, :] cz0 = z0
 
     #
-    # Call fn on each 2x2 array...
+    # Call fn on each NxN array...
     #
     cdef int i
-    if z0.shape[0] == 1:
-        for i in range(vin.shape[0]):
-            fn(&cvin[i, 0, 0], &cvout[i, 0, 0], &cz0[0][0], n)
-
-    else:
-        for i in range(vin.shape[0]):
-            fn(&cvin[i, 0, 0], &cvout[i, 0, 0], &cz0[i][0], n)
+    for i in range(vin.shape[0]):
+        fn(&cvin[i, 0, 0], &cvout[i, 0, 0], &cz0[i][0], n)
 
     return output
 
@@ -322,15 +310,9 @@ cdef helper_2x2_to_zin(fn_2x2_to_zin fn, name, array, z0):
     # Call fn on each 2x2 array...
     #
     cdef int i
-    if z0.shape[0] == 1:
-        for i in range(vin.shape[0]):
-            fn(<const double complex (*)[2]>&cvin[i, 0, 0],
-               &cvout[i, 0], &cz0[0][0])
-
-    else:
-        for i in range(vin.shape[0]):
-            fn(<const double complex (*)[2]>&cvin[i, 0, 0],
-               &cvout[i, 0], &cz0[i][0])
+    for i in range(vin.shape[0]):
+        fn(<const double complex (*)[2]>&cvin[i, 0, 0],
+           &cvout[i, 0], &cz0[i][0])
 
     return output
 
@@ -368,16 +350,11 @@ cdef helper_NxN_to_zin(fn_NxN_with_z0 fn, name, array, z0):
     cdef double complex [:, :] cz0 = z0
 
     #
-    # Call fn on each 2x2 array...
+    # Call fn on each NxN array...
     #
     cdef int i
-    if z0.shape[0] == 1:
-        for i in range(vin.shape[0]):
-            fn(&cvin[i, 0, 0], &cvout[i, 0], &cz0[0][0], n)
-
-    else:
-        for i in range(vin.shape[0]):
-            fn(&cvin[i, 0, 0], &cvout[i, 0], &cz0[i][0], n)
+    for i in range(vin.shape[0]):
+        fn(&cvin[i, 0, 0], &cvout[i, 0], &cz0[i][0], n)
 
     return output
 
