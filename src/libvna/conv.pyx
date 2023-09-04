@@ -200,7 +200,7 @@ cdef helper_2x2_with_z0(fn_2x2_with_z0 fn, name, array, z0):
 #
 # helper_NxN: call fn on each NxN array in input
 #
-cdef helper_NxN(fn_NxN fn, name, array):
+cdef helper_NxN(fn_NxN fn, fn_2x2 fn2, name, array):
     #
     # Convert the input array to C compatible double complex form,
     # validate that the last two dimensions are square, and create
@@ -226,8 +226,14 @@ cdef helper_NxN(fn_NxN fn, name, array):
     # Call fn on each NxN array...
     #
     cdef int i
-    for i in range(vin.shape[0]):
-        fn(&cvin[i, 0, 0], &cvout[i, 0, 0], n)
+    if n == 2:
+        for i in range(vin.shape[0]):
+            fn2(<const double complex (*)[2]>&cvin[i, 0, 0],
+                <double complex (*)[2]>&cvout[i, 0, 0])
+
+    else:
+        for i in range(vin.shape[0]):
+            fn(&cvin[i, 0, 0], &cvout[i, 0, 0], n)
 
     #
     # If we added an extraneous dimension, remove it.
@@ -237,7 +243,7 @@ cdef helper_NxN(fn_NxN fn, name, array):
 #
 # helper_NxN_with_z0: call fn on each NxN array in input
 #
-cdef helper_NxN_with_z0(fn_NxN_with_z0 fn, name, array, z0):
+cdef helper_NxN_with_z0(fn_NxN_with_z0 fn, fn_2x2_with_z0 fn2, name, array, z0):
     #
     # Convert the input array to C compatible double complex form,
     # validate that the last two dimensions are square, and create
@@ -270,8 +276,14 @@ cdef helper_NxN_with_z0(fn_NxN_with_z0 fn, name, array, z0):
     # Call fn on each NxN array...
     #
     cdef int i
-    for i in range(vin.shape[0]):
-        fn(&cvin[i, 0, 0], &cvout[i, 0, 0], &cz0[i][0], n)
+    if n == 2:
+        for i in range(vin.shape[0]):
+            fn2(<const double complex (*)[2]>&cvin[i, 0, 0],
+                <double complex (*)[2]>&cvout[i, 0, 0],
+                &cz0[i][0])
+    else:
+        for i in range(vin.shape[0]):
+            fn(&cvin[i, 0, 0], &cvout[i, 0, 0], &cz0[i][0], n)
 
     return output
 
@@ -319,7 +331,7 @@ cdef helper_2x2_to_zin(fn_2x2_to_zin fn, name, array, z0):
 #
 # helper_NxN_to_zin: call fn on each NxN array in input
 #
-cdef helper_NxN_to_zin(fn_NxN_with_z0 fn, name, array, z0):
+cdef helper_NxN_to_zin(fn_NxN_to_zin fn, fn_2x2_to_zin fn2, name, array, z0):
     #
     # Convert the input array to C compatible double complex form,
     # validate that the last two dimensions are square, and create
@@ -353,14 +365,19 @@ cdef helper_NxN_to_zin(fn_NxN_with_z0 fn, name, array, z0):
     # Call fn on each NxN array...
     #
     cdef int i
-    for i in range(vin.shape[0]):
-        fn(&cvin[i, 0, 0], &cvout[i, 0], &cz0[i][0], n)
+    if n == 2:
+        for i in range(vin.shape[0]):
+            fn2(<const double complex (*)[2]>&cvin[i, 0, 0],
+                &cvout[i, 0], &cz0[i][0])
+    else:
+        for i in range(vin.shape[0]):
+            fn(&cvin[i, 0, 0], &cvout[i, 0], &cz0[i][0], n)
 
     return output
 
 
 ###############################################################################
-# 2x2 Conversions Without z0
+# Conversions Without z0
 ###############################################################################
 
 def atob(array):
@@ -580,7 +597,7 @@ def ytoz(array):
     """
     Convert admittance parameters to impedance parameters.
     """
-    return helper_2x2(&vnaconv_ytoz, "ytoz", array)
+    return helper_NxN(&vnaconv_ytozn, &vnaconv_ytoz, "ytoz", array)
 
 
 def ztoa(array):
@@ -615,11 +632,11 @@ def ztoy(array):
     """
     Convert impedance parameters to admittance parameters.
     """
-    return helper_2x2(&vnaconv_ztoy, "ztoy", array)
+    return helper_NxN(&vnaconv_ztoyn, &vnaconv_ztoy, "ztoy", array)
 
 
 ###############################################################################
-# 2x2 Conversions With z0
+# Conversions With z0
 ###############################################################################
 
 def atos(array, z0=50.0):
@@ -740,14 +757,14 @@ def stoy(array, z0=50.0):
     """
     Convert scattering parameters to admittance parameters.
     """
-    return helper_2x2_with_z0(&vnaconv_stoy, "stoy", array, z0)
+    return helper_NxN_with_z0(&vnaconv_stoyn, &vnaconv_stoy, "stoy", array, z0)
 
 
 def stoz(array, z0=50.0):
     """
     Convert scattering parameters to impedance parameters.
     """
-    return helper_2x2_with_z0(&vnaconv_stoz, "stoz", array, z0)
+    return helper_NxN_with_z0(&vnaconv_stozn, &vnaconv_stoz, "stoz", array, z0)
 
 
 def ttoa(array, z0=50.0):
@@ -842,7 +859,7 @@ def ytos(array, z0=50.0):
     """
     Convert admittance parameters to scattering parameters.
     """
-    return helper_2x2_with_z0(&vnaconv_ytos, "ytos", array, z0)
+    return helper_NxN_with_z0(&vnaconv_ytosn, &vnaconv_ytos, "ytos", array, z0)
 
 
 def ytot(array, z0=50.0):
@@ -864,7 +881,7 @@ def ztos(array, z0=50.0):
     """
     Convert impedance parameters to scattering parameters.
     """
-    return helper_2x2_with_z0(&vnaconv_ztos, "ztos", array, z0)
+    return helper_NxN_with_z0(&vnaconv_ztosn, &vnaconv_ztos, "ztos", array, z0)
 
 
 def ztot(array, z0=50.0):
@@ -883,57 +900,7 @@ def ztou(array, z0=50.0):
 
 
 ###############################################################################
-# NxN Conversions Without z0
-###############################################################################
-
-def ytozn(array):
-    """
-    Convert NxN admittance parameters to impedance parameters.
-    """
-    return helper_NxN(&vnaconv_ytozn, "ytozn", array)
-
-
-def ztoyn(array):
-    """
-    Convert NxN impedance parameters to admittance parameters.
-    """
-    return helper_NxN(&vnaconv_ztoyn, "ztoyn", array)
-
-
-###############################################################################
-# NxN Conversions With z0
-###############################################################################
-
-def stoyn(array, z0=50.0):
-    """
-    Convert NxN scattering parameters to admittance parameters.
-    """
-    return helper_NxN_with_z0(&vnaconv_stoyn, "stoyn", array, z0)
-
-
-def stozn(array, z0=50.0):
-    """
-    Convert NxN scattering parameters to impedance parameters.
-    """
-    return helper_NxN_with_z0(&vnaconv_stozn, "stozn", array, z0)
-
-
-def ytosn(array, z0=50.0):
-    """
-    Convert NxN admittance parameters to scattering parameters.
-    """
-    return helper_NxN_with_z0(&vnaconv_ytosn, "ytosn", array, z0)
-
-
-def ztosn(array, z0=50.0):
-    """
-    Convert NxN impedance parameters to scattering parameters.
-    """
-    return helper_NxN_with_z0(&vnaconv_ztosn, "ztosn", array, z0)
-
-
-###############################################################################
-# 2x2 Conversions To Zin
+# Conversions To Zin
 ###############################################################################
 
 def atozi(array, z0=50.0):
@@ -968,7 +935,8 @@ def stozi(array, z0=50.0):
     """
     Convert scattering parameters to impedances into each port.
     """
-    return helper_2x2_to_zin(&vnaconv_stozi, "stozi", array, z0)
+    return helper_NxN_to_zin(&vnaconv_stozin, &vnaconv_stozi, "stozi",
+                             array, z0)
 
 
 def ttozi(array, z0=50.0):
@@ -990,36 +958,13 @@ def ytozi(array, z0=50.0):
     """
     Convert admittance parameters to impedances into each port.
     """
-    return helper_2x2_to_zin(&vnaconv_ytozi, "ytozi", array, z0)
+    return helper_NxN_to_zin(&vnaconv_ytozin, &vnaconv_ytozi, "ytozi",
+                             array, z0)
 
 
 def ztozi(array, z0=50.0):
     """
     Convert impedance parameters to impedances into each port.
     """
-    return helper_2x2_to_zin(&vnaconv_ztozi, "ztozi", array, z0)
-
-
-###############################################################################
-# NxN Conversions To Zin
-###############################################################################
-
-def stozin(array, z0=50.0):
-    """
-    Convert NxN scattering parameters to impedances into each port.
-    """
-    return helper_NxN_to_zin(&vnaconv_stozin, "stozin", array, z0)
-
-
-def ytozin(array, z0=50.0):
-    """
-    Convert NxN admittance parameters to impedances into each port.
-    """
-    return helper_NxN_to_zin(&vnaconv_ytozin, "ytozin", array, z0)
-
-
-def ztozin(array, z0=50.0):
-    """
-    Convert NxN impedance parameters to impedances into each port.
-    """
-    return helper_NxN_to_zin(&vnaconv_ztozin, "ztozin", array, z0)
+    return helper_NxN_to_zin(&vnaconv_ztozin, &vnaconv_ztozi, "ztozi",
+                             array, z0)

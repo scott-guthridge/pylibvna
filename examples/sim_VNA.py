@@ -22,7 +22,7 @@ from math import sqrt
 from matplotlib import ticker
 from matplotlib.pyplot import show, subplots
 import numpy as np
-from libvna.conv import ytosn, ztosn
+from libvna.conv import ytos, ztos
 from libvna.data import NPData, PType
 
 # Misc constants
@@ -299,7 +299,7 @@ class VNA:
                 y_d1d2 = 0
 
             # Form the Y parameters of the error box and convert to S
-            s_terms = ytosn([
+            s_terms = ytos([
                 [y_v1g + y_v1v2 + y_v1d1 + y_v1d2, -y_v1v2, -y_v1d1, -y_v1d2],
                 [-y_v1v2, y_v2g + y_v1v2 + y_v2d1 + y_v2d2, -y_v2d1, -y_v2d2],
                 [-y_v1d1, -y_v2d1, y_d1g + y_v1d1 + y_v2d1 + y_d1d2, -y_d1d2],
@@ -365,7 +365,7 @@ class VNA:
                 s = [[-1, 0], [0, -1]]
 
             elif measurement == Measurement.IMPERFECT_REFLECT:
-                gamma = ztosn([[RR + RL * jω]], Z0)[0, 0]
+                gamma = ztos([[RR + RL * jω]], Z0)[0, 0]
                 s = [[gamma, 0], [0, gamma]]
 
             elif measurement == Measurement.THROUGH:
