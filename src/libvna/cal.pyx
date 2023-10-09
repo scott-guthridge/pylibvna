@@ -1259,10 +1259,78 @@ cdef class Calset:
     def __dealloc__(self):
         vnacal_free(self.vcp)
 
+    def _extend_properties(self, int ci):
+        # """
+        # Grow the _properties list as needed to hold index ci + 1.
+        # """
+        cdef old_len = len(self._properties)
+        if old_len < ci + 2:
+            self._properties += [...] * (ci + 2 - old_len)
+
+    def _get_properties(self, int ci):
+        # """
+        # Populate _properties[ci + 1] with properties from the C vnacal_t
+        # structure.  The index is + 1 so that we store the global properties
+        # at index 0, the properties for ci=0 at index 1, etc.  The special
+        # value, ..., is used to indicate that a given slot doesn't contain
+        # valid data.  We use ... instead of None because None is a valid
+        # properties value.
+        # """
+        cdef vnacal_t *vcp = self.vcp
+        self._extend_properties(ci)
+        cdef vnaproperty_t *root = NULL
+        if self._properties[ci + 1] is ...:
+            root = vnacal_property_get_subtree(vcp, ci, ".")
+            self._properties[ci + 1] = _property_to_py(root)
+        return self._properties[ci + 1]
+
+    def _set_properties(self, int ci, value):
+        # """
+        # Replace the property tree at ci with value.
+        # """
+        self._extend_properties(ci)
+        self._properties[ci + 1] = value
+
+    def _put_properties(self, int ci):
+        # """
+        # Put the properties stored at _properties[ci + 1] back into
+        # the vnacal_t C structure.  The given slot must exist and must
+        # not contain an ellipsis.
+        # """
+        cdef vnacal_t *vcp = self.vcp
+        cdef vnaproperty_t **rootptr
+        cdef vnaproperty_t *new_root = NULL
+        success = False
+        try:
+            _py_to_property(self._properties[ci + 1], &new_root)
+            rootptr = vnacal_property_set_subtree(vcp, ci, ".")
+            rootptr[0] = new_root
+            new_root = NULL
+            success = True
+        finally:
+            if not success:
+                vnaproperty_delete(&new_root, ".")
+
+    def _put_all_properties(self):
+        # """
+        # Put the properties for each ci value back into the vnacal_t
+        # C structure.
+        # """
+        for index, value in enumerate(self._properties):
+            if value is not ...:
+                self._put_properties(index - 1)
+
     def save(self, filename):
         """
         Save the Calset to a file.
+
+        Parameters:
+            filename (str):
+                Pathname of the save file.  The recommended file
+                extension, ".vnacal", is not added automatically and
+                should included in *filename*.
         """
+        self._put_all_properties()
         if isinstance(filename, unicode):
             filename = (<unicode>filename).encode("UTF-8")
         cdef const unsigned char[:] cfilename = filename
@@ -1300,26 +1368,11 @@ cdef class Calset:
         lists, scalars and None representing the global properties.
         Writing this this property replaces the global property tree.
         """
-        cdef vnacal_t *vcp = self.vcp
-        cdef vnaproperty_t *root = vnacal_property_get_subtree(vcp, -1, ".")
-        return _property_to_py(root)
+        return self._get_properties(-1)
 
     @properties.setter
     def properties(self, value):
-        # no docstring for setter
-        cdef vnacal_t *vcp = self.vcp
-        cdef vnaproperty_t **rootptr
-        cdef vnaproperty_t *new_root = NULL
-        success = False
-        try:
-            _py_to_property(value, &new_root)
-            rootptr = vnacal_property_set_subtree(vcp, -1, ".")
-            rootptr[0] = new_root
-            new_root = NULL
-            success = True
-        finally:
-            if not success:
-                vnaproperty_delete(&new_root, ".")
+        self._set_properties(-1, value)
 
 
     ######################################################################
