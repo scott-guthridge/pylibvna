@@ -276,17 +276,40 @@ cdef class Solver:
     cdef double p_tolerance
     cdef int iteration_limit
 
-    def __cinit__(self):
-        calset = NULL
-        frequencies = 0
-        vnp = NULL
-        pvalue_limit = 0.001
-        et_tolerance = 1.0e-6
-        p_tolerance = 1.0e-6
-        iteration_limit = 30
+    def __cinit__(self, Calset calset, CalType ctype, int rows, int columns,
+                  frequency_vector, double complex z0 = 50.0):
+        if calset is None:
+            raise ValueError("calset cannot be None")
 
-    def __init__(self):
-        raise TypeError("This class cannot be instantiated directly.")
+        frequency_vector = np.asarray(frequency_vector, dtype=np.double,
+                                      order="C")
+        if frequency_vector.ndim != 1:
+            raise ValueError("frequency_vector must be 1 dimensional "
+                             "array-like")
+        cdef vnacal_t *vcp = calset.vcp
+        cdef vnacal_new_t *vnp = NULL
+        vnp = vnacal_new_alloc(vcp, <vnacal_type_t>ctype, rows, columns,
+                               len(frequency_vector))
+        if vnp == NULL:
+            calset._handle_error(-1)
+        cdef int rc
+        cdef const double [::1] fv_view = frequency_vector
+        rc = vnacal_new_set_frequency_vector(vnp, &fv_view[0])
+        if rc == -1:
+            vnacal_new_free(vnp)
+            calset._handle_error(-1)
+        if z0 != 50.0:
+            rc = vnacal_new_set_z0(vnp, z0)
+            if rc == -1:
+                vnacal_new_free(vnp)
+                calset._handle_error(-1)
+        self.calset = calset
+        self.frequencies = len(frequency_vector)
+        self.vnp = vnp
+        self.pvalue_limit = 0.001
+        self.et_tolerance = 1.0e-6
+        self.p_tolerance = 1.0e-6
+        self.iteration_limit = 30
 
     def __dealloc__(self):
         # Note that the reference on calset is released after this
@@ -1046,38 +1069,6 @@ cdef class Calset:
         cdef int rc = vnacal_save(self.vcp, <const char *>&cfilename[0])
         self._handle_error(rc)
 
-    def make_solver(self, CalType ctype, frequency_vector,
-                    int rows, int columns, double complex z0 = 50.0) -> Solver:
-        """
-        Create and return a new error term solver.
-        """
-        frequency_vector = np.asarray(frequency_vector, dtype=np.double,
-                                      order="C")
-        if frequency_vector.ndim != 1:
-            raise ValueError("frequency_vector must be 1 dimensional "
-                             "array-like")
-        cdef vnacal_t *vcp = self.vcp
-        cdef vnacal_new_t *vnp = NULL
-        vnp = vnacal_new_alloc(vcp, <vnacal_type_t>ctype, rows, columns,
-                               len(frequency_vector))
-        if vnp == NULL:
-            self._handle_error(-1)
-        cdef int rc
-        cdef const double [::1] fv_view = frequency_vector
-        rc = vnacal_new_set_frequency_vector(vnp, &fv_view[0])
-        if rc == -1:
-            vnacal_new_free(vnp)
-            self._handle_error(-1)
-        if z0 != 50.0:
-            rc = vnacal_new_set_z0(vnp, z0)
-            if rc == -1:
-                vnacal_new_free(vnp)
-                self._handle_error(-1)
-        cdef Solver solver = Solver.__new__(Solver)
-        solver.calset = self
-        solver.frequencies = len(frequency_vector)
-        solver.vnp = vnp
-        return solver
 
     def add(self, Solver solver, name):
         """

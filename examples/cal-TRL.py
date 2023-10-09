@@ -64,7 +64,7 @@ def make_calibration():
     # Make the through measurement.  With the returned frequency vector,
     # create the error term solver, then add the measurement.
     (f_vector, a, b) = vna.measure(sim.Measurement.THROUGH)
-    solver = calset.make_solver(CalType.TE10, f_vector, 2, 2)
+    solver = Solver(calset, CalType.TE10, 2, 2, f_vector)
     solver.add_through(a, b, 1, 2)
 
     # Create the unknown reflect parameter with initial value -1 (short).

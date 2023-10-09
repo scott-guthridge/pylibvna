@@ -180,7 +180,7 @@ def make_calibration():
     f_vector = logspace(log10(F_MIN), log10(F_MAX), C_FREQUENCIES)
 
     # Create the error term solver with E12 error terms.
-    solver = calset.make_solver(CalType.E12, f_vector, C_ROWS, C_COLUMNS)
+    solver = Solver(calset, CalType.E12, C_ROWS, C_COLUMNS, f_vector)
 
     #
     # Perform each of short, open and load calibration on port 1, assuming
