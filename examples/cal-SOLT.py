@@ -10,7 +10,7 @@ from math import log10
 from numpy import complex128, empty, flipud, hstack, logspace, matmul, ones, pi
 from matplotlib import ticker
 from matplotlib.pyplot import show, subplots
-from libvna.cal import CalSet, CalType, Parameter, Solver
+from libvna.cal import Calset, CalType, Parameter, Solver
 from libvna.data import NPData
 
 #
@@ -174,7 +174,7 @@ def make_calibration():
     """
 
     # Create a new container to hold the calibration.
-    calset = CalSet.create()
+    calset = Calset.create()
 
     # Create the calibration frequency vector.
     f_vector = logspace(log10(F_MIN), log10(F_MAX), C_FREQUENCIES)
@@ -220,7 +220,7 @@ def apply_calibration():
     # Load the calibration set from a file and select the cal_2x1
     # calibration we created above.
     #
-    calset = CalSet.load("SOLT.vnacal")
+    calset = Calset.load("SOLT.vnacal")
     calibration = calset.calibrations["cal_2x1"]
 
     #

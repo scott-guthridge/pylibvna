@@ -52,7 +52,7 @@ cdef void _error_fn(const char *message, void *error_arg,
     # """
     # C callback function for vnaerr
     # """
-    self = <CalSet>error_arg
+    self = <Calset>error_arg
     if self._thread_local._vna_cal_exception is not None:
         return
     umessage = (<bytes>message).decode("utf8")
@@ -200,7 +200,7 @@ cdef class Parameter:
     """
     A known or unknown parameter of a calibration standard
     """
-    cdef CalSet calset
+    cdef Calset calset
     cdef int pindex
 
     def __cinit__(self):
@@ -211,7 +211,7 @@ cdef class Parameter:
         raise TypeError("This class cannot be instantiated directly.")
 
     def __dealloc__(self):
-        cdef CalSet calset = self.calset
+        cdef Calset calset = self.calset
         cdef pindex = self.pindex
         if calset is not None and pindex >= 3:
             vnacal_delete_parameter(calset.vcp, pindex)
@@ -268,7 +268,7 @@ cdef object _prepare_C_array(object array, object name, int frequencies,
 
 
 cdef class Solver:
-    cdef CalSet calset
+    cdef Calset calset
     cdef int frequencies
     cdef vnacal_new_t *vnp
     cdef double _pvalue_limit
@@ -717,7 +717,7 @@ cdef class Solver:
 
 
 cdef class Calibration:
-    cdef CalSet calset
+    cdef Calset calset
     cdef int ci
 
     @property
@@ -919,14 +919,14 @@ cdef class _CalHelper:
     # Internal class that provides __getitem__, __delitem__, etc on
     # calibrations.
     # """
-    cdef CalSet calset
+    cdef Calset calset
 
     def _find_ci_by_index_or_name(self, index):
         # """
         # Find the vnacal calibration index (ci) from the dense
         # index or name.
         # """
-        cdef CalSet calset = self.calset
+        cdef Calset calset = self.calset
         cdef vnacal_t *vcp = calset.vcp
         cdef Calibration calibration
         if isinstance(index, int):
@@ -941,7 +941,7 @@ cdef class _CalHelper:
         """
         Return a Calibration by name or position.
         """
-        cdef CalSet calset = self.calset
+        cdef Calset calset = self.calset
         cdef int ci = self._find_ci_by_index_or_name(index)
         cdef Calibration calibration
         calibration = Calibration()
@@ -950,14 +950,14 @@ cdef class _CalHelper:
         return calibration
 
     def __len__(self):
-        cdef CalSet calset = self.calset
+        cdef Calset calset = self.calset
         return len(calset._index_to_ci)
 
     def __delitem__(self, index):
         """
         Delete a calibration.
         """
-        cdef CalSet calset = self.calset
+        cdef Calset calset = self.calset
         cdef vnacal_t *vcp = calset.vcp
         cdef int ci = self._find_ci_by_index_or_name(index)
         cdef int rc = vnacal_delete_calibration(vcp, ci)
@@ -968,7 +968,7 @@ cdef class _CalHelper:
         """
         Iterate over the Calibrations
         """
-        cdef CalSet calset = self.calset
+        cdef Calset calset = self.calset
         cdef int i
         for i in range(len(calset._index_to_ci)):
             yield self[i]
@@ -977,7 +977,7 @@ cdef class _CalHelper:
         """
         Iterate reversed over the Calibrations
         """
-        cdef CalSet calset = self.calset
+        cdef Calset calset = self.calset
         cdef int i
         for i in reversed(range(len(calset._index_to_ci))):
             yield self[i]
@@ -993,7 +993,7 @@ cdef class _CalHelper:
         return "Calibrations: " + str(d)
 
 
-cdef class CalSet:
+cdef class Calset:
     """
     One or more vector network analyzer calibrations with a
     common save file
@@ -1039,20 +1039,20 @@ cdef class CalSet:
     @staticmethod
     def create():
         """
-        Return an empty CalSet.
+        Return an empty Calset.
         """
-        return CalSet();
+        return Calset();
 
     @staticmethod
     def load(filename):
         """
-        Load a calibration file and return a CalSet object.
+        Load a calibration file and return a Calset object.
         """
-        return CalSet(filename)
+        return Calset(filename)
 
     def save(self, filename):
         """
-        Save the CalSet to a file.
+        Save the Calset to a file.
         """
         if isinstance(filename, unicode):
             filename = (<unicode>filename).encode("UTF-8")
@@ -1095,7 +1095,7 @@ cdef class CalSet:
 
     def add(self, Solver solver, name):
         """
-        Add a new solved calibration to the CalSet.
+        Add a new solved calibration to the Calset.
         """
         cdef vnacal_t *vcp = self.vcp
         cdef vnacal_new_t *vnp = solver.vnp

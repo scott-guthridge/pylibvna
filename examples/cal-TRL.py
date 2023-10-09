@@ -21,7 +21,7 @@ import sim_VNA as sim
 import cmath as c
 from math import sqrt
 import numpy as np
-from libvna.cal import CalSet, CalType, Parameter, Solver
+from libvna.cal import Calset, CalType, Parameter, Solver
 from libvna.data import NPData, PType
 
 # Misc constants:
@@ -59,7 +59,7 @@ def make_calibration():
     vna = sim.VNA(C_FMIN, C_FMAX, C_FREQUENCIES)
 
     # Create a new container to hold the calibration.
-    calset = CalSet.create()
+    calset = Calset.create()
 
     # Make the through measurement.  With the returned frequency vector,
     # create the error term solver, then add the measurement.
@@ -88,7 +88,7 @@ def make_calibration():
     s = [[0.0, unknown_line], [unknown_line, 0.0]]
     solver.add_line(a, b, s, 1, 2)
 
-    # Solve for the error terms.  Add them back to the CalSet and save
+    # Solve for the error terms.  Add them back to the Calset and save
     # the calibration to a file.
     solver.solve()
     calset.add(solver, "TE10")
@@ -108,7 +108,7 @@ def apply_calibration():
     vna = sim.VNA(dut_file="JA4220-AL.s2p")
 
     # Load the calibration set and find the calibration named "TE10"
-    calset = CalSet.load("TRL.vnacal")
+    calset = Calset.load("TRL.vnacal")
     calibration = calset.calibrations["TE10"]
 
     # Measure the device under test (DUT) with the flawed VNA
