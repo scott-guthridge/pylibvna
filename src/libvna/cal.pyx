@@ -921,6 +921,28 @@ cdef class Solver:
         cdef int rc = vnacal_new_solve(self.vnp)
         self.calset._handle_error(rc)
 
+    def add_to_calset(self, name) -> int:
+        """
+        Add the solved calibration to the Calset.
+
+        Parameters:
+            name:
+                Name for the calibration.
+
+        Returns:
+            Index of the new entry in Calset.calibrations
+        """
+        cdef vnacal_t *vcp = self.calset.vcp
+        cdef vnacal_new_t *vnp = self.vnp
+        if isinstance(name, unicode):
+            name = (<unicode>name).encode("UTF-8")
+        cdef const unsigned char[:] c_name = name
+        cdef int rc = vnacal_add_calibration(vcp, <const char *>&c_name[0],
+                                             vnp)
+        self.calset._handle_error(rc)
+        self.calset._index_to_ci.append(rc)
+        return len(self.calset._index_to_ci) - 1
+
 
 cdef class Calibration:
     cdef Calset calset
@@ -1096,28 +1118,19 @@ cdef class Calibration:
         scalars and None representing the properties of this calibration.
         Writing this this property replaces the property tree.
         """
-        cdef vnacal_t *vcp = self.calset.vcp
         cdef int ci = self.ci
-        cdef vnaproperty_t *root = vnacal_property_get_subtree(vcp, ci, ".")
-        return _property_to_py(root)
+        return self.calset._get_properties(ci)
 
     @properties.setter
     def properties(self, value):
-        # no docstring for setter
-        cdef vnacal_t *vcp = self.calset.vcp
         cdef int ci = self.ci
-        cdef vnaproperty_t **rootptr
-        cdef vnaproperty_t *new_root = NULL
-        success = False
-        try:
-            _py_to_property(value, &new_root)
-            rootptr = vnacal_property_set_subtree(vcp, ci, ".")
-            rootptr[0] = new_root
-            new_root = NULL
-            success = True
-        finally:
-            if not success:
-                vnaproperty_delete(&new_root, ".")
+        self.calset._set_properties(ci, value)
+
+    def __str__(self):
+        return f"name=\"{self.name}\", ctype={self.ctype.name}, " \
+               f"rows={self.rows}, columns={self.columns}, " \
+               f"fmin={self.frequency_vector[0]:.3e}, " \
+               f"fmax={self.frequency_vector[-1]:.3e}"
 
 
 cdef class _CalHelper:
@@ -1143,7 +1156,7 @@ cdef class _CalHelper:
 
         raise IndexError("index must have type int or str")
 
-    def __getitem__(self, index):
+    def __getitem__(self, index) -> Calibration:
         """
         Return a Calibration by name or position.
         """
@@ -1188,15 +1201,17 @@ cdef class _CalHelper:
         for i in reversed(range(len(calset._index_to_ci))):
             yield self[i]
 
-    def __string__(self):
+    def __str__(self):
         """
         Return a string representation of the Calibrations array
         """
-        d = {}
+        result = ""
         cdef int i
-        for i, name in enumerate(self):
-            d[i] = name
-        return "Calibrations: " + str(d)
+        for i, cal in enumerate(self.calset.calibrations):
+            if i > 0:
+                result += "\n"
+            result += str(cal)
+        return result
 
 
 cdef class Calset:
@@ -1205,6 +1220,7 @@ cdef class Calset:
     common save file
     """
     cdef vnacal_t *vcp
+    cdef object _properties
     cdef object _thread_local
     cdef object _index_to_ci
 
@@ -1214,6 +1230,7 @@ cdef class Calset:
         cdef vnacal_type_t ctype
         cdef const unsigned char[:] cfilename
         self.vcp = NULL
+        self._properties = list()
         self._thread_local = local()
         self._thread_local._vna_cal_exception = None
         self._thread_local._vna_cal_warning = None
@@ -1251,21 +1268,6 @@ cdef class Calset:
         cdef const unsigned char[:] cfilename = filename
         cdef int rc = vnacal_save(self.vcp, <const char *>&cfilename[0])
         self._handle_error(rc)
-
-
-    def add(self, Solver solver, name):
-        """
-        Add a new solved calibration to the Calset.
-        """
-        cdef vnacal_t *vcp = self.vcp
-        cdef vnacal_new_t *vnp = solver.vnp
-        if isinstance(name, unicode):
-            name = (<unicode>name).encode("UTF-8")
-        cdef const unsigned char[:] c_name = name
-        cdef int rc = vnacal_add_calibration(vcp, <const char *>&c_name[0],
-                                             vnp)
-        self._handle_error(rc)
-        self._index_to_ci.append(rc)
 
     def index(self, name) -> int:
         """

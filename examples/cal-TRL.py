@@ -91,7 +91,7 @@ def make_calibration():
     # Solve for the error terms.  Add them back to the Calset and save
     # the calibration to a file.
     solver.solve()
-    calset.add(solver, "TE10")
+    solver.add_to_calset("TE10")
     calset.save("TRL.vnacal")
 
     # Plot the solved unknown parameters.

@@ -208,7 +208,7 @@ def make_calibration():
 
     # Solve for the error terms, add them to the calset and save to a file.
     solver.solve()
-    calset.add(solver, "cal_2x1")
+    solver.add_to_calset("cal_2x1")
     calset.save("SOLT.vnacal")
 
 
