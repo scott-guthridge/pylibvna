@@ -271,19 +271,19 @@ cdef class Solver:
     cdef Calset calset
     cdef int frequencies
     cdef vnacal_new_t *vnp
-    cdef double _pvalue_limit
-    cdef double _et_tolerance
-    cdef double _p_tolerance
-    cdef int _iteration_limit
+    cdef double pvalue_limit
+    cdef double et_tolerance
+    cdef double p_tolerance
+    cdef int iteration_limit
 
     def __cinit__(self):
         calset = NULL
         frequencies = 0
         vnp = NULL
-        _pvalue_limit = 0.001
-        _et_tolerance = 1.0e-6
-        _p_tolerance = 1.0e-6
-        _iteration_limit = 30
+        pvalue_limit = 0.001
+        et_tolerance = 1.0e-6
+        p_tolerance = 1.0e-6
+        iteration_limit = 30
 
     def __init__(self):
         raise TypeError("This class cannot be instantiated directly.")
@@ -648,7 +648,7 @@ cdef class Solver:
         This parameter has no effect if set_m_error is not called
         to enable measurement error modeling.
         """
-        return self._pvalue_limit
+        return self.pvalue_limit
 
     @pvalue_limit.setter
     def pvalue_limit(self, double value):
@@ -656,7 +656,7 @@ cdef class Solver:
         cdef int rc
         rc = vnacal_new_set_pvalue_limit(self.vnp, value)
         self.calset._handle_error(rc)
-        self._pvalue_limit = value
+        self.pvalue_limit = value
 
     @property
     def et_tolerance(self):
@@ -664,7 +664,7 @@ cdef class Solver:
         Degree of change in the root-mean-squared of the error terms
         sufficiently small to stop iteration.  Default is 1.0e-6.
         """
-        return self._et_tolerance
+        return self.et_tolerance
 
     @et_tolerance.setter
     def et_tolerance(self, double value):
@@ -672,7 +672,7 @@ cdef class Solver:
         cdef int rc
         rc = vnacal_new_set_et_tolerance(self.vnp, value)
         self.calset._handle_error(rc)
-        self._et_tolerance = value
+        self.et_tolerance = value
 
     @property
     def p_tolerance(self):
@@ -682,7 +682,7 @@ cdef class Solver:
         has no effect if there are no unknown parameters in the S matrix.
         Default is 1.0e-6.
         """
-        return self._et_tolerance
+        return self.et_tolerance
 
     @p_tolerance.setter
     def p_tolerance(self, double value):
@@ -690,7 +690,7 @@ cdef class Solver:
         cdef int rc
         rc = vnacal_new_set_p_tolerance(self.vnp, value)
         self.calset._handle_error(rc)
-        self._p_tolerance = value
+        self.p_tolerance = value
 
     @property
     def iteration_limit(self):
@@ -698,7 +698,7 @@ cdef class Solver:
         For iterative solutions, this parameter controls the maximum
         number of iterations permitted to reach convergence.
         """
-        return self._iteration_limit
+        return self.iteration_limit
 
     @iteration_limit.setter
     def iteration_limit(self, int value):
@@ -706,7 +706,7 @@ cdef class Solver:
         cdef int rc
         rc = vnacal_new_set_iteration_limit(self.vnp, value)
         self.calset._handle_error(rc)
-        self._iteration_limit = value
+        self.iteration_limit = value
 
     def solve(self):
         """
