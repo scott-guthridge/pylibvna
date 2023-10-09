@@ -1036,20 +1036,6 @@ cdef class Calset:
     def __dealloc__(self):
         vnacal_free(self.vcp)
 
-    @staticmethod
-    def create():
-        """
-        Return an empty Calset.
-        """
-        return Calset();
-
-    @staticmethod
-    def load(filename):
-        """
-        Load a calibration file and return a Calset object.
-        """
-        return Calset(filename)
-
     def save(self, filename):
         """
         Save the Calset to a file.

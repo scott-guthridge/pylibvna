@@ -174,7 +174,7 @@ def make_calibration():
     """
 
     # Create a new container to hold the calibration.
-    calset = Calset.create()
+    calset = Calset()
 
     # Create the calibration frequency vector.
     f_vector = logspace(log10(F_MIN), log10(F_MAX), C_FREQUENCIES)
@@ -220,7 +220,7 @@ def apply_calibration():
     # Load the calibration set from a file and select the cal_2x1
     # calibration we created above.
     #
-    calset = Calset.load("SOLT.vnacal")
+    calset = Calset("SOLT.vnacal")
     calibration = calset.calibrations["cal_2x1"]
 
     #
