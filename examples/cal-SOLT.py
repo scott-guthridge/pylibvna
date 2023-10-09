@@ -10,7 +10,7 @@ from math import log10
 from numpy import complex128, empty, flipud, hstack, logspace, matmul, ones, pi
 from matplotlib import ticker
 from matplotlib.pyplot import show, subplots
-from libvna.cal import Calset, CalType, Parameter, Solver
+from libvna.cal import Calset, CalType, Solver
 from libvna.data import NPData
 
 #

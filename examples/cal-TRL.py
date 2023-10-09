@@ -21,7 +21,7 @@ import sim_VNA as sim
 import cmath as c
 from math import sqrt
 import numpy as np
-from libvna.cal import Calset, CalType, Parameter, Solver
+from libvna.cal import Calset, CalType, Parameter, UnknownParameter, Solver
 from libvna.data import NPData, PType
 
 # Misc constants:
@@ -68,7 +68,7 @@ def make_calibration():
     solver.add_through(a, b, 1, 2)
 
     # Create the unknown reflect parameter with initial value -1 (short).
-    unknown_reflect = calset.make_unknown(-1)
+    unknown_reflect = UnknownParameter(calset, -1)
 
     # Make the reflect measurement.
     (_, a, b) = vna.measure(sim.Measurement.IMPERFECT_REFLECT)
@@ -81,7 +81,7 @@ def make_calibration():
     for findex, f in enumerate(f_vector):
         gl = ideal_gamma(f) * LINE_LENGTH
         l_ideal[findex] = c.exp(-gl)
-    unknown_line = calset.make_unknown((f_vector, l_ideal))
+    unknown_line = UnknownParameter(calset, (f_vector, l_ideal))
 
     # Make the line measurement and add.
     (_, a, b) = vna.measure(sim.Measurement.IMPERFECT_LINE)

@@ -208,7 +208,7 @@ cdef class Parameter:
         self.pindex = -1
 
     def __init__(self):
-        raise TypeError("This class cannot be instantiated directly.")
+        raise TypeError("Can't instantiate abstract class Parameter")
 
     def __dealloc__(self):
         cdef Calset calset = self.calset
@@ -216,12 +216,195 @@ cdef class Parameter:
         if calset is not None and pindex >= 3:
             vnacal_delete_parameter(calset.vcp, pindex)
 
+    @staticmethod
+    cdef Parameter _generalize(Calset calset, parameter):
+        # """
+        # If a number is found where a Parameter is expected, automatically
+        # convert it into a scalar parameter.  If a tuple(f_vector, g_vector)
+        # is found, automatically convert it to a vector parameter.
+        # """
+        assert calset is not None
+        cdef double complex value
+        if isinstance(parameter, Parameter):
+            return parameter
+        if isinstance(parameter, complex) or isinstance(parameter, float) \
+                or isinstance(parameter, int):
+            return ScalarParameter(calset, parameter)
+        if isinstance(parameter, tuple):
+            if len(parameter) != 2:
+                raise ValueError("expected Parameter, number or "
+                                 "tuple(frequency_vector, gamma_vector)")
+            return VectorParameter(calset, *parameter)
+        raise ValueError("parameter must be class Parameter, a number, or "
+                         "tuple(frequency_vector, gamma_vector)")
+
     def get_value(self, frequency) -> complex:
         cdef vnacal_t *vcp = self.calset.vcp
         cdef complex result
         result = vnacal_get_parameter_value(vcp, self.pindex, frequency)
         self.calset._handle_error(0)
         return result
+
+
+cdef class ScalarParameter(Parameter):
+    """
+    An element of the S parameter matrix of a calibration standard that
+    has a constant value at all frequencies, e.g. -1 for short.
+
+    Parameters:
+        calset (Calset):
+            The associated calibration set.
+        gamma (complex):
+            an element of the S parameter matrix of the standard
+            that doesn't depend on frequency, e.g. 0 for match.
+    """
+    def __cinit__(self, Calset calset, gamma):
+        if calset is None:
+            raise ValueError("calset cannot be None")
+        cdef vnacal_t *vcp = calset.vcp
+        cdef int rc
+        if gamma == 0.0:        # special-case these values
+            rc = VNACAL_MATCH
+        elif gamma == +1.0:
+            rc = VNACAL_OPEN
+        elif gamma == -1.0:
+            rc = VNACAL_SHORT
+        else:
+            rc = vnacal_make_scalar_parameter(vcp, gamma)
+            calset._handle_error(rc)
+        self.calset = calset
+        self.pindex = rc
+
+    def __init__(self, *args, **kwargs):
+        pass
+
+
+cdef class VectorParameter(Parameter):
+    """
+    An element of the S parameter matrix of a calibration standard
+    that varies with frequency.
+
+    Parameters:
+        calset (Calset):
+            The associated calibration set.
+        frequency_vector (vector of float):
+            monotonically increasing list of frequencies
+        gamma_vector (vector of complex):
+            list or array of complex values corresponding
+            to each frequency in *frequency_vector*
+
+    The frequencies must cover the entire span of the calibration
+    frequency range, but do not have to coincide with the calibration
+    frequencies -- the library uses rational function interpolation
+    as needed to interpolate between frequency points.
+    """
+    def __cinit__(self, Calset calset, frequency_vector, gamma_vector):
+        if calset is None:
+            raise ValueError("calset cannot be None")
+        cdef vnacal_t *vcp = calset.vcp
+        frequency_vector = np.asarray(frequency_vector, dtype=np.double,
+                                      order="C")
+        if frequency_vector.ndim != 1:
+            raise ValueError("frequency_vector must be a one-dimensional "
+                             "array")
+        gamma_vector = np.asarray(gamma_vector, dtype=np.complex128,
+                                  order="C")
+        if gamma_vector.ndim != 1:
+            raise ValueError("gamma_vector must be a one-dimensional array")
+        if len(gamma_vector) != len(frequency_vector):
+            raise ValueError("gamma_vector must be same length as "
+                             "frequency_vector")
+        cdef const double [::1] fv_view = frequency_vector
+        cdef const double complex [::1] gv_view = gamma_vector
+        cdef int rc = vnacal_make_vector_parameter(vcp, &fv_view[0],
+                                                   len(frequency_vector),
+                                                   &gv_view[0])
+        calset._handle_error(rc)
+        self.calset = calset
+        self.pindex = rc
+
+    def __init__(self, *args, **kwargs):
+        pass
+
+
+cdef class UnknownParameter(Parameter):
+    """
+    An element of the S parameter matrix of a calibration standard that
+    is only approximately known and that the library must determine.
+
+    Parameters:
+        calset (Calset):
+            The associated calibration set.
+        initial_guess (complex, list of (frequency, gamma) tuples or Parameter):
+            Starting value of the unknown parameter
+    """
+    def __cinit__(self, Calset calset, initial_guess):
+        if calset is None:
+            raise ValueError("calset cannot be None")
+        cdef vnacal_t *vcp = calset.vcp
+        cdef Parameter c_other = Parameter._generalize(calset, initial_guess)
+        cdef int rc = vnacal_make_unknown_parameter(vcp, c_other.pindex)
+        calset._handle_error(rc)
+        self.calset = calset
+        self.pindex = rc
+
+    def __init__(self, *args, **kwargs):
+        pass
+
+
+cdef class CorrelatedParameter(Parameter):
+    """
+    An element of the S parameter matrix of a calibration standard
+    that is known to be correlated with another (possibly unknown)
+    Parameter.  This type of parameter is useful for modeling connection
+    non-repeatability.
+
+    Parameters:
+        calset (Calset):
+            The associated calibration set.
+        other (Parameter):
+            Another Parameter to which this
+            Parameter is known to be correlated
+        frequency_vector (vector of float):
+            monotonically increasing list of frequencies
+        sigma_vector (vector of float):
+            standard deviations of the differences between
+            this Parameter and its correlate at
+            each frequency
+
+    The frequencies must cover at least the entire span of the calibration
+    frequency range, but do not have to coincide with the calibration
+    frequencies -- the library uses natural cubic spline interpolation
+    as needed to interpolate between points.
+    """
+    def __cinit__(self, Calset calset, other, frequency_vector, sigma_vector):
+        if calset is None:
+            raise ValueError("calset cannot be None")
+        cdef vnacal_t *vcp = calset.vcp
+        cdef Parameter c_other = Parameter._generalize(calset, other)
+        frequency_vector = np.asarray(frequency_vector, dtype=np.double,
+                                      order="C")
+        if frequency_vector.ndim != 1:
+            raise ValueError("frequency_vector must be a one-dimensional "
+                             "array")
+        sigma_vector = np.asarray(sigma_vector, dtype=np.complex128, order="C")
+        if sigma_vector.ndim != 1:
+            raise ValueError("sigma_vector must be a one-dimensional array")
+        if len(sigma_vector) != len(frequency_vector):
+            raise ValueError("sigma_vector must be same length as "
+                             "frequency_vector")
+        cdef const double [::1] fv_view = frequency_vector
+        cdef const double [::1] sv_view = sigma_vector
+        cdef int rc = vnacal_make_correlated_parameter(vcp, c_other.pindex,
+                                                       &fv_view[0],
+                                                       len(frequency_vector),
+                                                       &sv_view[0])
+        calset._handle_error(rc)
+        self.calset = calset
+        self.pindex = rc
+
+    def __init__(self, *args, **kwargs):
+        pass
 
 
 cdef object _prepare_C_array(object array, object name, int frequencies,
@@ -344,7 +527,7 @@ cdef class Solver:
             #
             # Prepare S parameters
             #
-            c_s11 = self.calset._generalize_parameter(s11)
+            c_s11 = Parameter._generalize(self.calset, s11)
 
             #
             # Call add function
@@ -394,8 +577,8 @@ cdef class Solver:
             #
             # Prepare S parameters
             #
-            c_s11 = self.calset._generalize_parameter(s11)
-            c_s22 = self.calset._generalize_parameter(s22)
+            c_s11 = Parameter._generalize(self.calset, s11)
+            c_s22 = Parameter._generalize(self.calset, s22)
 
             #
             # Call add function
@@ -498,7 +681,7 @@ cdef class Solver:
                 raise ValueError("s must be a 2x2 matrix of parameters")
             for i in range(2):
                 for j in range(2):
-                    c_parameter = self.calset._generalize_parameter(s[i, j])
+                    c_parameter = Parameter._generalize(self.calset, s[i, j])
                     s[i, j] = c_parameter
                     si[i][j] = c_parameter.pindex
 
@@ -570,7 +753,7 @@ cdef class Solver:
             k = 0
             for i in range(s_rows):
                 for j in range(s_columns):
-                    c_parameter = self.calset._generalize_parameter(s[i, j])
+                    c_parameter = Parameter._generalize(self.calset, s[i, j])
                     s[i, j] = c_parameter
                     sip[k] = c_parameter.pindex
                     k += 1
@@ -1098,129 +1281,6 @@ cdef class Calset:
             if cp.decode("UTF-8") == name:
                 return i
         raise IndexError(f"calibration {name} not found")
-
-    cdef Parameter _generalize_parameter(self, parameter):
-        # """
-        # If a number is found where a Parameter is expected, automatically
-        # convert it into a scalar parameter.  If a tuple(f_vector, g_vector)
-        # is found, automatically convert it to a vector parameter.
-        # """
-        if isinstance(parameter, Parameter):
-            return parameter
-        cdef double complex value
-        if isinstance(parameter, complex) or isinstance(parameter, float) \
-                or isinstance(parameter, int):
-            return self.make_scalar(parameter)
-        if isinstance(parameter, tuple):
-            if len(parameter) != 2:
-                raise ValueError("expected Parameter, number or "
-                                 "tuple(frequency_vector, gamma_vector)")
-            return self.make_vector(*parameter)
-        raise ValueError("parameter must be class Parameter, a number, or "
-                         "tuple(frequency_vector, gamma_vector)")
-
-    def make_scalar(self, double complex gamma) -> Parameter:
-        """
-        Make a frequency-independent S parameter with value gamma.
-        """
-        cdef vnacal_t *vcp = self.vcp
-        cdef int rc
-        if gamma == 0.0:        # special-case these values
-            rc = VNACAL_MATCH
-        elif gamma == +1.0:
-            rc = VNACAL_OPEN
-        elif gamma == -1.0:
-            rc = VNACAL_SHORT
-        else:
-            rc = vnacal_make_scalar_parameter(vcp, gamma)
-            self._handle_error(rc)
-        cdef Parameter parameter = Parameter.__new__(Parameter)
-        parameter.calset = self
-        parameter.pindex = rc
-        return parameter
-
-    def make_vector(self, frequency_vector, gamma_vector) -> Parameter:
-        """
-        Make a frequency-dependent S parameter with values in
-        gamma_vector.  The frequencies given here must cover the entire
-        span of the calibration frequency range, but do not have to
-        coincide with the calibration frequencies -- the function uses
-        rational function interpolation as needed to interpolate between
-        points.
-        """
-        cdef vnacal_t *vcp = self.vcp
-        frequency_vector = np.asarray(frequency_vector, dtype=np.double,
-                                      order="C")
-        if frequency_vector.ndim != 1:
-            raise ValueError("frequency_vector must be a one-dimensional "
-                             "array")
-        gamma_vector = np.asarray(gamma_vector, dtype=np.complex128, order="C")
-        if gamma_vector.ndim != 1:
-            raise ValueError("gamma_vector must be a one-dimensional array")
-        if len(gamma_vector) != len(frequency_vector):
-            raise ValueError("gamma_vector must be same length as "
-                             "frequency_vector")
-        cdef const double [::1] fv_view = frequency_vector
-        cdef const double complex [::1] gv_view = gamma_vector
-        cdef int rc = vnacal_make_vector_parameter(vcp, &fv_view[0],
-                                                   len(frequency_vector),
-                                                   &gv_view[0])
-        self._handle_error(rc)
-        cdef Parameter parameter = Parameter.__new__(Parameter)
-        parameter.calset = self
-        parameter.pindex = rc
-        return parameter
-
-    def make_unknown(self, other) -> Parameter:
-        """
-        Make an unknown S parameter that the Solver must determine
-        using the given starting value.
-        """
-        cdef vnacal_t *vcp = self.vcp
-        cdef Parameter c_other = self._generalize_parameter(other)
-        cdef int rc = vnacal_make_unknown_parameter(vcp, c_other.pindex)
-        self._handle_error(rc)
-        cdef Parameter parameter = Parameter.__new__(Parameter)
-        parameter.calset = self
-        parameter.pindex = rc
-        return parameter
-
-    def make_correlated(self, other,
-                        frequency_vector, sigma_vector) -> Parameter:
-        """
-        Make an unknown S parameter that is known to be correlated
-        with another (possibly unknown) parameter with per-frequency
-        standard deviation of the difference given by frequency_vector
-        and sigma_vector.  The frequencies given here must cover the
-        entire span of the calibration frequency range, but do not have
-        to coincide with the calibration frequencies -- the function
-        uses natural cubic spline interpolation as needed to interpolate
-        between points.
-        """
-        cdef vnacal_t *vcp = self.vcp
-        cdef Parameter c_other = self._generalize_parameter(other)
-        frequency_vector = np.asarray(frequency_vector, dtype=np.double,
-                                      order="C")
-        if frequency_vector.ndim != 1:
-            raise ValueError("frequency_vector must be a one-dimensional "
-                             "array")
-        sigma_vector = np.asarray(sigma_vector, dtype=np.complex128, order="C")
-        if sigma_vector.ndim != 1:
-            raise ValueError("sigma_vector must be a one-dimensional array")
-        if len(sigma_vector) != len(frequency_vector):
-            raise ValueError("sigma_vector must be same length as "
-                             "frequency_vector")
-        cdef const double [::1] fv_view = frequency_vector
-        cdef const double [::1] sv_view = sigma_vector
-        cdef int rc = vnacal_make_correlated_parameter(vcp, c_other.pindex,
-                                                       &fv_view[0],
-                                                       len(frequency_vector),
-                                                       &sv_view[0])
-        self._handle_error(rc)
-        cdef Parameter parameter = Parameter.__new__(Parameter)
-        parameter.calset = self
-        parameter.pindex = rc
-        return parameter
 
     @property
     def calibrations(self):
