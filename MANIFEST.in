@@ -1,0 +1,9 @@
+include docs/source/conf.py
+include docs/source/*.rst
+include examples/cal-SOLT.py
+include examples/cal-TRL.py
+include examples/convert-file.py
+include examples/JA4220-AL.s2p
+include examples/lpad.py
+include examples/sim_VNA.py
+include examples/testdata.ts

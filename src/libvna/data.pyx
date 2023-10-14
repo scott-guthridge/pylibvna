@@ -45,7 +45,7 @@ cpdef enum PType:
     # - B:   inverse ABCD parameters
     # - ZIN: input impedances (single row-vector)
     # """
-    ANY =  0
+    ANY   =  0
     S     =  1
     T     =  2
     U     =  3
@@ -225,7 +225,7 @@ def _form_double_array(shape, value):
     # Args:
     #    shape: list or tuple giving the required dimensions
     #    value: array-like object
-    # Return:
+    # Returns:
     #    An array in C order with the given dimensions.
     # """
     array = np.asarray(value, dtype=np.double, order="C")
@@ -244,7 +244,7 @@ def _form_complex_array(shape, value):
     # Args:
     #     shape: list or tuple giving the required dimensions
     #     value: array-like object
-    # Return:
+    # Returns:
     #     A complex array in C order with the given dimensions.
     # """
     array = np.asarray(value, dtype=np.complex128, order="C")
@@ -1066,12 +1066,12 @@ cdef class NPData:
     In-memory representation of electrical network parameter data.
 
     Args:
-        ptype (PType, optional): Type of parameter data to be stored:
-            ANY, S, T, U, Z, Y, H, G, A, B, ZIN.  The default is ANY,
-            which stores raw data without interpretation.
+        ptype (PType, optional):
+            Type of parameter data to be stored: ANY, S, T, U, Z, Y,
+            H, G, A, B, ZIN.  The default is ANY, which stores raw data
+            without interpretation.
 
-        rows (int, optional):
-        columns (int, optional):
+        rows (int, optional), columns (int, optional):
             Dimensions of the parameter matrix.  Rows and columns must
             be equal for S, Z and Y parameters.  They must both be 2
             for T, U, H, G, A and B parameters.  Rows must be 1 for
@@ -1092,18 +1092,21 @@ cdef class NPData:
     Raises:
         ValueError: if rows, columns and ptype are not valid
 
-    This class stores a vector of frequency points (frequency_vector),
-    a frequencies x rows x columns array of network parameter data
-    (data_array), and a per-port array of complex reference impedances.
-    The reference impedances can be the same across all frequencies
-    (z0_vector) or can be different for each frequency (fz0_array).
+    This class stores a vector of frequency points
+    :py:attr:`frequency_vector`, a frequencies by rows by columns array
+    of network parameter data :py:attr:`data_array`, and a per-port array
+    of complex reference impedances.  The reference impedances can be
+    the same across all frequencies (z0_vector), or can be different
+    for each frequency (fz0_array).
 
-    The class supports loading and saving in Touchstone versions 1
-    (.s2p) and 2 (.ts), and in a more general space-separated field
-    Network Parameter Data (.npd) format.
+    When given non-zero dimensions, the class is constructed with all data
+    and frequency values initialized to zero, and z0 values initialized
+    to 50 ohms.
 
-    The class supports conversion between parameter types.
-
+    The class provides methods to load and save in Touchstone versions
+    1 (.s2p) and 2 (.ts), and in a more general space-separated value
+    Network Parameter Data (.npd) format.  It also provides conversion
+    between network parameter types.
     """
     cdef vnadata_t *vdp
     cdef object _thread_local
@@ -1156,9 +1159,9 @@ cdef class NPData:
 
     def init(self, ptype, rows, columns, frequencies):
         """
-        Set the ptype and dimensions as indicated by the arguments.
-        Initialize all frequency and data elements to zero and initialize
-        all z0 entries to 50 ohms.
+        Change the ptype and dimensions as indicated by the arguments,
+        and reset all frequency and data elements back to zero and all
+        z0 entries to 50 ohms.
 
         Args:
             ptype (PType): Set the parameter type:
@@ -1186,9 +1189,9 @@ cdef class NPData:
         converting data.  Existing values remain undisturbed when the
         matrix type, number of rows or number of frequencies is changed,
         but shift to other cells when the number of columns is changed.
-        Changing the parameter type with this function does NOT convert
+        Changing the parameter type with this function does not convert
         existing data to the new type.  To convert parameters, use
-        convert.
+        :func:`convert` instead.
 
         Args:
             ptype (PType): Set the parameter type:
@@ -1213,8 +1216,13 @@ cdef class NPData:
     @property
     def ptype(self):
         """
-        The parameter type as a PType enum value.  Values are:
+        The parameter type as a PType enum value.  Valid values are:
             ANY, S, T, U, Z, Y, H, G, A, B, ZIN
+
+        When changing this value, the dimensions must be consistent
+        with the new type.  Existing data is *not* converted.  See the
+        :func:`resize` and :func:`convert` functions for alternative
+        ways to change the type.
 
         Type: PType
         """
@@ -1276,10 +1284,10 @@ cdef class NPData:
     @property
     def frequency_vector(self):
         """
-        Get or set the frequency vector.  Slicing operations are
-        supported.
+        The vector of frequency points (read-write).  Slicing operations
+        are supported.
 
-        Type: array[f_index] of float
+        Type: behaves like array[f_index] of float
         """
         cdef _FrequencyVectorHelper helper = _FrequencyVectorHelper()
         helper.npd = self
@@ -1308,10 +1316,10 @@ cdef class NPData:
 
     def add_frequency(self, double frequency):
         """
-        Add a new frequency entry.  The corresponding new data submatrix
-        (:py:attr:`data_array`\[f_index, :, :]) is initialized to zeros.
-        This function is useful when the number of frequency points is
-        not known in advance.
+        Add a new frequency entry.  The corresponding new data matrix
+        (:py:attr:`data_array`\[-1, :, :]) is initialized to zeros.
+        This function is useful when loading data into the object
+        when the number of frequency points is not known in advance.
 
         Args:
             frequency (float): new frequency value to add
@@ -1327,10 +1335,10 @@ cdef class NPData:
     @property
     def data_array(self):
         """
-        Access network parameter data as an array.
-        Slicing operations are supported.
+        The parameter data array (read-write).  Slicing operations
+        are supported.
 
-        Type: array [f_index, row, column] of complex
+        Type: behaves like array [f_index, row, column] of complex
         """
         cdef _DataArrayHelper helper = _DataArrayHelper()
         helper.npd = self
@@ -1366,12 +1374,12 @@ cdef class NPData:
     @property
     def z0_vector(self):
         """
-        Get or set reference impedances for each port.  If the dimensions
-        have been established, setting this value to a scalar sets all
-        ports to the same reference impedance.  The default value is
-        50 ohms.
+        The vector of reference impedances for each port (read-write).
+        If the dimensions have been established, setting this attribute
+        to a scalar value sets all ports to the same reference impedance.
+        The default value is 50 ohms.
 
-        Type: array[port] of complex
+        Type: behaves like array[port] of complex
         """
         cdef _Z0VectorHelper helper = _Z0VectorHelper()
         helper.npd = self
@@ -1418,8 +1426,8 @@ cdef class NPData:
     @property
     def has_fz0(self):
         """
-        Return True if frequency-dependent system impedances are in
-        effect.
+        True if frequency-dependent system impedances are in effect
+        (read-only).
 
         Type: bool
         """
@@ -1428,10 +1436,12 @@ cdef class NPData:
     @property
     def fz0_array(self):
         """
-        Access frequency-dependent reference impedances as an array.
-        Slicing operations are supported.
+        Frequency-dependent reference impedances as an array
+        (read-write).  Slicing operations are supported.  Assigning to
+        or modifying elements in this array automatically establishes
+        frequency-dependent reference impedances.
 
-        Type: array[f_index, port] of complex
+        Type: behaves like array[f_index, port] of complex
         """
         cdef _FZ0ArrayHelper helper = _FZ0ArrayHelper()
         helper.npd = self
@@ -1481,7 +1491,7 @@ cdef class NPData:
 
     def convert(self, PType new_ptype):
         """
-        Convert to a new parameter type
+        Return a new Data object with data converted to the new type.
 
         Args:
             new_type (PType): new parameter type:
@@ -1588,7 +1598,7 @@ cdef class NPData:
             filename:   name of file used in error messages only
 
         Raises:
-            OSError:        if can't read file
+            OSError:        if can't write file
             ValueError:     if file type inconsistent with parameter data
         """
         # TODO enhancement: catch the UnsupportedOperation exception
@@ -1617,7 +1627,14 @@ cdef class NPData:
 
     def cksave(self, filename):
         """
-        Test if parameter data is consistent with file type.
+        Test if we would be able to save the currently selected format
+        in the currently selected filetype without actually saving.
+
+        This function is useful to test if there's a conflict betweent the
+        requested parameter format and the save file type before doing
+        potentially expensive operations such as VNA measurements only
+        to ultimately fail at save time.  The *filename* argument is used
+        only to determine the filetype when :py:attr:`filetype` is AUTO.
 
         Args:
             filename (str): proposed pathname to save file
@@ -1635,7 +1652,7 @@ cdef class NPData:
     @property
     def filetype(self):
         """
-        Set or return the file type:
+        The file type (read-write):
 
         - AUTO:        Determine type based on filename extension (default)
         - TOUCHSTONE1: Use Touchstone version 1 (.s2p)
@@ -1643,6 +1660,10 @@ cdef class NPData:
         - NPD:         Use network parameter data (.ndp)
 
         Type: FileType
+
+        When a file is loaded, *filetype* is set to the type of the
+        loaded file.  To save in a different format with type based on
+        the file extension, set *filetype* back to AUTO before saving.
         """
         cdef int rc = vnadata_get_filetype(self.vdp)
         self._handle_error(rc)
@@ -1657,7 +1678,7 @@ cdef class NPData:
     @property
     def format(self):
         """
-        Get or set the file format.
+        The file format (str, read-write):
 
         Valid values:
 
@@ -1690,8 +1711,9 @@ cdef class NPData:
         formats can be represented in all file formats.  Touchstone
         formats support only S, Y, Z, H, and G parameters, with version
         1 imposing further restrictions on the maximum number of ports
-        (4), and disallowing per-port Z0 values.  The only file format
-        that can store all formats is .npd.
+        (4), and disallowing per-port Z0 values.  The .npd file type
+        can store all formats.  With the .npd type only, format may be
+        a comma-separated list of formats, e.g. "IL,RL,VSWR".
 
         Type: str
         """
@@ -1711,8 +1733,8 @@ cdef class NPData:
     @property
     def fprecision(self):
         """
-        Set or get the number of significant figures to use for frequency
-        values when saving parameters to a file.
+        The number of significant figures to use for frequency values
+        when saving parameters to a file.  Default is 7.
 
         Type: int
         """
@@ -1729,8 +1751,8 @@ cdef class NPData:
     @property
     def dprecision(self):
         """
-        Set or get the number of significant figures to use for data
-        values when saving parameters to a file.
+        The number of significant figures to use for data values when
+        saving parameters to a file.  Default is 6.
 
         Type: int
         """

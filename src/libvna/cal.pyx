@@ -18,6 +18,31 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #
 
+"""
+This module uses measurements of calibration standards to find error
+terms for vector network analyzers (VNAs), then applies the resulting
+calibration to measurements of devices under test to correct for the
+errors.
+
+The basic sequence for generating a new calibration is:
+
+#. Create a *Calset* object, then a *Solver* object.
+#. Make measurements of calibration standards and add them using the
+   Solver.add_* methods.
+#. Solve using `Solver.solve()`
+#. Use `Solver.add_to_calset()` to add the new calibration to the Calset
+#. Use `Calset.save()` to save the calibration to a file
+
+The sequence for applying a calibration to a device measurement is:
+
+#. Load the calibration by passing the calibration filename to the
+   *Calset* constructor.
+#. Get the *Calibration* object from the *Calset.calibrations* attribute.
+#. Measure the device under test.
+#. Use `Calibration.apply()` to apply the calibration correction to
+   the measurements.
+"""
+
 from cpython.exc cimport PyErr_SetFromErrno
 from cpython.pycapsule cimport PyCapsule_GetPointer
 import errno
@@ -198,7 +223,16 @@ cdef void _py_to_property(object root, vnaproperty_t **rootptr):
 
 cdef class Parameter:
     """
-    A known or unknown parameter of a calibration standard
+    An element of the S-parameter matrix for a calibration standard.
+    The Parameter is an abstraction that can represent a single complex
+    scalar such as -1 for short, a vector of (frequency, gamma) tuples
+    representing a reflect with complex impedance or the through component
+    of a transmission line, or an unknown parameter the library must
+    solve, e.g. the R or L parameters in TRL.
+
+    Note: this class cannot be instantiated directly: use
+    :class:`ScalarParameter`, :class:`VectorParameter`,
+    :class:`UnknownParameter` and :class:`CorrelatedParameter`.
     """
     cdef Calset calset
     cdef int pindex
@@ -239,6 +273,20 @@ cdef class Parameter:
                          "tuple(frequency_vector, gamma_vector)")
 
     def get_value(self, frequency) -> complex:
+        """
+        Parameters:
+            frequency (float):
+                Frequency at which to evaluate the value.
+
+        Return the value of the parameter at a given frequency.
+        For a scalar parameter, the function ignores *frequency*
+        and simply returns the fixed gamma value.  For a vector
+        parameter, it returns the gamma value at the given frequency,
+        interpolating as necessary.  If the parameter is unknown
+        and :func:`Solver.solve` has completed successfully,
+        :func:`get_value` returns the solved value, again
+        interpolating as necessary.
+        """
         cdef vnacal_t *vcp = self.calset.vcp
         cdef complex result
         result = vnacal_get_parameter_value(vcp, self.pindex, frequency)
@@ -336,7 +384,7 @@ cdef class UnknownParameter(Parameter):
         calset (Calset):
             The associated calibration set.
         initial_guess (complex, list of (frequency, gamma) tuples or Parameter):
-            Starting value of the unknown parameter
+            Approximate value of the unknown parameter
     """
     def __cinit__(self, Calset calset, initial_guess):
         if calset is None:
@@ -451,6 +499,100 @@ cdef object _prepare_C_array(object array, object name, int frequencies,
 
 
 cdef class Solver:
+    """
+    Error Term Solver: solve for VNA error terms from measurements
+    of calibration standards.
+
+    Args:
+        calset (Calset):
+            The associated calibration set.
+
+        ctype (CalType):
+            The calibration type determines which error terms the
+            library corrects.  Valid values are:
+
+            T8, U8:
+                8-term T or U parameters: correct for directivity,
+                reflection / transmission tracking, and port
+                match errors on each VNA port.  At least three
+                standards, (e.g. short-open, short-match, through)
+                are needed to solve the 2x2 T8 or U8 calibration.
+
+            TE10, UE10:
+                8-term T or U parameters plus 2 leakage: correct
+                for the same errors as T8 and U8, but also correct
+                for leakage within the VNA from the driving port
+                to the other ports.  At least three standards
+                (e.g. short-open, short-match, through) are needed
+                to solve the 2x2 TE10 or UE10 calibration.
+
+            T16, U16:
+                16-term T or U parameters: correct for the same
+                errors as TE10 and UE10, but add the remaining
+                leakage terms including leakage between the DUT
+                ports in the test fixture.  At least five standards
+                (e.g. short-open, short-match, open-match, open-short,
+                through) are needed to solve the 2x2 T16 or U16
+                calibration.
+
+            UE14:
+                Correct for the same errors as TE10 and UE10, except treat
+                each column (driving port) as an independent calibration.
+                This type produces separate error parameters for the
+                forward and reverse directions, and for this reason,
+                it's able to correct for errors in the forward-reverse
+                switch without reference (*a* matrix) measurements,
+                even for a switch that lies between the detectors and
+                the DUT.  At least four standards (e.g. short-open,
+                match-open, match-short, through) are needed to solve
+                the 2x2 UE14 calibration.
+
+            E12:
+                Generalization of classic SOLT: the library uses UE14
+                terms internally to solve this calibration and this type
+                corrects for exactly the same errors.  The difference
+                is only in the representation of the saved error terms:
+                after finding the error terms, the library converts
+                from inverse scattering transfer (U) to scattering (E)
+                at the end of the calibration procedure.  At least four
+                standards (e.g. short-open, match-open, match-short,
+                through) are needed to solve the 2x2 E12 calibration.
+
+        rows (int):
+            Number of rows in the calibration, where *rows* is the
+            number of VNA ports that detect signal.  Normally, *rows*
+            and *columns* are both simply the number of VNA ports.
+            Some simple VNAs, however, measure only a subset of the
+            S parameters such as :math:`S_{11}` and :math:`S_{21}`.
+            If the VNA measures :math:`S_{11}` and :math:`S_{21}`
+            only, set *rows* to 2 and *columns* to 1.  If the VNA
+            measures :math:`S_{11}` and :math:`S_{12}` only, set
+            *rows* to 1 and *columns* to 2.  In general, if *rows* >
+            *columns*, U parameters must be used; if *rows* < *columns*,
+            T parameters must be used.  For square calibrations, either
+            T or U parameters may be used.
+
+        columns (int):
+            Number columns in the calibration, where *columns* is
+            the number of VNA ports that transmit signal.  See *rows*.
+
+        frequency_vector (list/array of float):
+            Vector of frequency points to be used in the calibration.
+            Must be monotonically increasing.
+
+        z0 (complex, optional):
+            Reference impedance of the VNA ports.  All ports must
+            have the same reference impedance.  If not specified,
+            *z0* defaults to 50 ohms.
+
+    Note that the calibration method used, e.g. LRL, LRM, LRRL, LRRM,
+    LXYZ, SOLT, TRD, TRL, TRM, TXYZ, UXYZ, etc., does not have to be
+    specified.  The library automatically determines the method based
+    on the standards given, or uses a general solver if it does not
+    have a special solver for the given set of standards.  The main
+    requirement is that the standards used must provide a sufficient
+    number of conditions for the number of unknowns to be solved.
+    """
     cdef Calset calset
     cdef int frequencies
     cdef vnacal_new_t *vnp
@@ -503,7 +645,19 @@ cdef class Solver:
     def add_single_reflect(self, a, b, s11, int port=1):
         """
         Add the measurement of a single reflect standard with parameter
-        s11 on the given VNA port.  VNA port numbers start at 1.
+        *s11* on the given VNA port.
+
+        Parameters:
+            a (matrix of vectors of complex):
+                incident root power into each DUT port, or None if
+                not available
+            b (matrix of vectors of complex):
+                reflected root power from each DUT port
+            s11 (complex, list of (frequency, gamma) tuples, or Parameter):
+                :math:`S_{11}` parameter of the the calibration standard
+            port (int, optional):
+                VNA port number connected to the standard.  If not given,
+                defaults to 1.
         """
         cdef int a_rows = 0
         cdef int a_columns = 0
@@ -552,7 +706,25 @@ cdef class Solver:
     def add_double_reflect(self, a, b, s11, s22, int port1=1, int port2=2):
         """
         Add the measurement of a double reflect standard with parameters
-        s11 and s22 on the given VNA ports.  VNA port numbers start at 1.
+        *s11* and *s22* on the given VNA ports, assuming :math:`S_{12} =
+        S_{21} = 0`.
+
+        Parameters:
+            a (matrix of vectors of complex):
+                incident root power into each DUT port, or None if
+                not available
+            b (matrix of vectors of complex):
+                reflected root power from each DUT port
+            s11 (complex, list of (frequency, gamma) tuples, or Parameter):
+                the :math:`S_{11}` parameter of the the calibration standard
+            s22 (complex, list of (frequency, gamma) tuples, or Parameter):
+                the :math:`S_{22}` parameter of the calibration standard
+            port1 (int, optional):
+                VNA port number connected to port 1 of the calibration
+                standard.  If not given, defaults to 1.
+            port2 (int, optional):
+                VNA port number connected to port 2 of the calibration
+                standard.  If not given, defaults to 2.
         """
         cdef int a_rows = 0
         cdef int a_columns = 0
@@ -604,8 +776,22 @@ cdef class Solver:
 
     def add_through(self, a, b, int port1=1, int port2=2):
         """
-        Add the measurement of a perfect through standard between
-        port1 and port2.  VNA port numbers start at 1.
+        Add the measurement of a perfect through standard between *port1*
+        and *port2*, i.e.
+        :math:`S_{12} = S_{21} = 1` and :math:`S_{11} = S_{22} = 0`.
+
+        Parameters:
+            a (matrix of vectors of complex):
+                incident root power into each DUT port, or None if
+                not available
+            b (matrix of vectors of complex):
+                reflected root power from each DUT port
+            port1 (int, optional):
+                First VNA port connected to the through standard.
+                If not given, defaults to 1.
+            port2 (int, optional):
+                Second VNA port connected to the through standard.
+                If not given, defaults to 2.
         """
         cdef int a_rows = 0
         cdef int a_columns = 0
@@ -648,8 +834,24 @@ cdef class Solver:
     def add_line(self, a, b, s, int port1=1, int port2=2):
         """
         Add the measurement of an arbitrary two-port standard with S
-        parameter matrix s on the given VNA ports.  VNA port numbers
-        start at 1.
+        parameter matrix, *s*, on the given VNA ports.
+
+        Parameters:
+            a (matrix of vectors of complex):
+                incident root power into each DUT port, or None if
+                not available
+            b (matrix of vectors of complex):
+                reflected root power from each DUT port
+            s (2x2 matrix):
+                S-parameter matrix of the standard, where each element
+                of the matrix can be a complex scalar, a vector of
+                (frequency, gamma) tuples, or a Parameter
+            port1 (int, optional):
+                VNA port number connected to port 1 of the calibration
+                standard.  If not given, defaults to 1.
+            port2 (int, optional):
+                VNA port number connected to port 2 of the calibration
+                standard.  If not given, defaults to 2.
         """
         cdef int a_rows = 0
         cdef int a_columns = 0
@@ -708,8 +910,25 @@ cdef class Solver:
     def add_mapped_matrix(self, a, b, s, port_map = None):
         """
         Add the measurement of an arbitrary n-port standard with S
-        parameter matrix s, and map of ports of the standard to ports
-        of the VNA in port_map.  VNA port numbers start at 1.
+        parameter matrix, *s*, and a map of ports of the standard to
+        ports of the VNA in *port_map*.
+
+        Parameters:
+            a (matrix of vectors of complex):
+                incident root power into each DUT port, or None if
+                not available
+            b (matrix of vectors of complex):
+                reflected root power from each DUT port
+            s (matrix):
+                S-parameter matrix of the standard, where each element
+                of the matrix can be a complex scalar, a vector of
+                (frequency, gamma) tuples, or a Parameter
+            port_map (vector of int, optional):
+                List of the VNA port numbers attached to each port of
+                the standard in order.  Optional if the standard has
+                the same number of ports as the VNA and the ports of
+                the VNA are attached to the corresponding port numbers
+                of the standard.  VNA port numbers start with 1.
         """
         cdef int a_rows = 0
         cdef int a_columns = 0
@@ -795,25 +1014,26 @@ cdef class Solver:
     def set_m_error(self, frequency_vector, noise_floor,
                     tracking_error = None):
         """
-        Enable measurement error modeling.  Specifying measurement
-        errors with this function can significanlty improve accuracy,
-        especially for well overdetermined systems as the 16 term models
-        typically are.
+        Enable measurement error modeling.
 
         Parameters:
-            frequency_vector:
+            frequency_vector (vector of float):
                 vector of ascending frequencies spanning at least the
-                calibration frequency range
+                full calibration frequency range
 
-            noise_floor:
+            noise_floor (vector of float):
                 vector of noise floor root-power measurements at the
                 VNA detectors at each frequency when no signal is applied
 
-            tracking_error:
-                optional vector describing of additional root-power
-                noise source proportional to the measured signal
+            tracking_error (vector of float, optional):
+                optional vector describing an additional root-power
+                noise source proportional to the amplitude of the
+                measured signal
 
-        Both noise sources are assumed Gaussian and independent.
+        Both noise sources are assumed to be Gaussian and independent.
+        Specifying measurement errors with this function can significanlty
+        improve accuracy, especially for significantly overdetermined
+        systems, as the 16 term models typically are.
         """
         cdef double [::1] fv
         cdef double [::1] nfv
@@ -851,12 +1071,12 @@ cdef class Solver:
     @property
     def pvalue_limit(self):
         """
-        p-value, below which to reject the null hypothesis that
-        the measurement errors are distributed according to the
-        values given in set_m_error.
+        p-value, below which to reject the null hypothesis that the
+        measurement errors are less than or equal to the values given
+        in set_m_error (float).
 
-        This parameter has no effect if set_m_error is not called
-        to enable measurement error modeling.
+        This parameter has no effect if measurement error modeling has not
+        been enabled through :func:`set_m_error`.  The default is 0.001.
         """
         return self.pvalue_limit
 
@@ -871,8 +1091,9 @@ cdef class Solver:
     @property
     def et_tolerance(self):
         """
-        Degree of change in the root-mean-squared of the error terms
-        sufficiently small to stop iteration.  Default is 1.0e-6.
+        For iterative solution methods, this parameter controls the
+        degree of change in the root-mean-squared of the error terms
+        sufficiently small to stop iteration (float).  Default is 1.0e-6.
         """
         return self.et_tolerance
 
@@ -887,8 +1108,9 @@ cdef class Solver:
     @property
     def p_tolerance(self):
         """
-        Degree of change in the root-mean-squared of the unknown
-        parameters sufficiently small to stop iteration.  This parameter
+        For iterative solution methods, this parameter controls the degree
+        of change in the root-mean-squared of the unknown parameters
+        sufficiently small to stop iteration (float).  This parameter
         has no effect if there are no unknown parameters in the S matrix.
         Default is 1.0e-6.
         """
@@ -905,8 +1127,9 @@ cdef class Solver:
     @property
     def iteration_limit(self):
         """
-        For iterative solutions, this parameter controls the maximum
-        number of iterations permitted to reach convergence.
+        For iterative solution methods, this parameter controls the
+        maximum number of iterations permitted to reach convergence (int).
+        The default is 30.
         """
         return self.iteration_limit
 
@@ -920,14 +1143,19 @@ cdef class Solver:
 
     def solve(self):
         """
-        Solve for the error terms.
+        Solve for the error terms.  Note: if this function raises an
+        exception due to an insufficient number of standards, you may
+        add additional standards and try again.
         """
         cdef int rc = vnacal_new_solve(self.vnp)
         self.calset._handle_error(rc)
 
     def add_to_calset(self, name) -> int:
         """
-        Add the solved calibration to the Calset.
+        Add the solved calibration to the Calset.  If *name* matches
+        an existing calibration, the existing calibration is replaced;
+        if *name* is unique, then the new calibration is appended to
+        the *Calset.calibrations* array.
 
         Parameters:
             name:
@@ -949,13 +1177,18 @@ cdef class Solver:
 
 
 cdef class Calibration:
+    """
+    A solved calibration.  Note: you cannot instantiate this class
+    directly: use ``Calset.calibrations`` to access instances of this
+    class.
+    """
     cdef Calset calset
     cdef int ci
 
     @property
     def name(self) -> str:
         """
-        Name of the calibration
+        Name of the calibration (str, readonly)
         """
         cdef vnacal_t *vcp = self.calset.vcp
         cdef int ci = self.ci
@@ -967,7 +1200,7 @@ cdef class Calibration:
     @property
     def ctype(self) -> CalType:
         """
-        Type of the calibration
+        Type of the calibration (CalType, readonly)
         """
         cdef vnacal_t *vcp = self.calset.vcp
         cdef int ci = self.ci
@@ -977,7 +1210,7 @@ cdef class Calibration:
     @property
     def rows(self) -> int:
         """
-        Number of rows in the calibration
+        Number of rows in the calibration (int, readonly)
         """
         cdef vnacal_t *vcp = self.calset.vcp
         cdef int ci = self.ci
@@ -988,7 +1221,7 @@ cdef class Calibration:
     @property
     def columns(self) -> int:
         """
-        Number of columns in the calibration
+        Number of columns in the calibration (int, readonly)
         """
         cdef vnacal_t *vcp = self.calset.vcp
         cdef int ci = self.ci
@@ -999,7 +1232,7 @@ cdef class Calibration:
     @property
     def frequencies(self) -> int:
         """
-        Number of frequencies in the calibration
+        Number of frequencies in the calibration (int, readonly)
         """
         cdef vnacal_t *vcp = self.calset.vcp
         cdef int ci = self.ci
@@ -1010,7 +1243,7 @@ cdef class Calibration:
     @property
     def frequency_vector(self):
         """
-        Vector of calibration frequencies
+        Vector of calibration frequencies (array of float, readonly)
         """
         cdef vnacal_t *vcp = self.calset.vcp
         cdef int ci = self.ci
@@ -1025,7 +1258,8 @@ cdef class Calibration:
     @property
     def z0(self) -> complex:
         """
-        Reference frequency all all ports in the calibration.
+        Reference frequency of all ports in the calibration (complex,
+        readonly)
         """
         cdef vnacal_t *vcp = self.calset.vcp
         cdef int ci = self.ci
@@ -1034,15 +1268,18 @@ cdef class Calibration:
 
     def apply(self, f, a, b) -> NPData:
         """
-        Apply the calibration correction to measured data
+        Apply the calibration correction to measured data.  The
+        calibration must have dimensions 2x1, 1x2, or NxN.
 
         Parameters:
-            f: vector of frequencies at which the measurements were
-               made, or None if measured at the calibration frequencies
-            a: matrix of vectors (one entry per frequency) of incident
-               voltages on each DUT port
-            b: matrix of vectors (one entry per frequency) of reflected
-               voltages from each DUT port
+            f (array of float or None):
+                vector of frequencies at which the measurements were made,
+                or None if measured at the calibration frequencies
+            a (matrix of vectors of complex):
+                incident root power into each DUT port, or None if
+                not available
+            b (matrix of vectors of complex):
+                reflected root power from each DUT port
 
         Return:
             libvna.data.NPData object containing the corrected parameters
@@ -1118,9 +1355,10 @@ cdef class Calibration:
     @property
     def properties(self):
         """
-        Reading from this property returns a tree of dictionaries, lists,
-        scalars and None representing the properties of this calibration.
-        Writing this this property replaces the property tree.
+        A tree of nested dictionaries, lists, scalars and None values
+        representing arbitrary user-defined properties of the calibration.
+        Some examples are the calibration date, cable lengths, and test
+        set used.
         """
         cdef int ci = self.ci
         return self.calset._get_properties(ci)
@@ -1162,7 +1400,7 @@ cdef class _CalHelper:
 
     def __getitem__(self, index) -> Calibration:
         """
-        Return a Calibration by name or position.
+        Return a Calibration object by name or index.
         """
         cdef Calset calset = self.calset
         cdef int ci = self._find_ci_by_index_or_name(index)
@@ -1178,7 +1416,7 @@ cdef class _CalHelper:
 
     def __delitem__(self, index):
         """
-        Delete a calibration.
+        Delete a calibration object by name or index.
         """
         cdef Calset calset = self.calset
         cdef vnacal_t *vcp = calset.vcp
@@ -1220,8 +1458,19 @@ cdef class _CalHelper:
 
 cdef class Calset:
     """
-    One or more vector network analyzer calibrations with a
-    common save file
+    The Calset loads, saves and manages solved VNA calibrations.  It's
+    the central data structure of VNA calibration, needed by other
+    classes in the module.
+
+    Though the Calset usually holds just one calibration, it can hold
+    any number of related calibrations, for example, covering different
+    frequency bands or test set configurations.
+
+    Args:
+        filename (str, optional):
+            Load the Calset from the given file.  Note that the
+            recommended .vnacal extension is not added automatically
+            and should be included in filename.
     """
     cdef vnacal_t *vcp
     cdef object _properties
@@ -1343,7 +1592,11 @@ cdef class Calset:
 
     def index(self, name) -> int:
         """
-        Return the calibration index with the given name.
+        Convert from calibration name to index:
+
+        Parameters:
+            name (str):
+                Name of the calibration
         """
         cdef vnacal_t *vcp = self.vcp
         cdef int i
@@ -1359,7 +1612,8 @@ cdef class Calset:
     @property
     def calibrations(self):
         """
-        Vector of calibrations
+        Vector of Calibration objects in this Calset.  This attribute
+        is indexable, iterable, and the elements can be deleted.
         """
         helper = _CalHelper()
         helper.calset = self
@@ -1368,9 +1622,14 @@ cdef class Calset:
     @property
     def properties(self):
         """
-        Reading from this property returns a tree of dictionaries,
-        lists, scalars and None representing the global properties.
-        Writing this this property replaces the global property tree.
+        A tree of nested dictionaries, lists, scalars and None values
+        representing arbitrary user-defined global properties of the
+        calibration set, for example, the model and serial number of
+        the instrument, test fixture used, and other conditions under
+        which the calibration was made.
+
+        Also see the calibration-specific properties,
+        Calibration.properties.
         """
         return self._get_properties(-1)
 
