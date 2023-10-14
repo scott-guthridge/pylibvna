@@ -500,7 +500,7 @@ cdef class Solver:
         vnacal_new_free(self.vnp)
         self.vnp = NULL
 
-    def add_single_reflect(self, a, b, s11, int port):
+    def add_single_reflect(self, a, b, s11, int port=1):
         """
         Add the measurement of a single reflect standard with parameter
         s11 on the given VNA port.  VNA port numbers start at 1.
@@ -549,7 +549,7 @@ cdef class Solver:
             free(<void *>b_clfpp)
             free(<void *>a_clfpp)
 
-    def add_double_reflect(self, a, b, s11, s22, int port1, int port2):
+    def add_double_reflect(self, a, b, s11, s22, int port1=1, int port2=2):
         """
         Add the measurement of a double reflect standard with parameters
         s11 and s22 on the given VNA ports.  VNA port numbers start at 1.
@@ -602,7 +602,7 @@ cdef class Solver:
             free(<void *>b_clfpp)
             free(<void *>a_clfpp)
 
-    def add_through(self, a, b, int port1, int port2):
+    def add_through(self, a, b, int port1=1, int port2=2):
         """
         Add the measurement of a perfect through standard between
         port1 and port2.  VNA port numbers start at 1.
@@ -645,7 +645,7 @@ cdef class Solver:
             free(<void *>b_clfpp)
             free(<void *>a_clfpp)
 
-    def add_line(self, a, b, s, int port1, int port2):
+    def add_line(self, a, b, s, int port1=1, int port2=2):
         """
         Add the measurement of an arbitrary two-port standard with S
         parameter matrix s on the given VNA ports.  VNA port numbers
@@ -705,7 +705,7 @@ cdef class Solver:
             free(<void *>b_clfpp)
             free(<void *>a_clfpp)
 
-    def add_mapped_matrix(self, a, b, s, port_map):
+    def add_mapped_matrix(self, a, b, s, port_map = None):
         """
         Add the measurement of an arbitrary n-port standard with S
         parameter matrix s, and map of ports of the standard to ports
@@ -725,6 +725,7 @@ cdef class Solver:
         cdef int k
         cdef Parameter c_parameter
         cdef int *sip = NULL
+        cdef int *mip = NULL
         cdef int [::1] iv
         cdef int rc
 
@@ -761,10 +762,13 @@ cdef class Solver:
             #
             # Prepare port map.
             #
-            port_map = np.asarray(port_map, dtype=np.intc, order="C")
-            if port_map.ndim != 1 or port_map.shape[0] < s_ports:
-                raise ValueError(f"port_map must be a length {s_ports} vector")
-            iv = port_map
+            if port_map is not None:
+                port_map = np.asarray(port_map, dtype=np.intc, order="C")
+                if port_map.ndim != 1 or port_map.shape[0] < s_ports:
+                    raise ValueError(f"port_map must be a length {s_ports} "
+                                     f"vector")
+                iv = port_map
+                mip = &iv[0]
 
             #
             # Call add function
@@ -774,12 +778,12 @@ cdef class Solver:
                                                   a_clfpp, a_rows, a_columns,
                                                   b_clfpp, b_rows, b_columns,
                                                   sip, s_rows, s_columns,
-                                                  &iv[0])
+                                                  mip)
             else:
                 rc = vnacal_new_add_mapped_matrix_m(self.vnp,
                                                     b_clfpp, b_rows, b_columns,
                                                     sip, s_rows, s_columns,
-                                                    &iv[0])
+                                                    mip)
             self.calset._handle_error(rc)
             return
 
