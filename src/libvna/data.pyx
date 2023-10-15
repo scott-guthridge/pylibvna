@@ -91,7 +91,7 @@ cdef void _error_fn(const char *message, void *error_arg,
     # """
     # C callback function for vnaerr
     # """
-    self = <Data>error_arg
+    self = <NPData>error_arg
     if self._thread_local._vna_data_exception is not None:
         return
     umessage = (<bytes>message).decode("UTF-8")
@@ -261,19 +261,19 @@ cdef class _FrequencyVectorHelper:
     # """
     # Helper class for frequency_vector
     # """
-    cdef Data data
+    cdef NPData npd
 
     def __len__(self):
         # """
         # Return the number of frequencies
         # """
-        return self.data.frequencies
+        return self.npd.frequencies
 
     def __getitem__(self, indices):
         # """
         # Get subscripted item [].
         # """
-        cdef vnadata_t *vdp = self.data.vdp
+        cdef vnadata_t *vdp = self.npd.vdp
         cdef int frequencies = vnadata_get_frequencies(vdp)
         cdef int mask
         cdef int findex
@@ -303,7 +303,7 @@ cdef class _FrequencyVectorHelper:
         # """
         # Assign to subscripted item [].
         # """
-        cdef vnadata_t *vdp = self.data.vdp
+        cdef vnadata_t *vdp = self.npd.vdp
         cdef int frequencies = vnadata_get_frequencies(vdp)
         cdef int mask
         cdef int findex
@@ -319,7 +319,7 @@ cdef class _FrequencyVectorHelper:
         # If given an integer index, set one entry.
         if mask == 1:
             rc = vnadata_set_frequency(vdp, indices[0], value)
-            self.data._handle_error(rc)
+            self.npd._handle_error(rc)
 
         # Set the sliced items
         else:
@@ -328,20 +328,20 @@ cdef class _FrequencyVectorHelper:
             i = 0
             for findex in f_range:
                 rc = vnadata_set_frequency(vdp, findex, array[i])
-                self.data._handle_error(rc)
+                self.npd._handle_error(rc)
                 i += 1
 
     def __array__(self, *args, **kwargs):
         # """
         # Return the vector of frequencies.
         # """
-        cdef vnadata_t *vdp = self.data.vdp
+        cdef vnadata_t *vdp = self.npd.vdp
         cdef int frequencies = vnadata_get_frequencies(vdp)
         cdef cnp.npy_intp shape[1]
         shape[0] = <cnp.npy_intp>frequencies
         cdef const double *lfp = vnadata_get_frequency_vector(vdp)
         if lfp == NULL:
-            self.data._handle_error(-1)
+            self.npd._handle_error(-1)
         a = cnp.PyArray_SimpleNewFromData(
             1, &shape[0], cnp.NPY_DOUBLE, <void *>lfp)
         return np.asarray(a, *args, **kwargs)
@@ -356,8 +356,8 @@ cdef class _FrequencyVectorHelper:
         # """
         # Iterate over the parameter matrices.
         # """
-        cdef int frequencies = vnadata_get_frequencies(self.data.vdp)
-        cdef vnadata_t *vdp = self.data.vdp
+        cdef int frequencies = vnadata_get_frequencies(self.npd.vdp)
+        cdef vnadata_t *vdp = self.npd.vdp
         for findex in range(frequencies):
             yield vnadata_get_frequency(vdp, findex)
 
@@ -365,8 +365,8 @@ cdef class _FrequencyVectorHelper:
         # """
         # Iterate over the parameter matrices in reverse.
         # """
-        cdef int frequencies = vnadata_get_frequencies(self.data.vdp)
-        cdef vnadata_t *vdp = self.data.vdp
+        cdef int frequencies = vnadata_get_frequencies(self.npd.vdp)
+        cdef vnadata_t *vdp = self.npd.vdp
         for findex in range(frequencies)[::-1]:
             yield vnadata_get_frequency(vdp, findex)
 
@@ -380,7 +380,7 @@ cdef class _DataArrayHelper:
     # """
     # Helper class for data_array.
     # """
-    cdef Data data
+    cdef NPData npd
 
     def _get_matrix(self, int findex):
         # """
@@ -390,7 +390,7 @@ cdef class _DataArrayHelper:
         # Returns:
         #    copy of matrix
         # """
-        cdef vnadata_t *vdp = self.data.vdp
+        cdef vnadata_t *vdp = self.npd.vdp
         cdef int rows = vnadata_get_rows(vdp)
         cdef int columns = vnadata_get_columns(vdp)
         cdef cnp.npy_intp shape[2]
@@ -399,7 +399,7 @@ cdef class _DataArrayHelper:
         cdef double complex *clfp
         clfp = vnadata_get_matrix(vdp, findex)
         if clfp == NULL:
-            self.data._handle_error(-1)
+            self.npd._handle_error(-1)
         return cnp.PyArray_SimpleNewFromData(
             2, &shape[0], cnp.NPY_COMPLEX128, <void *>clfp)
 
@@ -407,13 +407,13 @@ cdef class _DataArrayHelper:
         # """
         # Return the number of frequencies.
         # """
-        return self.data.frequencies
+        return self.npd.frequencies
 
     def __getitem__(self, indices):
         # """
         # Return subscripted item [].
         # """
-        cdef vnadata_t *vdp = self.data.vdp
+        cdef vnadata_t *vdp = self.npd.vdp
         cdef int frequencies = vnadata_get_frequencies(vdp)
         cdef int rows = vnadata_get_rows(vdp)
         cdef int columns = vnadata_get_columns(vdp)
@@ -532,8 +532,8 @@ cdef class _DataArrayHelper:
         # """
         # Assign to subscripted item [].
         # """
-        # cdef vnadata_t *vdp = self.data.vdp
-        cdef vnadata_t *vdp = self.data.vdp
+        # cdef vnadata_t *vdp = self.npd.vdp
+        cdef vnadata_t *vdp = self.npd.vdp
         cdef int frequencies = vnadata_get_frequencies(vdp)
         cdef int rows = vnadata_get_rows(vdp)
         cdef int columns = vnadata_get_columns(vdp)
@@ -558,7 +558,7 @@ cdef class _DataArrayHelper:
             array = _form_complex_array((1,), value)
             rc = vnadata_set_cell(vdp, indices[0], indices[1], indices[2],
                                   array[0])
-            self.data._handle_error(rc)
+            self.npd._handle_error(rc)
 
         elif mask == IDX_IIS:
             c_range = range(*indices[2])
@@ -568,7 +568,7 @@ cdef class _DataArrayHelper:
             for column in c_range:
                 rc = vnadata_set_cell(vdp, indices[0], indices[1], column,
                                       array[k])
-                self.data._handle_error(rc)
+                self.npd._handle_error(rc)
                 k += 1
 
         elif mask == IDX_ISI:
@@ -579,7 +579,7 @@ cdef class _DataArrayHelper:
             for row in r_range:
                 rc = vnadata_set_cell(vdp, indices[0], row, indices[2],
                                       array[j])
-                self.data._handle_error(rc)
+                self.npd._handle_error(rc)
                 j += 1
 
         elif mask == IDX_ISS:
@@ -590,7 +590,7 @@ cdef class _DataArrayHelper:
                 array = _form_complex_array((rows, columns), value)
                 v2 = array
                 rc = vnadata_set_matrix(vdp, findex, &v2[0][0])
-                self.data._handle_error(rc)
+                self.npd._handle_error(rc)
 
             # Else, iterate over the slices.
             else:
@@ -606,7 +606,7 @@ cdef class _DataArrayHelper:
                     for column in c_range:
                         rc = vnadata_set_cell(vdp, indices[0], row, column,
                                               v2[j, k])
-                        self.data._handle_error(rc)
+                        self.npd._handle_error(rc)
                         k += 1
                     j += 1
 
@@ -618,7 +618,7 @@ cdef class _DataArrayHelper:
             for findex in f_range:
                 rc = vnadata_set_cell(vdp, findex, indices[1], indices[2],
                                       array[i])
-                self.data._handle_error(rc)
+                self.npd._handle_error(rc)
                 i += 1
 
         elif mask == IDX_SIS:
@@ -634,7 +634,7 @@ cdef class _DataArrayHelper:
                 for column in c_range:
                     rc = vnadata_set_cell(
                         vdp, findex, indices[1], column, v2[i, k])
-                    self.data._handle_error(rc)
+                    self.npd._handle_error(rc)
                     k += 1
                 i += 1
 
@@ -651,7 +651,7 @@ cdef class _DataArrayHelper:
                 for row in r_range:
                     rc = vnadata_set_cell(
                         vdp, findex, row, indices[2], v2[i, j])
-                    self.data._handle_error(rc)
+                    self.npd._handle_error(rc)
                     j += 1
                 i += 1
 
@@ -684,7 +684,7 @@ cdef class _DataArrayHelper:
                         for column in c_range:
                             rc = vnadata_set_cell(
                                 vdp, findex, row, column, v3[i, j, k])
-                            self.data._handle_error(rc)
+                            self.npd._handle_error(rc)
                             k += 1
                         j += 1
                     i += 1
@@ -696,7 +696,7 @@ cdef class _DataArrayHelper:
         # """
         # Return the vector of parameter matrices as a 3D array.
         # """
-        cdef vnadata_t *vdp = self.data.vdp
+        cdef vnadata_t *vdp = self.npd.vdp
         cdef int frequencies = vnadata_get_frequencies(vdp)
         cdef int rows = vnadata_get_rows(vdp)
         cdef int columns = vnadata_get_columns(vdp)
@@ -718,7 +718,7 @@ cdef class _DataArrayHelper:
         # """
         # Iterate over the parameter matrices.
         # """
-        cdef int frequencies = vnadata_get_frequencies(self.data.vdp)
+        cdef int frequencies = vnadata_get_frequencies(self.npd.vdp)
         for findex in range(frequencies):
             yield self._get_matrix(findex)
 
@@ -726,7 +726,7 @@ cdef class _DataArrayHelper:
         # """
         # Iterate over the parameter matrices in reverse.
         # """
-        cdef int frequencies = vnadata_get_frequencies(self.data.vdp)
+        cdef int frequencies = vnadata_get_frequencies(self.npd.vdp)
         for findex in range(frequencies)[::-1]:
             yield(self._get_matrix(findex))
 
@@ -740,13 +740,13 @@ cdef class _Z0VectorHelper:
     # """
     # Helper class for the z0 vector.
     # """
-    cdef Data data
+    cdef NPData npd
 
     def __len__(self):
         # """
         # Return the number of ports.
         # """
-        cdef vnadata_t *vdp = self.data.vdp
+        cdef vnadata_t *vdp = self.npd.vdp
         cdef int rows = vnadata_get_rows(vdp)
         cdef int columns = vnadata_get_columns(vdp)
         cdef int ports = max(rows, columns)
@@ -756,7 +756,7 @@ cdef class _Z0VectorHelper:
         # """
         # Get subscripted item [].
         # """
-        cdef vnadata_t *vdp = self.data.vdp
+        cdef vnadata_t *vdp = self.npd.vdp
         cdef int rows = vnadata_get_rows(vdp)
         cdef int columns = vnadata_get_columns(vdp)
         cdef int ports = max(rows, columns)
@@ -788,7 +788,7 @@ cdef class _Z0VectorHelper:
         # """
         # Assign to subscripted item [].
         # """
-        cdef vnadata_t *vdp = self.data.vdp
+        cdef vnadata_t *vdp = self.npd.vdp
         cdef int rows = vnadata_get_rows(vdp)
         cdef int columns = vnadata_get_columns(vdp)
         cdef int ports = max(rows, columns)
@@ -806,7 +806,7 @@ cdef class _Z0VectorHelper:
         # If given an integer index, set one entry.
         if mask == 1:
             rc = vnadata_set_z0(vdp, indices[0], value)
-            self.data._handle_error(rc)
+            self.npd._handle_error(rc)
 
         # Set the sliced items.
         else:
@@ -815,14 +815,14 @@ cdef class _Z0VectorHelper:
             i = 0
             for port in p_range:
                 rc = vnadata_set_z0(vdp, port, array[i])
-                self.data._handle_error(rc)
+                self.npd._handle_error(rc)
                 i += 1
 
     def __array__(self, *args, **kwargs):
         # """
         # Return the vector of frequencies.
         # """
-        cdef vnadata_t *vdp = self.data.vdp
+        cdef vnadata_t *vdp = self.npd.vdp
         cdef int rows = vnadata_get_rows(vdp)
         cdef int columns = vnadata_get_columns(vdp)
         cdef int ports = max(rows, columns)
@@ -830,7 +830,7 @@ cdef class _Z0VectorHelper:
         shape[0] = <cnp.npy_intp>ports
         cdef const double complex *clfp = vnadata_get_z0_vector(vdp)
         if clfp == NULL:
-            self.data._handle_error(-1)
+            self.npd._handle_error(-1)
         a = cnp.PyArray_SimpleNewFromData(
             1, &shape[0], cnp.NPY_COMPLEX128, <void *>clfp)
         return np.asarray(a, *args, **kwargs)
@@ -845,7 +845,7 @@ cdef class _Z0VectorHelper:
         # """
         # Iterate over the parameter matrices.
         # """
-        cdef vnadata_t *vdp = self.data.vdp
+        cdef vnadata_t *vdp = self.npd.vdp
         cdef int rows = vnadata_get_rows(vdp)
         cdef int columns = vnadata_get_columns(vdp)
         cdef int ports = max(rows, columns)
@@ -856,7 +856,7 @@ cdef class _Z0VectorHelper:
         # """
         # Iterate over the parameter matrices in reverse.
         # """
-        cdef vnadata_t *vdp = self.data.vdp
+        cdef vnadata_t *vdp = self.npd.vdp
         cdef int rows = vnadata_get_rows(vdp)
         cdef int columns = vnadata_get_columns(vdp)
         cdef int ports = max(rows, columns)
@@ -873,20 +873,20 @@ cdef class _FZ0ArrayHelper:
     # """
     # Helper class for the fz0 vector.
     # """
-    cdef Data data
+    cdef NPData npd
 
     def __len__(self):
         # """
         # Return the number of ports.
         # """
-        cdef vnadata_t *vdp = self.data.vdp
+        cdef vnadata_t *vdp = self.npd.vdp
         return vnadata_get_frequencies(vdp)
 
     def __getitem__(self, indices):
         # """
         # Get subscripted item [].
         # """
-        cdef vnadata_t *vdp = self.data.vdp
+        cdef vnadata_t *vdp = self.npd.vdp
         cdef int frequencies = vnadata_get_frequencies(vdp)
         cdef int rows = vnadata_get_rows(vdp)
         cdef int columns = vnadata_get_columns(vdp)
@@ -947,7 +947,7 @@ cdef class _FZ0ArrayHelper:
         # """
         # Assign to subscripted item [].
         # """
-        cdef vnadata_t *vdp = self.data.vdp
+        cdef vnadata_t *vdp = self.npd.vdp
         cdef int frequencies = vnadata_get_frequencies(vdp)
         cdef int rows = vnadata_get_rows(vdp)
         cdef int columns = vnadata_get_columns(vdp)
@@ -968,7 +968,7 @@ cdef class _FZ0ArrayHelper:
         # II
         if mask == 3:
             rc = vnadata_set_fz0(vdp, indices[0], indices[1], value)
-            self.data._handle_error(rc)
+            self.npd._handle_error(rc)
 
         # SI
         elif mask == 2:
@@ -978,7 +978,7 @@ cdef class _FZ0ArrayHelper:
             i = 0
             for findex in f_range:
                 rc = vnadata_set_fz0(vdp, findex, port, array[i])
-                self.data._handle_error(rc)
+                self.npd._handle_error(rc)
                 i += 1
 
         # IS
@@ -988,7 +988,7 @@ cdef class _FZ0ArrayHelper:
                 array = _form_complex_array((ports,), value)
                 v1 = array
                 rc = vnadata_set_fz0_vector(vdp, findex, &v1[0])
-                self.data._handle_error(rc)
+                self.npd._handle_error(rc)
 
             else:
                 p_range = range(*indices[1])
@@ -996,7 +996,7 @@ cdef class _FZ0ArrayHelper:
                 j = 0
                 for port in p_range:
                     rc = vnadata_set_fz0(vdp, findex, port, array[j])
-                    self.data._handle_error(rc)
+                    self.npd._handle_error(rc)
                     j += 1
 
         # SS
@@ -1019,7 +1019,7 @@ cdef class _FZ0ArrayHelper:
         # """
         # Return the fz0 vector.
         # """
-        cdef vnadata_t *vdp = self.data.vdp
+        cdef vnadata_t *vdp = self.npd.vdp
         cdef int frequencies = vnadata_get_frequencies(vdp)
         cdef int rows = vnadata_get_rows(vdp)
         cdef int columns = vnadata_get_columns(vdp)
@@ -1040,7 +1040,7 @@ cdef class _FZ0ArrayHelper:
         # """
         # Iterate over the frequencies.
         # """
-        cdef vnadata_t *vdp = self.data.vdp
+        cdef vnadata_t *vdp = self.npd.vdp
         cdef int frequencies = vnadata_get_frequencies(vdp)
         for findex in range(frequencies):
             yield self[findex, :]
@@ -1049,7 +1049,7 @@ cdef class _FZ0ArrayHelper:
         # """
         # Iterate over the frequencies reverse.
         # """
-        cdef vnadata_t *vdp = self.data.vdp
+        cdef vnadata_t *vdp = self.npd.vdp
         cdef int frequencies = vnadata_get_frequencies(vdp)
         for findex in range(frequencies)[::-1]:
             yield self[findex, :]
@@ -1061,7 +1061,7 @@ cdef class _FZ0ArrayHelper:
         return str(np.asarray(self))
 
 
-cdef class Data:
+cdef class NPData:
     """
     In-memory representation of electrical network parameter data.
 
@@ -1150,7 +1150,7 @@ cdef class Data:
 
     def __dealloc__(self):
         """
-        Free C resources when a libvna.data.Data object is garbage collected.
+        Free C resources when a libvna.npd.NPData object is garbage collected.
         """
         vnadata_free(self.vdp)
 
@@ -1282,7 +1282,7 @@ cdef class Data:
         Type: array[f_index] of float
         """
         cdef _FrequencyVectorHelper helper = _FrequencyVectorHelper()
-        helper.data = self
+        helper.npd = self
         return helper
 
     @frequency_vector.setter
@@ -1333,7 +1333,7 @@ cdef class Data:
         Type: array [f_index, row, column] of complex
         """
         cdef _DataArrayHelper helper = _DataArrayHelper()
-        helper.data = self
+        helper.npd = self
         return helper
 
     @data_array.setter
@@ -1374,7 +1374,7 @@ cdef class Data:
         Type: array[port] of complex
         """
         cdef _Z0VectorHelper helper = _Z0VectorHelper()
-        helper.data = self
+        helper.npd = self
         return helper
 
     @z0_vector.setter
@@ -1434,7 +1434,7 @@ cdef class Data:
         Type: array[f_index, port] of complex
         """
         cdef _FZ0ArrayHelper helper = _FZ0ArrayHelper()
-        helper.data = self
+        helper.npd = self
         return helper
 
     @fz0_array.setter
@@ -1488,13 +1488,13 @@ cdef class Data:
                 ANY, S, T, U, Z, Y, H, G, A, B, ZIN.
 
         Returns:
-            A new Data object in the requested type.  The original
+            A new NPData object in the requested type.  The original
             object is left unchanged.
 
         Raises:
             ValueError: if conversion to new_type is invalid
         """
-        result = Data()
+        result = NPData()
         cdef int rc
         rc = vnadata_convert(self.vdp, result.vdp,
                              <vnadata_parameter_type_t>new_ptype)
@@ -1756,9 +1756,9 @@ cdef class Data:
 
     def __copy__(self):
         """
-        Make a copy of the Data object.
+        Make a copy of the NPData object.
         """
-        result = Data()
+        result = NPData()
         rc = vnadata_convert(self.vdp, result.vdp,
                              <vnadata_parameter_type_t>self.ptype)
         self._handle_error(rc)

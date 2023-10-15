@@ -22,7 +22,7 @@ import cmath as c
 from math import sqrt
 import numpy as np
 from libvna.cal import CalSet, CalType, Parameter, Solver
-from libvna.data import Data, PType
+from libvna.data import NPData, PType
 
 # Misc constants:
 C = 2.9979246e+08                       # speed of light in vacuum (m/s)

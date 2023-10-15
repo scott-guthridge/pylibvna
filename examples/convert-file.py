@@ -1,6 +1,6 @@
 #!/usr/bin/python3
 import argparse
-from libvna.data import Data, FileType
+from libvna.data import NPData, FileType
 
 usage = """
     %s [-f format] input-file output-file
@@ -42,9 +42,9 @@ parser.add_argument("input_file", metavar="input-file")
 parser.add_argument("output_file", metavar="output-file")
 args = parser.parse_args()
 
-pdata = Data()
-pdata.load(args.input_file)
-pdata.filetype = FileType.AUTO
+npd = NPData()
+npd.load(args.input_file)
+npd.filetype = FileType.AUTO
 if args.format:
-    pdata.format = args.format
-pdata.save(args.output_file)
+    npd.format = args.format
+npd.save(args.output_file)

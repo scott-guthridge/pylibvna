@@ -18,7 +18,7 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #
 from libc.stdio cimport FILE
-cimport libvna.data as vd
+cimport libvna.data as data
 
 cdef extern from "<stdarg.h>":
     ctypedef struct va_list:
@@ -244,8 +244,8 @@ cdef extern from "<vnacal.h>":
                      const double *frequency_vector, int frequencies,
                      double complex *const *a, int a_rows, int a_columns,
                      double complex *const *b, int b_rows, int b_columns,
-                     vd.vnadata_t *s_parameters)
+                     data.vnadata_t *s_parameters)
     int vnacal_apply_m(vnacal_t *vcp, int ci,
                        const double *frequency_vector, int frequencies,
                        double complex *const *m, int m_rows, int m_columns,
-                       vd.vnadata_t *s_parameters)
+                       data.vnadata_t *s_parameters)

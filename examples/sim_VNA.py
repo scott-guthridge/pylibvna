@@ -23,7 +23,7 @@ from matplotlib import ticker
 from matplotlib.pyplot import show, subplots
 import numpy as np
 from libvna.conv import ytosn, ztosn
-from libvna.data import Data, PType
+from libvna.data import NPData, PType
 
 # Misc constants
 C = 2.9979246e+08                       # speed of light in vacuum (m/s)
@@ -171,7 +171,7 @@ class VNA:
             raise ValueError("n_errors must be 8, 10 or 16")
         dut = None
         if dut_file is not None:
-            dut = Data()
+            dut = NPData()
             dut.load(dut_file)
             dut.convert(PType.S)
 

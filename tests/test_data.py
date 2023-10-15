@@ -5,7 +5,7 @@ Test the libvna.data module.
 import os
 import unittest
 import numpy as np
-import libvna.data as vd
+import libvna.data as data
 
 M_SQRT1_2 = 1.41421356237309504880
 
@@ -16,14 +16,14 @@ def crandn(*args, **kwargs):
     return M_SQRT1_2 * (np.random.normal(*args, **kwargs)
                         + 1j * np.random.normal(*args, **kwargs))
 
-class TestData:
+class TestNPD:
     """
     Test data to compare against.
     """
     __test__ = False
 
     def __init__(self,
-                 ptype=vd.PType.ANY,
+                 ptype=data.PType.ANY,
                  rows=0,
                  columns=0,
                  frequencies=0,
@@ -234,7 +234,7 @@ class TestModule(unittest.TestCase):
         Test that the default constructor produces all dimensions zero
         without frequency dependent reference impedances.
         """
-        d = vd.Data()
+        d = data.NPData()
         self.assertEqual(d.rows, 0)
         self.assertEqual(d.columns, 0)
         self.assertEqual(d.frequencies, 0)
@@ -244,7 +244,7 @@ class TestModule(unittest.TestCase):
         self.assertFalse(d.has_fz0)
 
     def test_zero_values(self):
-        d = vd.Data(vd.PType.ANY, 2, 3, 5)
+        d = data.NPData(data.PType.ANY, 2, 3, 5)
         self.assertEqual(d.rows, 2)
         self.assertEqual(d.columns, 3)
         self.assertEqual(d.frequencies, 5)
@@ -253,36 +253,36 @@ class TestModule(unittest.TestCase):
         self.assertEqual(np.asarray(d.data_array).shape, (5, 2, 3))
         self.assertEqual(len(d.z0_vector), 3)
         self.assertFalse(d.has_fz0)
-        t = TestData(vd.PType.ANY, 2, 3, 5)
+        t = TestNPD(data.PType.ANY, 2, 3, 5)
         self.assertTrue(t.isequal(d))
 
     def test_fill1(self):
-        t = TestData(vd.PType.ANY, 1, 2, 3, False)
+        t = TestNPD(data.PType.ANY, 1, 2, 3, False)
         t.randomize()
-        d = vd.Data()
+        d = data.NPData()
         t.fill(d)
         self.assertTrue(t.isequal(d))
 
     def test_fill2(self):
-        t = TestData(vd.PType.ANY, 1, 2, 3, True)
+        t = TestNPD(data.PType.ANY, 1, 2, 3, True)
         t.randomize()
-        d = vd.Data()
+        d = data.NPData()
         t.fill(d)
         self.assertTrue(t.isequal(d))
 
     def test_init(self):
-        td1 = TestData(vd.PType.ANY, 3, 4, 5, True)
+        td1 = TestNPD(data.PType.ANY, 3, 4, 5, True)
         td1.randomize()
-        d = vd.Data()
+        d = data.NPData()
         td1.fill(d)
-        d.init(vd.PType.S, 3, 3, 4)
-        td2 = TestData(vd.PType.S, 3, 3, 4)
+        d.init(data.PType.S, 3, 3, 4)
+        td2 = TestNPD(data.PType.S, 3, 3, 4)
         self.assertTrue(td2.isequal(d))
 
     def test_get_frequency_vector(self):
-        t = TestData(vd.PType.ANY, 5, 2, 3, False)
+        t = TestNPD(data.PType.ANY, 5, 2, 3, False)
         t.randomize()
-        d = vd.Data()
+        d = data.NPData()
         t.fill(d)
         self.assertEqual(len(d.frequency_vector), 3)
         self.assertTrue(np.array_equal(d.frequency_vector, t.frequency_vector))
@@ -319,9 +319,9 @@ class TestModule(unittest.TestCase):
             _ = d.frequency_vector[-4]
 
     def test_set_frequency_vector(self):
-        t = TestData(vd.PType.ANY, 5, 2, 3, False)
+        t = TestNPD(data.PType.ANY, 5, 2, 3, False)
         t.randomize()
-        d = vd.Data()
+        d = data.NPData()
         t.fill(d)
 
         d.frequency_vector[1] = 666.0
@@ -354,9 +354,9 @@ class TestModule(unittest.TestCase):
                                        [1.0, 2.0, 3.0, 4.0]))
 
     def test_get_data_vector(self):
-        t = TestData(vd.PType.ANY, 4, 3, 11, False)
+        t = TestNPD(data.PType.ANY, 4, 3, 11, False)
         t.randomize()
-        d = vd.Data()
+        d = data.NPData()
         t.fill(d)
 
         self.assertEqual(len(d.data_array), 11)
@@ -409,9 +409,9 @@ class TestModule(unittest.TestCase):
             i -= 1
 
     def test_set_data_vector(self):
-        t = TestData(vd.PType.ANY, 4, 3, 11, False)
+        t = TestNPD(data.PType.ANY, 4, 3, 11, False)
         t.randomize()
-        d = vd.Data()
+        d = data.NPData()
         t.fill(d)
 
         v = crandn()
@@ -509,14 +509,14 @@ class TestModule(unittest.TestCase):
         self.assertEqual(d.frequencies, 5)
         self.assertEqual(d.rows, 3)
         self.assertEqual(d.columns, 3)
-        t.resize(vd.PType.ANY, 3, 3, 5, False)
+        t.resize(data.PType.ANY, 3, 3, 5, False)
         t.data_array = v
         self.assertTrue(t.isequal(d))
 
     def test_get_z0_vector(self):
-        t = TestData(vd.PType.ANY, 3, 5, 2, False)
+        t = TestNPD(data.PType.ANY, 3, 5, 2, False)
         t.randomize()
-        d = vd.Data()
+        d = data.NPData()
         t.fill(d)
 
         self.assertEqual(len(d.z0_vector), 5)
@@ -550,9 +550,9 @@ class TestModule(unittest.TestCase):
             _ = d.z0_vector[-6]
 
     def test_set_z0_vector(self):
-        t = TestData(vd.PType.ANY, 5, 3, 2, False)
+        t = TestNPD(data.PType.ANY, 5, 3, 2, False)
         t.randomize()
-        d = vd.Data()
+        d = data.NPData()
         t.fill(d)
 
         v = crandn()
@@ -585,7 +585,7 @@ class TestModule(unittest.TestCase):
             d.z0_vector = v
 
         # Test that resize from (0 x 0) doesn't raise on same v
-        d.resize(vd.PType.ANY, 0, 0, 2)
+        d.resize(data.PType.ANY, 0, 0, 2)
         self.assertEqual(d.rows, 0)
         self.assertEqual(d.columns, 0)
         d.z0_vector = v
@@ -593,9 +593,9 @@ class TestModule(unittest.TestCase):
         self.assertEqual(d.columns, 3)
 
     def test_get_fz0_vector(self):
-        t = TestData(vd.PType.ANY, 3, 4, 5, True)
+        t = TestNPD(data.PType.ANY, 3, 4, 5, True)
         t.randomize()
-        d = vd.Data()
+        d = data.NPData()
         t.fill(d)
         self.assertTrue(t.isequal(d))
 
@@ -639,9 +639,9 @@ class TestModule(unittest.TestCase):
             _ = d.fz0_array[-6]
 
     def test_set_fz0_vector(self):
-        t = TestData(vd.PType.ANY, 4, 3, 5, True)
+        t = TestNPD(data.PType.ANY, 4, 3, 5, True)
         t.randomize()
-        d = vd.Data()
+        d = data.NPData()
         t.fill(d)
         self.assertTrue(t.isequal(d))
 
@@ -680,7 +680,7 @@ class TestModule(unittest.TestCase):
             d.fz0_array = v
 
         # Test that resize from (0 x 0) doesn't raise on same v
-        d.resize(vd.PType.ANY, 0, 0, 0)
+        d.resize(data.PType.ANY, 0, 0, 0)
         self.assertEqual(d.rows, 0)
         self.assertEqual(d.columns, 0)
         d.fz0_array = v
@@ -730,25 +730,26 @@ class TestModule(unittest.TestCase):
               -9.999959999980000e-01 -2.828424296309200e-03j]]])
 
         #
-        # Make ABCD parameters for the filter and store in libvna.Data object
+        # Make ABCD parameters for the filter and store in
+        # libvna.data.NPData object
         #
-        A = vd.Data(vd.PType.A, 2, 2, len(frequency_vector))
+        A = data.NPData(data.PType.A, 2, 2, len(frequency_vector))
         A.frequency_vector = frequency_vector
         A.data_array = make_lc_abcd(l, c, frequency_vector)
 
         #
         # Convert to S paramters and check
         #
-        S = A.convert(vd.PType.S)
+        S = A.convert(data.PType.S)
         self.assertTrue(np.allclose(S.data_array, s_expected))
 
     def test_load_save(self):
         n = 10
-        t = TestData(vd.PType.S, 2, 2, n, False)
+        t = TestNPD(data.PType.S, 2, 2, n, False)
         t.frequency_vector = np.logspace(6, 10, n)
         t.z0_vector[:] = [50, 75]
         t.data_array = crandn(size=(n, 2, 2))
-        d = vd.Data()
+        d = data.NPData()
         t.fill(d)
         d.format = "Sdb"
         d.fprecision = 8
@@ -756,9 +757,9 @@ class TestModule(unittest.TestCase):
         d.save("test.ts")
         d = None
 
-        d = vd.Data()
+        d = data.NPData()
         d.load("test.ts")
-        self.assertEqual(d.ptype, vd.PType.S)
+        self.assertEqual(d.ptype, data.PType.S)
         self.assertTrue(np.allclose(d.frequency_vector, t.frequency_vector))
         self.assertTrue(np.allclose(d.z0_vector, t.z0_vector))
         self.assertTrue(np.allclose(d.data_array, t.data_array))
