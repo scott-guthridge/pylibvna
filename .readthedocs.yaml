@@ -3,9 +3,9 @@ build:
   os: ubuntu-22.04
   tools:
     python: "3.11"
-  commands:
-    - .github/scripts/install-libvna.sh
-    - pip install libvna
+  jobs:
+    pre_create_environment:
+      - .github/scripts/install-libvna.sh
 
 sphinx:
   configuration: docs/source/conf.py
