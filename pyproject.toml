@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name         = "libvna"
-version      = "0.0.2"
+version      = "0.0.3"
 description  = "Vector network analyzer calibration, load, store and convert"
 authors      = [
     { name = "D Scott Guthridge", email = "scott_guthridge@rompromity.net" }
