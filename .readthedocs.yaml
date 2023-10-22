@@ -23,3 +23,6 @@ build:
         make -j12 install
 sphinx:
   configuration: docs/source/conf.py
+python:
+  install:
+    - requirements: docs/requirements.txt
