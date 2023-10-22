@@ -14,4 +14,4 @@ list=`
 	esac
     done`
 echo "list: $list"
-exec sudo -S < /dev/null apt install -y $list
+exec apt install -y $list

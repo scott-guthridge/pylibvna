@@ -6,7 +6,7 @@ build:
   apt_packages:
     - sudo
   jobs:
-    pre_create_environment:
+    pre_system_dependencies:
       - .github/scripts/install-libvna.sh
 
 sphinx:
