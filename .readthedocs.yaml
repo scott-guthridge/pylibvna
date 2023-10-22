@@ -4,10 +4,22 @@ build:
   tools:
     python: "3.11"
   apt_packages:
-    - sudo
+    - autoconf
+    - automake
+    - gcc
+    - git
+    - libtool
+    - libyaml-dev
+    - make
+    - man
+    - m4
   jobs:
-    pre_system_dependencies:
-      - .github/scripts/install-libvna.sh
-
+    post_system_dependencies:
+      - git clone https://github.com/scott-guthridge/libvna.git
+      - |
+        cd libvna &&
+        ./bootstrap &&
+        ./configure --prefix="${HOME}" &&
+        make -j12 install
 sphinx:
   configuration: docs/source/conf.py
