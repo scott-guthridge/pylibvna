@@ -5,16 +5,16 @@
 
 Welcome to libvna's Documentation
 =================================
-**libvna** is a small collection of modules that perform calibration,
-parameter conversion, and management of network parameter data for vector
-network analyzers (VNAs).
+**libvna** is a collection of modules that perform calibration, parameter
+conversion, and management of network parameter data for vector network
+analyzers (VNAs).
 
 Installation
 ------------
-To use these modules, you must first install the VNA library.
-Source code and binary packages for some systems can be found on:
-`github <https://github.com/scott-guthridge/libvna>`_.  Follow the
-installation instructions there.
+To use these modules, you must first install the VNA library.  Source
+code (and binary packages for some systems) can be found on: `github
+<https://github.com/scott-guthridge/libvna>`_.  Follow the installation
+instructions there.
 
 .. toctree::
    :maxdepth: 2
