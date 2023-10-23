@@ -1,6 +1,14 @@
+import os
 from setuptools import Extension
 from setuptools.command.build_py import build_py as _build_py
 from numpy import get_include
+
+include_dirs = [get_include(), "/usr/local/include"]
+library_dirs = None
+home = os.environ.get("HOME")
+if home is not None:
+    include_dirs.append(home + "/.local/include")
+    library_dirs = [home + "/.local/lib"]
 
 class build_py(_build_py):
     def run(self):
@@ -17,7 +25,8 @@ class build_py(_build_py):
                       sources=["src/libvna/conv.pyx"],
                       define_macros=[('NPY_NO_DEPRECATED_API',
                                       'NPY_1_7_API_VERSION')],
-                      include_dirs=[get_include(), "/usr/local/include"],
+                      include_dirs=include_dirs,
+                      library_dirs=library_dirs,
                       libraries=["vna", "m"])
         )
         self.distribution.ext_modules.append(
@@ -25,7 +34,8 @@ class build_py(_build_py):
                       sources=["src/libvna/data.pyx"],
                       define_macros=[('NPY_NO_DEPRECATED_API',
                                       'NPY_1_7_API_VERSION')],
-                      include_dirs=[get_include(), "/usr/local/include"],
+                      include_dirs=include_dirs,
+                      library_dirs=library_dirs,
                       libraries=["vna", "m"])
         )
         self.distribution.ext_modules.append(
@@ -33,6 +43,7 @@ class build_py(_build_py):
                       sources=["src/libvna/cal.pyx"],
                       define_macros=[('NPY_NO_DEPRECATED_API',
                                       'NPY_1_7_API_VERSION')],
-                      include_dirs=[get_include(), "/usr/local/include"],
+                      include_dirs=include_dirs,
+                      library_dirs=library_dirs,
                       libraries=["vna", "m"])
         )
