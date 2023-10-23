@@ -18,13 +18,16 @@ build:
       - echo USER
       - whoami
       - groups
-      - more /etc/ld.so.conf/* | cat
+      - echo LD_LIBRARY_PATH=${LD_LIBRARY_PATH}
+      - ls -l /usr/local /usr/local/lib /usr/local/lib/py*
+      - more /etc/ld.so.conf.d/* | cat
       - git clone https://github.com/scott-guthridge/libvna.git
+      - test -d "${HOME}/.local" || mkdir "${HOME}/.local"
       - |
-        cd libvna &&
+        ( cd libvna &&
         ./bootstrap &&
-        ./configure --prefix="/usr/local" &&
-        make -j12 install
+        ./configure --prefix="${HOME}/.local" &&
+        make -j12 install )
     post_install:
       - pip install .
 sphinx:
