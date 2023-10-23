@@ -15,7 +15,8 @@ build:
     - m4
   jobs:
     post_system_dependencies:
-      - echo "USER: `whoami`"
+      - echo USER
+      - whoami
       - ls -l /usr/local /usr/local/lib /usr/local/lib/py*
       - git clone https://github.com/scott-guthridge/libvna.git
       - test -d "${HOME}/.local" || mkdir "${HOME}/.local"
