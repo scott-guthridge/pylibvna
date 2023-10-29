@@ -15,12 +15,8 @@ build:
     - m4
   jobs:
     post_system_dependencies:
-      - echo USER
-      - whoami
-      - groups
-      - echo LD_LIBRARY_PATH=${LD_LIBRARY_PATH}
-      - ls -l /usr/local /usr/local/lib /usr/local/lib/py*
-      - more /etc/ld.so.conf.d/* | cat
+      - echo "USER=`user` HOME=${HOME}"
+      - echo "LD_LIBRARY_PATH=${LD_LIBRARY_PATH}"
       - git clone https://github.com/scott-guthridge/libvna.git
       - test -d "${HOME}/.local" || mkdir "${HOME}/.local"
       - |
