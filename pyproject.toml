@@ -1,35 +1,42 @@
 [build-system]
-requires = ["setuptools", "Cython", "numpy", "wheel"]
-build-backend = "setuptools.build_meta"
+build-backend = "mesonpy"
+requires = ["meson-python", "Cython", "numpy", "wheel"]
 
 [project]
 name         = "libvna"
 version      = "0.0.3"
 description  = "Vector network analyzer calibration, load, store and convert"
-authors      = [
+readme = { file = "README", content-type = "text/plain" }
+requires-python = ">=3.6"
+license = { file = "LICENSE" }
+authors = [
     { name = "D Scott Guthridge", email = "scott_guthridge@rompromity.net" }
 ]
-license = { file = "LICENSE" }
-readme = { file = "README", content-type = "text/plain" }
-requires-python = ">=3.7"
+keywords = [
+    "Electronics",
+    "RF",
+    "S-Parameters",
+    "Test and Measurement",
+    "Touchstone",
+    "VNA",
+]
+dependencies = [
+    "numpy"
+]
 
 [project.urls]
-repository = "https://github.com/scott-guthridge/pylibvna"
+Documentation = "https://pylibvna.readthedocs.io/en/latest/"
+Repository = "https://github.com/scott-guthridge/pylibvna"
 
 [project.optional-dependencies]
 test = ["unittest"]
-
-[tool.setuptools]
-py-modules = ["_custom_build"]
-
-[tool.setuptools.cmdclass]
-build_py = "_custom_build.build_py"
-
-[tool.setuptools.packages.find]
-where = ["src"]
+docs = [
+    "sphinx==5.3.0",
+    "sphinx_rtd_theme==1.1.1",
+    "readthedocs-sphinx-search==0.1.1"
+]
 
 [tool.pytest.ini_options]
 addopts = [
     "--import-mode=importlib",
 ]
-pythonpath = "src"
