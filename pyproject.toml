@@ -1,6 +1,7 @@
 [build-system]
 build-backend = "mesonpy"
-requires = ["meson-python", "Cython", "numpy", "wheel"]
+requires = ["Cython", "meson-python", "meson-python", "numpy", "wheel"]
+
 
 [project]
 name         = "libvna"

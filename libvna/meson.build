@@ -4,23 +4,23 @@ py3.install_sources(
 )
 
 py3.extension_module(
-    'libvna.cal',
+    'cal',
     ['cal.pyx'],
-    dependencies: dep_py,
+    dependencies: [dep_py, dep_vna],
     subdir: 'libvna',
     install: true
 )
 py3.extension_module(
-    'libvna.conv',
+    'conv',
     ['conv.pyx'],
-    dependencies: dep_py,
+    dependencies: [dep_py, dep_vna],
     subdir: 'libvna',
     install: true
 )
 py3.extension_module(
-    'libvna.data',
+    'data',
     ['data.pyx'],
-    dependencies: dep_py,
+    dependencies: [dep_py, dep_vna],
     subdir: 'libvna',
     install: true
 )

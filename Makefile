@@ -5,7 +5,7 @@ install: all
 	pip install dist/libvna*.whl
 
 fast_install:
-	pip install -e . --user
+	python3 -m pip install --no-build-isolation --editable .
 
 test:
 	python -m unittest discover tests
