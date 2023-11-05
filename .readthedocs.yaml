@@ -13,6 +13,10 @@ build:
     - make
     - man
     - m4
+    - ninja-build
+    - pkg-config
+    - python3
+    - python3-pip
   jobs:
     post_system_dependencies:
       - echo "USER=`user` HOME=${HOME}"
@@ -25,7 +29,7 @@ build:
         ./configure --prefix="${HOME}/.local" &&
         make -j12 install )
     post_install:
-      - pip install .
+      - PKG_CONFIG_PATH=$HOME/.local/lib/pkgconfig pip install .
 sphinx:
   configuration: docs/source/conf.py
 python:
