@@ -21,10 +21,11 @@ build:
     post_system_dependencies:
       - echo "USER=`user` HOME=${HOME}"
       - echo "LD_LIBRARY_PATH=${LD_LIBRARY_PATH}"
-      - git clone https://github.com/scott-guthridge/libvna.git
+      - git clone https://github.com/scott-guthridge/libvna.git c-libvna
+      - ls
       - test -d "${HOME}/.local" || mkdir "${HOME}/.local"
       - |
-        ( cd libvna &&
+        ( cd c-libvna &&
         ./bootstrap &&
         ./configure --prefix="${HOME}/.local" &&
         make -j12 install )
