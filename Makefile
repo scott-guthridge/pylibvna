@@ -1,11 +1,14 @@
-all:
-	python3 -m build
+all: build
+	( cd build && meson compile )
 
-install: all
-	pip install dist/libvna*.whl
+build:
+	meson setup build
+
+install:
+	pip install .
 
 fast_install:
 	python3 -m pip install --no-build-isolation --editable .
 
-test:
-	python -m unittest discover tests
+test: all
+	( cd build && meson test )
