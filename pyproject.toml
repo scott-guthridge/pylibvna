@@ -32,9 +32,9 @@ Repository = "https://github.com/scott-guthridge/pylibvna"
 [project.optional-dependencies]
 test = ["unittest"]
 docs = [
-    "sphinx==5.3.0",
-    "sphinx_rtd_theme==1.1.1",
-    "readthedocs-sphinx-search==0.1.1"
+    "sphinx",
+    "sphinx_rtd_theme",
+    "readthedocs-sphinx-search"
 ]
 
 [tool.pytest.ini_options]
