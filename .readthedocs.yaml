@@ -10,9 +10,9 @@ build:
     - git
     - libtool
     - libyaml-dev
+    - m4
     - make
     - man
-    - m4
     - ninja-build
     - pkg-config
     - python3
