@@ -1491,7 +1491,7 @@ cdef class NPData:
 
     def convert(self, PType new_ptype):
         """
-        Return a new Data object with data converted to the new type.
+        Return a new NPData object with data converted to the new type.
 
         Args:
             new_type (PType): new parameter type:
@@ -1595,7 +1595,7 @@ cdef class NPData:
 
         Args:
             filehandle: open file handle to write
-            filename:   name of file used in error messages only
+            filename:   name of file (used in error messages only)
 
         Raises:
             OSError:        if can't write file

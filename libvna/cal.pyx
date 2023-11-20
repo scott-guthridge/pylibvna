@@ -223,12 +223,12 @@ cdef void _py_to_property(object root, vnaproperty_t **rootptr):
 
 cdef class Parameter:
     """
-    An element of the S-parameter matrix for a calibration standard.
-    The Parameter is an abstraction that can represent a single complex
-    scalar such as -1 for short, a vector of (frequency, gamma) tuples
-    representing a reflect with complex impedance or the through component
-    of a transmission line, or an unknown parameter the library must
-    solve, e.g. the R or L parameters in TRL.
+    An element of the S-parameter matrix describing a calibration
+    standard.  The Parameter is an abstraction that can represent a
+    single complex scalar such as -1 for short, a vector of (frequency,
+    gamma) tuples representing a reflect with complex impedance or the
+    through component of a transmission line, or an unknown parameter
+    the library must solve, e.g. the R or L parameters in TRL.
 
     Note: this class cannot be instantiated directly: use
     :class:`ScalarParameter`, :class:`VectorParameter`,
