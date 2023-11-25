@@ -5,7 +5,7 @@ requires = ["Cython", "meson", "meson-python", "numpy", "wheel"]
 
 [project]
 name         = "libvna"
-version      = "0.0.5-2"
+version      = "0.0.5-3"
 description  = "Vector network analyzer calibration, load, store and convert"
 readme = { file = "README", content-type = "text/plain" }
 requires-python = ">=3.6"
