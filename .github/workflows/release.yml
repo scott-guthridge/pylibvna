@@ -37,7 +37,7 @@ jobs:
     - name: Checkout Code
       uses: actions/checkout@v3
     - name: Build Wheels
-      uses: pypa/cibuildwheel@2.15.0
+      uses: pypa/cibuildwheel@latest
       env:
         CIBW_BUILD: ${{ matrix.python[0] }}-${{ matrix.buildplat[1] }}*
         CIBW_ARCHS: ${{ matrix.buildplat[2] }}
