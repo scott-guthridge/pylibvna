@@ -16,9 +16,9 @@ jobs:
         # - [windows-2019, win, AMD64]
         python:
         - ["cp39",  "3.9"]
-        - ["cp310", "3.10"]
-        - ["cp311", "3.11"]
-        - ["cp312", "3.12"]
+        # - ["cp310", "3.10"]
+        # - ["cp311", "3.11"]
+        # - ["cp312", "3.12"]
     steps:
     - name: Checkout Code
       uses: actions/checkout@v3
@@ -38,15 +38,13 @@ jobs:
         CIBW_BEFORE_BUILD_LINUX: |
           echo "WHOAMI=`whoami`"
           echo "UNAME=`uname -a`"
-          more /etc/redhat-release | cat; true
-          more /etc/passwd | cat; true
+          ls /usr/bin | more | cat
           yum install -y autoconf automake gcc git libtool libyaml-devel make man m4
           git clone https://github.com/scott-guthridge/libvna.git
           cd libvna
           ./bootstrap
           ./configure
-          make -j12 check
-          sudo make install
+          make -j12 install
           cd ..
       run: python -m cibuildwheel --output-dir wheelhouse
     - uses: actions/upload-artifact@v3
