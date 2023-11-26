@@ -1,5 +1,5 @@
 project('libvna', 'cython',
-    version: '0.0.5-8')
+    version: '0.0.5-9')
 
 py_mod = import('python')
 py3 = py_mod.find_installation(pure: false)

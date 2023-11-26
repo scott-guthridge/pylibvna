@@ -24,7 +24,7 @@ try:
                 if status.returncode != 0:
                     sys.exit(status.returncode)
                 files.append('./' + os.path.basename(value))
-    status = subprocess.run(['echo', 'sudo', 'apt-get', 'install', '-y'] +
+    status = subprocess.run(['echo', 'apt-get', 'install', '-y'] +
                             files)
     if status.returncode != 0:
         sys.exit(status.returncode)

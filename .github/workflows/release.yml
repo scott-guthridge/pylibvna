@@ -37,8 +37,8 @@ jobs:
         CIBW_PRERELEASE_PYTHONS: True
         CIBW_BEFORE_BUILD_LINUX: |
           echo "WHOAMI=`whoami`"
-          sudo apt-get update
-          sudo apt-get install curl gcc libyaml-dev ninja-build pkg-config
+          apt-get update
+          apt-get install curl gcc libyaml-dev ninja-build pkg-config
           tools/install-libvna
       run: python -m cibuildwheel --output-dir wheelhouse
     - uses: actions/upload-artifact@v3
