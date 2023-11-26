@@ -15,10 +15,11 @@ jobs:
         # - [macos-11, macosx, x86_64]
         # - [windows-2019, win, AMD64]
         python:
+        - ["cp38",  "3.8"]
         - ["cp39",  "3.9"]
-        # - ["cp310", "3.10"]
-        # - ["cp311", "3.11"]
-        # - ["cp312", "3.12"]
+        - ["cp310", "3.10"]
+        - ["cp311", "3.11"]
+        - ["cp312", "3.12"]
     steps:
     - name: Checkout Code
       uses: actions/checkout@v3
@@ -39,7 +40,8 @@ jobs:
           echo "WHOAMI=`whoami`"
           echo "UNAME=`uname -a`"
           set -e
-          yum install -y autoconf automake gcc git libtool libyaml-devel make man m4
+          yum install -y autoconf automake gcc git libtool libyaml-devel \
+              make man m4
           git clone https://github.com/scott-guthridge/libvna.git c-libvna
           cd c-libvna
           ./bootstrap
@@ -47,19 +49,16 @@ jobs:
           make -j12 install
           cd ..
       run: python -m cibuildwheel --output-dir wheelhouse
-    - uses: actions/upload-artifact@v3
-      with:
-        name: ${{ matrix.python[0] }}-${{ matrix.buildplat[1] }}
-        path: ./wheelhouse/*.whl
-
-    # - name: Publish to PyPI
-    #   if: github.event_name == 'push' && github.ref == 'refs/heads/main'
-    #   run: |
-    #     python -m twine upload wheelhouse/*
-    #   env:
-    #     TWINE_USERNAME: __token__
-    #     TWINE_PASSWORD: ${{ secrets.PYPI_TOKEN }}
-
+    - name: Publish to PyPI
+      run: |
+        python -m twine upload wheelhouse/*
+      env:
+        TWINE_USERNAME: __token__
+        TWINE_PASSWORD: ${{ secrets.PYPI_TOKEN }}
+    # - uses: actions/upload-artifact@v3
+    #   with:
+    #     name: ${{ matrix.python[0] }}-${{ matrix.buildplat[1] }}
+    #     path: ./wheelhouse/*.whl
     # - name: Create Release
     #   id: create_release
     #   uses: actions/create-release@v1

@@ -22,7 +22,6 @@ build:
       - echo "USER=`user` HOME=${HOME}"
       - echo "LD_LIBRARY_PATH=${LD_LIBRARY_PATH}"
       - git clone https://github.com/scott-guthridge/libvna.git c-libvna
-      - ls
       - test -d "${HOME}/.local" || mkdir "${HOME}/.local"
       - |
         ( cd c-libvna &&
