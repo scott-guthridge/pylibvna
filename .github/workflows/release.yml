@@ -20,22 +20,21 @@ jobs:
         - ["cp311", "3.11"]
         - ["cp312", "3.12"]
     steps:
-    - uses: actions/setup-python@v4
-      with:
-        python-version: 3.9
+    - name: Checkout Code
+      uses: actions/checkout@v3
     - name: Install Dependencies (Linux)
       run: |
         sudo apt-get update
-        sudo apt-get install curl gcc libyaml-dev ninja-build pkg-config \
-            python3 python3-pip
+        sudo apt-get install curl gcc libyaml-dev ninja-build pkg-config
         tools/install-libvna
       if: runner.os == 'Linux'
+    - uses: actions/setup-python@v4
+      with:
+        python-version: 3.9
     - name: Install Python Dependencies
       run: |
         python -m pip install --upgrade pip
         pip install cibuildwheel twine
-    - name: Checkout Code
-      uses: actions/checkout@v3
     - name: Build Wheels
       env:
         CIBW_BUILD: ${{ matrix.python[0] }}-${{ matrix.buildplat[1] }}*
