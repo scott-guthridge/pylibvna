@@ -22,12 +22,6 @@ jobs:
     steps:
     - name: Checkout Code
       uses: actions/checkout@v3
-    - name: Install Dependencies (Linux)
-      run: |
-        sudo apt-get update
-        sudo apt-get install curl gcc libyaml-dev ninja-build pkg-config
-        tools/install-libvna
-      if: runner.os == 'Linux'
     - uses: actions/setup-python@v4
       with:
         python-version: 3.9
@@ -41,6 +35,11 @@ jobs:
         CIBW_ARCHS: ${{ matrix.buildplat[2] }}
         CIBW_ENVIRONMENT_PASS_LINUX: RUNNER_OS
         CIBW_PRERELEASE_PYTHONS: True
+        CIBW_BEFORE_BUILD_LINUX: |
+          echo "WHOAMI=`whoami`"
+          sudo apt-get update
+          sudo apt-get install curl gcc libyaml-dev ninja-build pkg-config
+          tools/install-libvna
       run: python -m cibuildwheel --output-dir wheelhouse
     - uses: actions/upload-artifact@v3
       with:
