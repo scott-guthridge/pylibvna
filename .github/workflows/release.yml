@@ -38,10 +38,10 @@ jobs:
         CIBW_BEFORE_BUILD_LINUX: |
           echo "WHOAMI=`whoami`"
           echo "UNAME=`uname -a`"
-          ls /usr/bin | more | cat
+          set -e
           yum install -y autoconf automake gcc git libtool libyaml-devel make man m4
-          git clone https://github.com/scott-guthridge/libvna.git
-          cd libvna
+          git clone https://github.com/scott-guthridge/libvna.git c-libvna
+          cd c-libvna
           ./bootstrap
           ./configure
           make -j12 install
