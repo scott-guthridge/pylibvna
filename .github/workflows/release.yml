@@ -37,9 +37,17 @@ jobs:
         CIBW_PRERELEASE_PYTHONS: True
         CIBW_BEFORE_BUILD_LINUX: |
           echo "WHOAMI=`whoami`"
-          apt-get update
-          apt-get install curl gcc libyaml-dev ninja-build pkg-config
-          tools/install-libvna
+          echo "UNAME=`uname -a`"
+          more /etc/redhat-release | cat; true
+          more /etc/passwd | cat; true
+          yum install -y autoconf automake gcc git libtool libyaml-devel make man m4
+          git clone https://github.com/scott-guthridge/libvna.git
+          cd libvna
+          ./bootstrap
+          ./configure
+          make -j12 check
+          sudo make install
+          cd ..
       run: python -m cibuildwheel --output-dir wheelhouse
     - uses: actions/upload-artifact@v3
       with:
