@@ -8,8 +8,5 @@ in Touchstone 1, Touchstone 2 and network parameter data (.npd) formats.
 
 Git REPO: https://github.com/scott-guthridge/pylibvna
 
-You must install libvna (https://github.com/scott-guthridge/libvna),
-the C backend, for this package to work.
-
 To report bugs, open a git issue.  To ask questions, make suggestions
 or volunteer, post to git discussions.
