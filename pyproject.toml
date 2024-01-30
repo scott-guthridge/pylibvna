@@ -1,17 +1,42 @@
 [build-system]
 build-backend = "mesonpy"
-requires = ["Cython", "meson", "meson-python", "numpy", "wheel"]
-
+requires = [
+    "meson-python>=0.15.0",
+    "Cython>=3.0.4",
+    "ninja",
+    "numpy==1.22.4; python_version<='3.10'",
+    "numpy==1.23.2; python_version=='3.11'",
+    "numpy>=1.26.0,<1.27; python_version=='3.12'",
+    "numpy>=2.0.0.dev0; python_version>='3.13'",
+]
 
 [project]
 name         = "libvna"
 version      = "0.0.5-13"
 description  = "Vector network analyzer calibration, load, store and convert"
 readme = { file = "README", content-type = "text/plain" }
-requires-python = ">=3.6"
+requires-python = ">=3.9"
 license = { file = "LICENSE" }
 authors = [
     { name = "D Scott Guthridge", email = "scott_guthridge@rompromity.net" }
+]
+classifiers = [
+    "Intended Audience :: Science/Research",
+    "Intended Audience :: Developers",
+    "Programming Language :: C",
+    "Programming Language :: Python",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Software Development :: Libraries",
+    "Topic :: Scientific/Engineering",
+    "Operating System :: Microsoft :: Windows",
+    "Operating System :: POSIX :: Linux",
+    "Operating System :: POSIX",
+    "Operating System :: Unix",
+    "Operating System :: MacOS",
 ]
 keywords = [
     "Electronics",
@@ -41,3 +66,44 @@ docs = [
 addopts = [
     "--import-mode=importlib",
 ]
+
+[tool.cibuildwheel]
+build-frontend = "build"
+build-verbosity = "2"
+# config-settings = "build-dir=build"
+# build-frontend = { name = "pip", args = ["--no-build-isolation"] }
+
+[tool.cibuildwheel.linux]
+before-build = """\
+    set -e\n\
+    yum install -y gcc libyaml-devel\n\
+    pip install requests\n\
+    python3 {project}/tools/install-libvna-rpm\n\
+"""
+environment-pass = "RUNNER_OS"
+manylinux-aarch64-image = "manylinux2014"
+manylinux-x86_64-image = "manylinux2014"
+
+[tool.cibuildwheel.macos]
+before-build = """\
+    pip install numpy>=2.0.0.dev0 meson-python cython!=3.0.3 ninja\n\
+    brew tap scott-guthridge/extra\n\
+    brew install scott-guthridge/extra/libvna\n\
+"""
+repair-wheel-command = """\
+    DYLD_LIBRARY_PATH=/usr/local/lib delocate-listdeps {wheel} &&\n\
+    DYLD_LIBRARY_PATH=/usr/local/lib delocate-wheel --require-archs \
+        {delocate_archs} -w {dest_dir} {wheel}\n\
+"""
+
+[tool.cibuildwheel.windows]
+environment = """\
+    PKG_CONFIG_PATH='C:/opt/libvna/lib/pkgconfig'\n\
+"""
+before-build = """\
+  pip install numpy meson-python meson-python cython>=3.0.4 ninja\n\
+"""
+repair-wheel-command = "bash tools/repair-windows {wheel} {dest_dir}"
+
+[[tool.cibuildwheel.overrides]]
+select = "*-win_amd64"

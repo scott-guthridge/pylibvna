@@ -1,0 +1,35 @@
+#!/bin/sh
+progname=`basename "$0"`
+echo "In ${progname}: $@"
+if [ $# != 2 ]; then
+    echo 2>&1 "${progname}: usage wheel destdir"
+    exit 1
+fi
+wheel=$1
+destdir=$2
+
+echo mount:
+mount || :
+echo
+
+echo "pwd=`/bin/pwd`"
+echo "gcc=`which gcc`"
+echo "python=`which python`"
+echo "strip=`which strip`"
+
+echo "Installing delvewheel..."
+pip install delvewheel
+echo "delvewheel=`which delvewheel`"
+
+path=/c/opt/libvna/bin
+echo "path=${path}"
+ls -l "${path}" || :
+
+echo "Running delvewheel..."
+cd $destdir &&
+    python -m delvewheel repair -vv --add-path "${path}" --strip \
+	-w "${destdir}" "${wheel}"
+ls -l "${destdir}" || :
+
+echo done
+exit 0

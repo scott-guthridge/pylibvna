@@ -1,5 +1,12 @@
-project('libvna', 'cython',
-    version: '0.0.5-13')
+project('libvna', 'c', 'cython',
+  version: '0.0.5-13',
+  license: 'GPL-3',
+  default_options: [
+    'buildtype=debugoptimized',
+    'b_ndebug=if-release',
+    'c_std=c99',
+  ],
+)
 
 py_mod = import('python')
 py3 = py_mod.find_installation(pure: false)
