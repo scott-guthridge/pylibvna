@@ -232,7 +232,8 @@ cdef class Parameter:
 
     Note: this class cannot be instantiated directly: use
     :class:`ScalarParameter`, :class:`VectorParameter`,
-    :class:`UnknownParameter` and :class:`CorrelatedParameter`.
+    :class:`UnknownParameter` and :class:`CorrelatedParameter`
+    or :func:`Parameter.from_value`.
     """
     cdef Calset calset
     cdef int pindex
@@ -399,7 +400,7 @@ cdef class UnknownParameter(Parameter):
     Parameters:
         calset (Calset):
             The associated calibration set.
-        initial_guess (complex, list of (frequency, gamma) tuples or Parameter):
+        initial_guess (complex, (frequency_vector, gamma_vector) tuple, or Parameter):
             Approximate value of the unknown parameter
     """
     def __cinit__(self, Calset calset, initial_guess):
@@ -426,7 +427,7 @@ cdef class CorrelatedParameter(Parameter):
     Parameters:
         calset (Calset):
             The associated calibration set.
-        other (Parameter):
+        other (complex, (frequency_vector, gamma_vector) tuple, or Parameter):
             Another Parameter to which this
             Parameter is known to be correlated
         frequency_vector (vector of float):
@@ -669,7 +670,7 @@ cdef class Solver:
                 not available
             b (matrix of vectors of complex):
                 reflected root power from each DUT port
-            s11 (complex, list of (frequency, gamma) tuples, or Parameter):
+            s11 (complex, (frequency_vector, gamma_vector) tuple, or Parameter):
                 :math:`S_{11}` parameter of the the calibration standard
             port (int, optional):
                 VNA port number connected to the standard.  If not given,
@@ -731,9 +732,9 @@ cdef class Solver:
                 not available
             b (matrix of vectors of complex):
                 reflected root power from each DUT port
-            s11 (complex, list of (frequency, gamma) tuples, or Parameter):
+            s11 (complex, (frequency_vector, gamma_vector) tuple, or Parameter):
                 the :math:`S_{11}` parameter of the the calibration standard
-            s22 (complex, list of (frequency, gamma) tuples, or Parameter):
+            s22 (complex, (frequency_vector, gamma_vector) tuple, or Parameter):
                 the :math:`S_{22}` parameter of the calibration standard
             port1 (int, optional):
                 VNA port number connected to port 1 of the calibration
@@ -860,8 +861,8 @@ cdef class Solver:
                 reflected root power from each DUT port
             s (2x2 matrix):
                 S-parameter matrix of the standard, where each element
-                of the matrix can be a complex scalar, a vector of
-                (frequency, gamma) tuples, or a Parameter
+                of the matrix can be a complex, (frequency_vector,
+                gamma_vector) tuple, or Parameter
             port1 (int, optional):
                 VNA port number connected to port 1 of the calibration
                 standard.  If not given, defaults to 1.
@@ -937,8 +938,8 @@ cdef class Solver:
                 reflected root power from each DUT port
             s (matrix):
                 S-parameter matrix of the standard, where each element
-                of the matrix can be a complex scalar, a vector of
-                (frequency, gamma) tuples, or a Parameter
+                of the matrix can be a complex, (frequency_vector,
+                gamma_vector) tuple, or Parameter
             port_map (vector of int, optional):
                 List of the VNA port numbers attached to each port of
                 the standard in order.  Optional if the standard has
@@ -1665,7 +1666,7 @@ cdef class Calset:
             assert(cp != NULL)
             if cp.decode("UTF-8") == name:
                 return i
-        raise IndexError(f"calibration {name} not found")
+        raise KeyError(f"calibration {name} not found")
 
     @property
     def calibrations(self):
