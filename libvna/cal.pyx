@@ -1414,21 +1414,13 @@ cdef class _CalHelper:
 
         raise IndexError("index must have type int or str")
 
-    def __getitem__(self, index) -> Calibration:
-        """
-        Return a Calibration object by name or index.
-        """
+    def __contains__(self, key):
         cdef Calset calset = self.calset
-        cdef int ci = self._find_ci_by_index_or_name(index)
-        cdef Calibration calibration
-        calibration = Calibration()
-        calibration.calset = calset
-        calibration.ci = ci
-        return calibration
-
-    def __len__(self):
-        cdef Calset calset = self.calset
-        return len(calset._index_to_ci)
+        cdef int i
+        for i in range(len(calset._index_to_ci)):
+            if self[i].name == key:
+                return True
+        return False
 
     def __delitem__(self, index):
         """
@@ -1441,6 +1433,18 @@ cdef class _CalHelper:
         assert(rc == 0)
         del calset._index_to_ci[index]
 
+    def __getitem__(self, index) -> Calibration:
+        """
+        Return a Calibration object by name or index.
+        """
+        cdef Calset calset = self.calset
+        cdef int ci = self._find_ci_by_index_or_name(index)
+        cdef Calibration calibration
+        calibration = Calibration()
+        calibration.calset = calset
+        calibration.ci = ci
+        return calibration
+
     def __iter__(self):
         """
         Iterate over the Calibrations
@@ -1449,6 +1453,10 @@ cdef class _CalHelper:
         cdef int i
         for i in range(len(calset._index_to_ci)):
             yield self[i]
+
+    def __len__(self):
+        cdef Calset calset = self.calset
+        return len(calset._index_to_ci)
 
     def  __reversed__(self):
         """
@@ -1469,6 +1477,40 @@ cdef class _CalHelper:
             if i > 0:
                 result += "\n"
             result += str(cal)
+        return result
+
+    def items(self):
+        """
+        Return a list of (key, value) tuples.
+        """
+        cdef Calset calset = self.calset
+        cdef int i
+        result = []
+        for i in range(len(calset._index_to_ci)):
+            c = self[i]
+            result.append((c.name, c))
+        return result
+
+    def keys(self):
+        """
+        Return the list of calibration names.
+        """
+        cdef Calset calset = self.calset
+        cdef int i
+        result = []
+        for i in range(len(calset._index_to_ci)):
+            result.append(self[i].name)
+        return result
+
+    def values(self):
+        """
+        Return the list of Calibration objects.
+        """
+        cdef Calset calset = self.calset
+        cdef int i
+        result = []
+        for i in range(len(calset._index_to_ci)):
+            result.append(self[i])
         return result
 
 
