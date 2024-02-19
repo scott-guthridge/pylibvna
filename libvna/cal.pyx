@@ -272,26 +272,42 @@ cdef class Parameter:
         raise ValueError("parameter must be class Parameter, a number, or "
                          "tuple(frequency_vector, gamma_vector)")
 
-    def get_value(self, frequency) -> complex:
-        """
-        Parameters:
-            frequency (float):
-                Frequency at which to evaluate the value.
-
-        Return the value of the parameter at a given frequency.
-        For a scalar parameter, the function ignores *frequency*
-        and simply returns the fixed gamma value.  For a vector
-        parameter, it returns the gamma value at the given frequency,
-        interpolating as necessary.  If the parameter is unknown
-        and :func:`Solver.solve` has completed successfully,
-        :func:`get_value` returns the solved value, again
-        interpolating as necessary.
-        """
+    cdef complex _get_simple_value(self, double frequency):
+        # Return the parameter value at a given frequency.
         cdef vnacal_t *vcp = self.calset.vcp
         cdef complex result
         result = vnacal_get_parameter_value(vcp, self.pindex, frequency)
         self.calset._handle_error(0)
         return result
+
+    cdef _get_array_value(self, f_array):
+        # Return the parameter value at a given array of frequencies,
+        # returning the same shape as the input.
+        result = np.empty(f_array.shape, dtype=np.complex128, order="C")
+        for index in np.ndindex(f_array.shape):
+            result[index] = self._get_simple_value(f_array[index])
+        return result
+
+    def get_value(self, frequencies):
+        """
+        Parameters:
+            frequencies (float or array of float):
+                Frequencies at which to evaluate the value.
+
+        Return the value of the parameter at each given frequency,
+        with output in the same shape as frequencies.  For a scalar
+        parameter, the function ignores *frequency* and simply returns
+        the fixed gamma value.  For a vector parameter, it returns the
+        gamma value at the given frequency, interpolating as necessary.
+        If the parameter is unknown and :func:`Solver.solve` has completed
+        successfully, :func:`get_value` returns the solved value, again
+        interpolating as necessary.
+        """
+        f_array = np.asarray(frequencies, dtype=np.double, order="C")
+        if f_array.ndim == 0:
+            return self._get_simple_value(frequencies)
+        else:
+            return self._get_array_value(f_array)
 
 
 cdef class ScalarParameter(Parameter):
