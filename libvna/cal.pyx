@@ -252,26 +252,39 @@ cdef class Parameter:
             vnacal_delete_parameter(calset.vcp, pindex)
 
     @staticmethod
-    cdef Parameter _from_value(Calset calset, parameter):
+    cdef Parameter _from_value(Calset calset, value):
         # """
         # If a number is found where a Parameter is expected, automatically
         # convert it into a scalar parameter.  If a tuple(f_vector, g_vector)
         # is found, automatically convert it to a vector parameter.
         # """
         assert calset is not None
-        cdef double complex value
-        if isinstance(parameter, Parameter):
-            return parameter
-        if isinstance(parameter, complex) or isinstance(parameter, float) \
-                or isinstance(parameter, int):
-            return ScalarParameter(calset, parameter)
-        if isinstance(parameter, tuple):
-            if len(parameter) != 2:
+        if isinstance(value, Parameter):
+            return value
+        if isinstance(value, (complex, float, int)):
+            return ScalarParameter(calset, value)
+        if isinstance(value, tuple):
+            if len(value) != 2:
                 raise ValueError("expected Parameter, number or "
                                  "tuple(frequency_vector, gamma_vector)")
-            return VectorParameter(calset, *parameter)
-        raise ValueError("parameter must be class Parameter, a number, or "
+            return VectorParameter(calset, *value)
+        raise ValueError("value must be class Parameter, a number, or "
                          "tuple(frequency_vector, gamma_vector)")
+
+    @staticmethod
+    def from_value(Calset calset, value):
+        """
+        Construct a Parameter from a given value.
+
+        Parameters:
+            calset (Calset):
+                The associated calibration set.
+             value:
+                If number, return a ScalarParameter.  If
+                tuple(frequency_vector, gamma_vector), return a
+                VectorParameter.  If Parameter, return the argument.
+        """
+        return Parameter._from_value(calset, value)
 
     cdef complex _get_simple_value(self, double frequency):
         # Return the parameter value at a given frequency.
