@@ -1,5 +1,5 @@
 project('libvna', 'c', 'cython',
-  version: '0.0.5-13',
+  version: '0.0.6',
   license: 'GPL-3',
   default_options: [
     'buildtype=debugoptimized',
