@@ -252,7 +252,7 @@ cdef class Parameter:
             vnacal_delete_parameter(calset.vcp, pindex)
 
     @staticmethod
-    cdef Parameter _generalize(Calset calset, parameter):
+    cdef Parameter _from_value(Calset calset, parameter):
         # """
         # If a number is found where a Parameter is expected, automatically
         # convert it into a scalar parameter.  If a tuple(f_vector, g_vector)
@@ -407,7 +407,7 @@ cdef class UnknownParameter(Parameter):
         if calset is None:
             raise ValueError("calset cannot be None")
         cdef vnacal_t *vcp = calset.vcp
-        cdef Parameter c_other = Parameter._generalize(calset, initial_guess)
+        cdef Parameter c_other = Parameter._from_value(calset, initial_guess)
         cdef int rc = vnacal_make_unknown_parameter(vcp, c_other.pindex)
         calset._handle_error(rc)
         self.calset = calset
@@ -446,7 +446,7 @@ cdef class CorrelatedParameter(Parameter):
         if calset is None:
             raise ValueError("calset cannot be None")
         cdef vnacal_t *vcp = calset.vcp
-        cdef Parameter c_other = Parameter._generalize(calset, other)
+        cdef Parameter c_other = Parameter._from_value(calset, other)
         frequency_vector = np.asarray(frequency_vector, dtype=np.double,
                                       order="C")
         if frequency_vector.ndim != 1:
@@ -698,7 +698,7 @@ cdef class Solver:
             #
             # Prepare S parameters
             #
-            c_s11 = Parameter._generalize(self.calset, s11)
+            c_s11 = Parameter._from_value(self.calset, s11)
 
             #
             # Call add function
@@ -766,8 +766,8 @@ cdef class Solver:
             #
             # Prepare S parameters
             #
-            c_s11 = Parameter._generalize(self.calset, s11)
-            c_s22 = Parameter._generalize(self.calset, s22)
+            c_s11 = Parameter._from_value(self.calset, s11)
+            c_s22 = Parameter._from_value(self.calset, s22)
 
             #
             # Call add function
@@ -900,7 +900,7 @@ cdef class Solver:
                 raise ValueError("s must be a 2x2 matrix of parameters")
             for i in range(2):
                 for j in range(2):
-                    c_parameter = Parameter._generalize(self.calset, s[i, j])
+                    c_parameter = Parameter._from_value(self.calset, s[i, j])
                     s[i, j] = c_parameter
                     si[i][j] = c_parameter.pindex
 
@@ -990,7 +990,7 @@ cdef class Solver:
             k = 0
             for i in range(s_rows):
                 for j in range(s_columns):
-                    c_parameter = Parameter._generalize(self.calset, s[i, j])
+                    c_parameter = Parameter._from_value(self.calset, s[i, j])
                     s[i, j] = c_parameter
                     sip[k] = c_parameter.pindex
                     k += 1
@@ -1392,7 +1392,7 @@ cdef class Calibration:
                f"fmax={self.frequency_vector[-1]:.3e}"
 
 
-cdef class _CalHelper:
+cdef class _CalList:
     # """
     # Internal class that provides __getitem__, __delitem__, etc on
     # calibrations.
@@ -1674,7 +1674,7 @@ cdef class Calset:
         Vector of Calibration objects in this Calset.  This attribute
         is indexable, iterable, and the elements can be deleted.
         """
-        helper = _CalHelper()
+        helper = _CalList()
         helper.calset = self
         return helper
 
