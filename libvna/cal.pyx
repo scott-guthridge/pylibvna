@@ -488,21 +488,20 @@ cdef class CorrelatedParameter(Parameter):
 cdef object _prepare_C_array(object array, object name, int frequencies,
         double complex ***clfppp, int *rows, int *columns):
     # """
-    # Given a (rows x columns x frequencies) array-like object, return
+    # Given a (frequencies x rows x columns) array-like object, return
     # a flattened rows x columns matrix of pointers to frequencies long
-    # vectors of values expected by the C code.  Because the resulting
-    # C array points into the python ndarray, we have to make sure the
-    # ndarray remains referenced while the C array is in-use, thus array
-    # is passed by reference.
+    # vectors of values expected by the C code.
     # """
-    array = np.asarray(array, dtype=np.complex128, order="C")
+    array = np.asarray(array)
     if array.ndim != 3:
-        raise ValueError(f"{name} must be a (rows x columns x frequencies) "
+        raise ValueError(f"{name} must be a (frequencies x rows x columns) "
                          f"array")
-    cdef int r = array.shape[0]
-    cdef int c = array.shape[1]
-    if array.shape[2] != frequencies:
-        raise ValueError(f"third dimension of {name} must be {frequencies}")
+    if array.shape[0] != frequencies:
+        raise ValueError(f"first dimension of {name} must be {frequencies}")
+    cdef int r = array.shape[1]
+    cdef int c = array.shape[2]
+    array = array.transpose((1, 2, 0))
+    array = np.asarray(array, dtype=np.complex128, order="C")
     cdef double complex[:, :, ::1] v = array
     cdef double complex **clfpp = <double complex **>malloc(
             r * c * sizeof(double complex *))
@@ -678,10 +677,10 @@ cdef class Solver:
         *s11* on the given VNA port.
 
         Parameters:
-            a (matrix of vectors of complex):
+            a (frequencies long vector of complex matrix or None):
                 incident root power into each DUT port, or None if
                 not available
-            b (matrix of vectors of complex):
+            b (frequencies long vector of complex matrix):
                 reflected root power from each DUT port
             s11 (complex, (frequency_vector, gamma_vector) tuple, or Parameter):
                 :math:`S_{11}` parameter of the the calibration standard
@@ -740,10 +739,10 @@ cdef class Solver:
         S_{21} = 0`.
 
         Parameters:
-            a (matrix of vectors of complex):
+            a (frequencies long vector of complex matrix or None):
                 incident root power into each DUT port, or None if
                 not available
-            b (matrix of vectors of complex):
+            b (frequencies long vector of complex matrix):
                 reflected root power from each DUT port
             s11 (complex, (frequency_vector, gamma_vector) tuple, or Parameter):
                 the :math:`S_{11}` parameter of the the calibration standard
@@ -811,10 +810,10 @@ cdef class Solver:
         :math:`S_{12} = S_{21} = 1` and :math:`S_{11} = S_{22} = 0`.
 
         Parameters:
-            a (matrix of vectors of complex):
+            a (frequencies long vector of complex matrix or None):
                 incident root power into each DUT port, or None if
                 not available
-            b (matrix of vectors of complex):
+            b (frequencies long vector of complex matrix):
                 reflected root power from each DUT port
             port1 (int, optional):
                 First VNA port connected to the through standard.
@@ -867,10 +866,10 @@ cdef class Solver:
         parameter matrix, *s*, on the given VNA ports.
 
         Parameters:
-            a (matrix of vectors of complex):
+            a (frequencies long vector of complex matrix or None):
                 incident root power into each DUT port, or None if
                 not available
-            b (matrix of vectors of complex):
+            b (frequencies long vector of complex matrix):
                 reflected root power from each DUT port
             s (2x2 matrix):
                 S-parameter matrix of the standard, where each element
@@ -944,10 +943,10 @@ cdef class Solver:
         ports of the VNA in *port_map*.
 
         Parameters:
-            a (matrix of vectors of complex):
+            a (frequencies long vector of complex matrix or None):
                 incident root power into each DUT port, or None if
                 not available
-            b (matrix of vectors of complex):
+            b (frequencies long vector of complex matrix):
                 reflected root power from each DUT port
             s (matrix):
                 S-parameter matrix of the standard, where each element
@@ -1305,10 +1304,10 @@ cdef class Calibration:
             f (array of float or None):
                 vector of frequencies at which the measurements were made,
                 or None if measured at the calibration frequencies
-            a (matrix of vectors of complex):
+            a (frequencies long vector of complex matrix or none or None):
                 incident root power into each DUT port, or None if
                 not available
-            b (matrix of vectors of complex):
+            b (frequencies long vector of complex matrix):
                 reflected root power from each DUT port
 
         Return:
