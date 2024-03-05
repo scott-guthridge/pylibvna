@@ -47,7 +47,7 @@ from cpython.exc cimport PyErr_SetFromErrno
 from cpython.pycapsule cimport PyCapsule_GetPointer
 import errno
 from libc.stdio cimport FILE, fdopen, fclose
-from libc.stdlib cimport malloc, free
+from libc.stdlib cimport malloc, calloc, free
 from libc.string cimport memcpy
 import numpy as np
 cimport numpy as npc
@@ -492,7 +492,7 @@ cdef object _prepare_C_array(object array, object name, int frequencies,
     # a flattened rows x columns matrix of pointers to frequencies long
     # vectors of values expected by the C code.
     # """
-    array = np.asarray(array)
+    array = np.asarray(array, dtype=complex, order="C")
     if array.ndim != 3:
         raise ValueError(f"{name} must be a (frequencies x rows x columns) "
                          f"array")
@@ -500,9 +500,6 @@ cdef object _prepare_C_array(object array, object name, int frequencies,
         raise ValueError(f"first dimension of {name} must be {frequencies}")
     cdef int r = array.shape[1]
     cdef int c = array.shape[2]
-    array = array.transpose((1, 2, 0))
-    array = np.asarray(array, dtype=np.complex128, order="C")
-    cdef double complex[:, :, ::1] v = array
     cdef double complex **clfpp = <double complex **>malloc(
             r * c * sizeof(double complex *))
     if clfpp == NULL:
@@ -514,7 +511,12 @@ cdef object _prepare_C_array(object array, object name, int frequencies,
         k = 0
         for i in range(r):
             for j in range(c):
-                clfpp[k] = &v[i, j, 0]
+                clfpp[k] = <double complex *>calloc(frequencies,
+                        sizeof(double complex))
+                if clfpp[k] == NULL:
+                    raise MemoryError()
+                for findex in range(frequencies):
+                    clfpp[k][findex] = array[findex, i, j]
                 k += 1
 
         clfppp[0] = clfpp
@@ -524,6 +526,13 @@ cdef object _prepare_C_array(object array, object name, int frequencies,
         return array
 
     finally:
+        _free_C_array(clfpp, r, c)
+
+
+cdef _free_C_array(double complex **clfpp, int rows, int columns):
+    if clfpp != NULL:
+        for k in range(rows * columns):
+            free(<void *>clfpp[k])
         free(<void *>clfpp)
 
 
@@ -729,8 +738,8 @@ cdef class Solver:
             return
 
         finally:
-            free(<void *>b_clfpp)
-            free(<void *>a_clfpp)
+            _free_C_array(b_clfpp, b_rows, b_columns)
+            _free_C_array(a_clfpp, a_rows, a_columns)
 
     def add_double_reflect(self, a, b, s11, s22, int port1=1, int port2=2):
         """
@@ -800,8 +809,8 @@ cdef class Solver:
             return
 
         finally:
-            free(<void *>b_clfpp)
-            free(<void *>a_clfpp)
+            _free_C_array(b_clfpp, b_rows, b_columns)
+            _free_C_array(a_clfpp, a_rows, a_columns)
 
     def add_through(self, a, b, int port1=1, int port2=2):
         """
@@ -857,8 +866,8 @@ cdef class Solver:
             return
 
         finally:
-            free(<void *>b_clfpp)
-            free(<void *>a_clfpp)
+            _free_C_array(b_clfpp, b_rows, b_columns)
+            _free_C_array(a_clfpp, a_rows, a_columns)
 
     def add_line(self, a, b, s, int port1=1, int port2=2):
         """
@@ -933,8 +942,8 @@ cdef class Solver:
             return
 
         finally:
-            free(<void *>b_clfpp)
-            free(<void *>a_clfpp)
+            _free_C_array(b_clfpp, b_rows, b_columns)
+            _free_C_array(a_clfpp, a_rows, a_columns)
 
     def add_mapped_matrix(self, a, b, s, port_map = None):
         """
@@ -1036,8 +1045,8 @@ cdef class Solver:
             return
 
         finally:
-            free(<void *>b_clfpp)
-            free(<void *>a_clfpp)
+            _free_C_array(b_clfpp, b_rows, b_columns)
+            _free_C_array(a_clfpp, a_rows, a_columns)
             free(<void *>sip)
 
     def set_m_error(self, frequency_vector, noise_floor,
@@ -1378,8 +1387,8 @@ cdef class Calibration:
             return result
 
         finally:
-            free(<void *>b_clfpp)
-            free(<void *>a_clfpp)
+            _free_C_array(b_clfpp, b_rows, b_columns)
+            _free_C_array(a_clfpp, a_rows, a_columns)
 
     @property
     def properties(self):
