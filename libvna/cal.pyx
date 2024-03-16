@@ -680,19 +680,19 @@ cdef class Solver:
         vnacal_new_free(self.vnp)
         self.vnp = NULL
 
-    def add_single_reflect(self, a, b, s11, int port=1):
+    def add_single_reflect(self, b, s11, *, a=None, int port=1):
         """
         Add the measurement of a single reflect standard with parameter
         *s11* on the given VNA port.
 
         Parameters:
-            a (frequencies long vector of complex matrix or None):
-                incident root power into each DUT port, or None if
-                not available
             b (frequencies long vector of complex matrix):
                 reflected root power from each DUT port
             s11 (complex, (frequency_vector, gamma_vector) tuple, or Parameter):
                 :math:`S_{11}` parameter of the the calibration standard
+            a (frequencies long vector of complex matrix, optional):
+                incident root power into each DUT port, or None if
+                not available
             port (int, optional):
                 VNA port number connected to the standard.  If not given,
                 defaults to 1.
@@ -741,22 +741,23 @@ cdef class Solver:
             _free_C_array(b_clfpp, b_rows, b_columns)
             _free_C_array(a_clfpp, a_rows, a_columns)
 
-    def add_double_reflect(self, a, b, s11, s22, int port1=1, int port2=2):
+    def add_double_reflect(self, b, s11, s22, *,
+                           a=None, int port1=1, int port2=2):
         """
         Add the measurement of a double reflect standard with parameters
         *s11* and *s22* on the given VNA ports, assuming :math:`S_{12} =
         S_{21} = 0`.
 
         Parameters:
-            a (frequencies long vector of complex matrix or None):
-                incident root power into each DUT port, or None if
-                not available
             b (frequencies long vector of complex matrix):
                 reflected root power from each DUT port
             s11 (complex, (frequency_vector, gamma_vector) tuple, or Parameter):
                 the :math:`S_{11}` parameter of the the calibration standard
             s22 (complex, (frequency_vector, gamma_vector) tuple, or Parameter):
                 the :math:`S_{22}` parameter of the calibration standard
+            a (frequencies long vector of complex matrix, optional):
+                incident root power into each DUT port, or None if
+                not available
             port1 (int, optional):
                 VNA port number connected to port 1 of the calibration
                 standard.  If not given, defaults to 1.
@@ -812,18 +813,18 @@ cdef class Solver:
             _free_C_array(b_clfpp, b_rows, b_columns)
             _free_C_array(a_clfpp, a_rows, a_columns)
 
-    def add_through(self, a, b, int port1=1, int port2=2):
+    def add_through(self, b, *, a=None, int port1=1, int port2=2):
         """
         Add the measurement of a perfect through standard between *port1*
         and *port2*, i.e.
         :math:`S_{12} = S_{21} = 1` and :math:`S_{11} = S_{22} = 0`.
 
         Parameters:
-            a (frequencies long vector of complex matrix or None):
-                incident root power into each DUT port, or None if
-                not available
             b (frequencies long vector of complex matrix):
                 reflected root power from each DUT port
+            a (frequencies long vector of complex matrix, optional):
+                incident root power into each DUT port, or None if
+                not available
             port1 (int, optional):
                 First VNA port connected to the through standard.
                 If not given, defaults to 1.
@@ -869,21 +870,21 @@ cdef class Solver:
             _free_C_array(b_clfpp, b_rows, b_columns)
             _free_C_array(a_clfpp, a_rows, a_columns)
 
-    def add_line(self, a, b, s, int port1=1, int port2=2):
+    def add_line(self, b, s, *, a=None, int port1=1, int port2=2):
         """
         Add the measurement of an arbitrary two-port standard with S
         parameter matrix, *s*, on the given VNA ports.
 
         Parameters:
-            a (frequencies long vector of complex matrix or None):
-                incident root power into each DUT port, or None if
-                not available
             b (frequencies long vector of complex matrix):
                 reflected root power from each DUT port
             s (2x2 matrix):
                 S-parameter matrix of the standard, where each element
                 of the matrix can be a complex, (frequency_vector,
                 gamma_vector) tuple, or Parameter
+            a (frequencies long vector of complex matrix, optional):
+                incident root power into each DUT port, or None if
+                not available
             port1 (int, optional):
                 VNA port number connected to port 1 of the calibration
                 standard.  If not given, defaults to 1.
@@ -945,22 +946,22 @@ cdef class Solver:
             _free_C_array(b_clfpp, b_rows, b_columns)
             _free_C_array(a_clfpp, a_rows, a_columns)
 
-    def add_mapped_matrix(self, a, b, s, port_map = None):
+    def add_mapped_matrix(self, b, s, *, a=None, port_map=None):
         """
         Add the measurement of an arbitrary n-port standard with S
         parameter matrix, *s*, and a map of ports of the standard to
         ports of the VNA in *port_map*.
 
         Parameters:
-            a (frequencies long vector of complex matrix or None):
-                incident root power into each DUT port, or None if
-                not available
             b (frequencies long vector of complex matrix):
                 reflected root power from each DUT port
             s (matrix):
                 S-parameter matrix of the standard, where each element
                 of the matrix can be a complex, (frequency_vector,
                 gamma_vector) tuple, or Parameter
+            a (frequencies long vector of complex matrix, optional):
+                incident root power into each DUT port, or None if
+                not available
             port_map (vector of int, optional):
                 List of the VNA port numbers attached to each port of
                 the standard in order.  Optional if the standard has
@@ -1050,7 +1051,7 @@ cdef class Solver:
             free(<void *>sip)
 
     def set_m_error(self, frequency_vector, noise_floor,
-                    tracking_error = None):
+                    tracking_error=None):
         """
         Enable measurement error modeling.
 
@@ -1304,7 +1305,7 @@ cdef class Calibration:
         cdef double complex z0 = vnacal_get_z0(vcp, ci)
         return z0
 
-    def apply(self, f, a, b) -> NPData:
+    def apply(self, f, b, *, a=None) -> NPData:
         """
         Apply the calibration correction to measured data.  The
         calibration must have dimensions 2x1, 1x2, or NxN.
@@ -1313,11 +1314,11 @@ cdef class Calibration:
             f (array of float or None):
                 vector of frequencies at which the measurements were made,
                 or None if measured at the calibration frequencies
-            a (frequencies long vector of complex matrix or none or None):
-                incident root power into each DUT port, or None if
-                not available
             b (frequencies long vector of complex matrix):
                 reflected root power from each DUT port
+            a (frequencies long vector of complex matrix, optional):
+                incident root power into each DUT port, or None if
+                not available
 
         Return:
             libvna.data.NPData object containing the corrected parameters
@@ -1557,7 +1558,7 @@ cdef class Calset:
     cdef object _thread_local
     cdef object _index_to_ci
 
-    def __cinit__(self, filename = None):
+    def __cinit__(self, filename=None):
         cdef int ci
         cdef int ci_end
         cdef vnacal_type_t ctype
