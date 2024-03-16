@@ -279,7 +279,7 @@ cdef class Parameter:
         Parameters:
             calset (Calset):
                 The associated calibration set.
-             value:
+            value:
                 If number, return a ScalarParameter.  If
                 tuple(frequency_vector, gamma_vector), return a
                 VectorParameter.  If Parameter, return the argument.

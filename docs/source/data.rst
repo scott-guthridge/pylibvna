@@ -43,3 +43,9 @@ Loading and Saving
 .. autoattribute:: libvna.data.NPData.filetype
 .. autoattribute:: libvna.data.NPData.fprecision
 .. autoattribute:: libvna.data.NPData.dprecision
+
+File Type / Parameter Conversion Example
+----------------------------------------
+
+.. literalinclude:: ../../examples/convert-file.py
+   :language: python
