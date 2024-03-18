@@ -1089,6 +1089,15 @@ cdef class NPData:
             the :py:attr:`frequency_vector` or or :py:attr:`fz0_array`
             attributes.
 
+        filename (str, optional):
+            Load network parameter data from file.  The rows, columns,
+            and frequencies arguments should not be given.
+
+        filehandle (file handle, optional):
+            Load network parameter data from an open file.  The filename
+            argument must also be given for error messages -- it need not
+            refer to an actual file.
+
     Raises:
         ValueError: if rows, columns and ptype are not valid
 
@@ -1142,7 +1151,11 @@ cdef class NPData:
     ######################################################################
 
     def __cinit__(self, ptype: PType = PType.ANY,
-                  int rows = 0, int columns = 0, int frequencies = 0):
+                  int rows = 0, int columns = 0, int frequencies = 0, *,
+                  filename=None, filehandle=None):
+        if filename and (rows != 0 or columns != 0 or frequencies != 0):
+            raise ValueError("rows, columns and frequencies are incompatible "
+                             "with filename")
         self._thread_local = local()
         self._thread_local._vna_data_exception = None
         self._thread_local._vna_data_warning = None
@@ -1150,6 +1163,22 @@ cdef class NPData:
             <vnaerr_error_fn_t *>&_error_fn, <void *>self,
             <vnadata_parameter_type_t>ptype, rows, columns, frequencies)
         self._handle_error(0 if self.vdp else -1)
+
+        # If filename is given, load from file.
+        if filename:
+            if filehandle:
+                self.fload(filename, filehandle)
+            else:
+                self.load(filename)
+
+            # If a type is given, do an in-place conversion.
+            if ptype != PType.ANY:
+                rc = vnadata_convert(self.vdp, self.vdp,
+                                     <vnadata_parameter_type_t>ptype)
+                self._handle_error(rc)
+
+        elif filehandle:
+            raise ValueError("filename must be given with filehandle")
 
     def __dealloc__(self):
         """
