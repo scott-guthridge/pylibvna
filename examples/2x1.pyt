@@ -104,7 +104,7 @@ for i, f in enumerate(f_vector):
     z = [[z1+z2, z2],
          [z2,    z2]]
     expected[i, :, :] = ztos(z)
-npd = NPData(PType.S, rows=2, columns=2, frequencies=len(f_vector))
+npd = NPData(PType.S, frequencies=len(f_vector), rows=2, columns=2)
 npd.frequency_vector = f_vector
 npd.data_array = expected
 npd.save('2x1-expected.s2p')

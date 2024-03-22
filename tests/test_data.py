@@ -24,17 +24,17 @@ class TestNPD:
 
     def __init__(self,
                  ptype=data.PType.ANY,
+                 frequencies=0,
                  rows=0,
                  columns=0,
-                 frequencies=0,
                  has_fz0=False):
         """
         Construct zero data with the given dimensions.
         """
         self.ptype = ptype
+        self.frequencies = frequencies
         self.rows = rows
         self.columns = columns
-        self.frequencies = frequencies
         self.has_fz0 = has_fz0
         ports = max(rows, columns)
         self.ports = ports
@@ -79,7 +79,7 @@ class TestNPD:
             for port in range(self.ports):
                 self.z0_vector[port] = crandn()
 
-    def resize(self, ptype, rows, columns, frequencies, has_fz0):
+    def resize(self, ptype, frequencies, rows, columns, has_fz0):
         """
         Resize this object.
         """
@@ -133,9 +133,9 @@ class TestNPD:
             self.fz0_array = None
 
         self.ptype = ptype
+        self.frequencies = frequencies
         self.rows = rows
         self.columns = columns
-        self.frequencies = frequencies
         self.has_fz0 = has_fz0
         self.ports = ports
 
@@ -144,9 +144,9 @@ class TestNPD:
         Resize and fill in d to look like this object.
         """
         d.init(self.ptype,
+               self.frequencies,
                self.rows,
-               self.columns,
-               self.frequencies)
+               self.columns)
         d.frequency_vector = self.frequency_vector
         d.data_array = self.data_array
         if self.has_fz0:
@@ -235,52 +235,52 @@ class TestModule(unittest.TestCase):
         without frequency dependent reference impedances.
         """
         d = data.NPData()
+        self.assertEqual(d.frequencies, 0)
         self.assertEqual(d.rows, 0)
         self.assertEqual(d.columns, 0)
-        self.assertEqual(d.frequencies, 0)
         self.assertEqual(len(d.frequency_vector), 0)
         self.assertEqual(len(d.data_array), 0)
         self.assertEqual(len(d.z0_vector), 0)
         self.assertFalse(d.has_fz0)
 
     def test_zero_values(self):
-        d = data.NPData(data.PType.ANY, 2, 3, 5)
+        d = data.NPData(data.PType.ANY, 5, 2, 3)
+        self.assertEqual(d.frequencies, 5)
         self.assertEqual(d.rows, 2)
         self.assertEqual(d.columns, 3)
-        self.assertEqual(d.frequencies, 5)
         self.assertEqual(len(d.frequency_vector), 5)
         self.assertEqual(len(d.data_array), 5)
         self.assertEqual(np.asarray(d.data_array).shape, (5, 2, 3))
         self.assertEqual(len(d.z0_vector), 3)
         self.assertFalse(d.has_fz0)
-        t = TestNPD(data.PType.ANY, 2, 3, 5)
+        t = TestNPD(data.PType.ANY, 5, 2, 3)
         self.assertTrue(t.isequal(d))
 
     def test_fill1(self):
-        t = TestNPD(data.PType.ANY, 1, 2, 3, False)
+        t = TestNPD(data.PType.ANY, 3, 1, 2, False)
         t.randomize()
         d = data.NPData()
         t.fill(d)
         self.assertTrue(t.isequal(d))
 
     def test_fill2(self):
-        t = TestNPD(data.PType.ANY, 1, 2, 3, True)
+        t = TestNPD(data.PType.ANY, 3, 1, 2, True)
         t.randomize()
         d = data.NPData()
         t.fill(d)
         self.assertTrue(t.isequal(d))
 
     def test_init(self):
-        td1 = TestNPD(data.PType.ANY, 3, 4, 5, True)
+        td1 = TestNPD(data.PType.ANY, 5, 3, 4, True)
         td1.randomize()
         d = data.NPData()
         td1.fill(d)
-        d.init(data.PType.S, 3, 3, 4)
-        td2 = TestNPD(data.PType.S, 3, 3, 4)
+        d.init(data.PType.S, 4, 3, 3)
+        td2 = TestNPD(data.PType.S, 4, 3, 3)
         self.assertTrue(td2.isequal(d))
 
     def test_get_frequency_vector(self):
-        t = TestNPD(data.PType.ANY, 5, 2, 3, False)
+        t = TestNPD(data.PType.ANY, 3, 5, 2, False)
         t.randomize()
         d = data.NPData()
         t.fill(d)
@@ -319,7 +319,7 @@ class TestModule(unittest.TestCase):
             _ = d.frequency_vector[-4]
 
     def test_set_frequency_vector(self):
-        t = TestNPD(data.PType.ANY, 5, 2, 3, False)
+        t = TestNPD(data.PType.ANY, 3, 5, 2, False)
         t.randomize()
         d = data.NPData()
         t.fill(d)
@@ -354,7 +354,7 @@ class TestModule(unittest.TestCase):
                                        [1.0, 2.0, 3.0, 4.0]))
 
     def test_get_data_vector(self):
-        t = TestNPD(data.PType.ANY, 4, 3, 11, False)
+        t = TestNPD(data.PType.ANY, 11, 4, 3, False)
         t.randomize()
         d = data.NPData()
         t.fill(d)
@@ -409,7 +409,7 @@ class TestModule(unittest.TestCase):
             i -= 1
 
     def test_set_data_vector(self):
-        t = TestNPD(data.PType.ANY, 4, 3, 11, False)
+        t = TestNPD(data.PType.ANY, 11, 4, 3, False)
         t.randomize()
         d = data.NPData()
         t.fill(d)
@@ -509,12 +509,12 @@ class TestModule(unittest.TestCase):
         self.assertEqual(d.frequencies, 5)
         self.assertEqual(d.rows, 3)
         self.assertEqual(d.columns, 3)
-        t.resize(data.PType.ANY, 3, 3, 5, False)
+        t.resize(data.PType.ANY, 5, 3, 3, False)
         t.data_array = v
         self.assertTrue(t.isequal(d))
 
     def test_get_z0_vector(self):
-        t = TestNPD(data.PType.ANY, 3, 5, 2, False)
+        t = TestNPD(data.PType.ANY, 2, 3, 5, False)
         t.randomize()
         d = data.NPData()
         t.fill(d)
@@ -550,7 +550,7 @@ class TestModule(unittest.TestCase):
             _ = d.z0_vector[-6]
 
     def test_set_z0_vector(self):
-        t = TestNPD(data.PType.ANY, 5, 3, 2, False)
+        t = TestNPD(data.PType.ANY, 2, 5, 3, False)
         t.randomize()
         d = data.NPData()
         t.fill(d)
@@ -585,7 +585,7 @@ class TestModule(unittest.TestCase):
             d.z0_vector = v
 
         # Test that resize from (0 x 0) doesn't raise on same v
-        d.resize(data.PType.ANY, 0, 0, 2)
+        d.resize(data.PType.ANY, 2, 0, 0)
         self.assertEqual(d.rows, 0)
         self.assertEqual(d.columns, 0)
         d.z0_vector = v
@@ -593,7 +593,7 @@ class TestModule(unittest.TestCase):
         self.assertEqual(d.columns, 3)
 
     def test_get_fz0_vector(self):
-        t = TestNPD(data.PType.ANY, 3, 4, 5, True)
+        t = TestNPD(data.PType.ANY, 5, 3, 4, True)
         t.randomize()
         d = data.NPData()
         t.fill(d)
@@ -639,7 +639,7 @@ class TestModule(unittest.TestCase):
             _ = d.fz0_array[-6]
 
     def test_set_fz0_vector(self):
-        t = TestNPD(data.PType.ANY, 4, 3, 5, True)
+        t = TestNPD(data.PType.ANY, 5, 4, 3, True)
         t.randomize()
         d = data.NPData()
         t.fill(d)
@@ -684,9 +684,9 @@ class TestModule(unittest.TestCase):
         self.assertEqual(d.rows, 0)
         self.assertEqual(d.columns, 0)
         d.fz0_array = v
+        self.assertEqual(d.frequencies, 4)
         self.assertEqual(d.rows, 3)
         self.assertEqual(d.columns, 3)
-        self.assertEqual(d.frequencies, 4)
 
     def test_convert(self):
         #
@@ -733,7 +733,7 @@ class TestModule(unittest.TestCase):
         # Make ABCD parameters for the filter and store in
         # libvna.data.NPData object
         #
-        A = data.NPData(data.PType.A, 2, 2, len(frequency_vector))
+        A = data.NPData(data.PType.A, len(frequency_vector), 2, 2)
         A.frequency_vector = frequency_vector
         A.data_array = make_lc_abcd(l, c, frequency_vector)
 
@@ -745,7 +745,7 @@ class TestModule(unittest.TestCase):
 
     def test_load_save(self):
         n = 10
-        t = TestNPD(data.PType.S, 2, 2, n, False)
+        t = TestNPD(data.PType.S, n, 2, 2, False)
         t.frequency_vector = np.logspace(6, 10, n)
         t.z0_vector[:] = [50, 75]
         t.data_array = crandn(size=(n, 2, 2))

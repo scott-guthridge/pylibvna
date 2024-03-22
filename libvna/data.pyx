@@ -1071,6 +1071,13 @@ cdef class NPData:
             H, G, A, B, ZIN.  The default is ANY, which stores raw data
             without interpretation.
 
+        frequencies (int, optional): Number of frequency points.
+            Number of frequencies defaults to zero.  The number can be
+            changed using the :func:`init`, :func:`resize`, :func:`load`,
+            or :func:`add_frequency` functions, or by assignment to
+            the :py:attr:`frequency_vector` or or :py:attr:`fz0_array`
+            attributes.
+
         rows (int, optional), columns (int, optional):
             Dimensions of the parameter matrix.  Rows and columns must
             be equal for S, Z and Y parameters.  They must both be 2
@@ -1081,13 +1088,6 @@ cdef class NPData:
             changed using the :func:`init`, :func:`resize` or :func:`load`
             functions, or by assignment to the :py:attr:`type`,
             :py:attr:`data_array`, or :py:attr:`fz0_array` attributes.
-
-        frequencies (int, optional): Number of frequency points.
-            Number of frequencies defaults to zero.  The number can be
-            changed using the :func:`init`, :func:`resize`, :func:`load`,
-            or :func:`add_frequency` functions, or by assignment to
-            the :py:attr:`frequency_vector` or or :py:attr:`fz0_array`
-            attributes.
 
         filename (str, optional):
             Load network parameter data from file.  The rows, columns,
@@ -1151,7 +1151,7 @@ cdef class NPData:
     ######################################################################
 
     def __cinit__(self, ptype: PType = PType.ANY,
-                  int rows = 0, int columns = 0, int frequencies = 0, *,
+                  int frequencies = 0, int rows = 0, int columns = 0, *,
                   filename=None, filehandle=None):
         if filename and (rows != 0 or columns != 0 or frequencies != 0):
             raise ValueError("rows, columns and frequencies are incompatible "
@@ -1186,7 +1186,7 @@ cdef class NPData:
         """
         vnadata_free(self.vdp)
 
-    def init(self, ptype, rows, columns, frequencies):
+    def init(self, ptype, frequencies, rows, columns):
         """
         Change the ptype and dimensions as indicated by the arguments,
         and reset all frequency and data elements back to zero and all
@@ -1196,6 +1196,9 @@ cdef class NPData:
             ptype (PType): Set the parameter type:
                 ANY, S, T, U, Z, Y, H, G, A, B, ZIN.
 
+            frequencies (int):
+                Number of frequency points
+
             rows (int):
             columns (int):
                 Dimensions of the parameter matrix.  Rows and columns
@@ -1203,16 +1206,12 @@ cdef class NPData:
                 be 2 for T, U, H, G, A and B parameters.  Rows must
                 be 1 for ZIN parameters.  Rows and columns can be any
                 non-negative values for ANY parameters.
-
-            frequencies (int):
-                Number of frequency points
-
         """
         cdef int rc
         rc = vnadata_init(self.vdp, ptype, rows, columns, frequencies)
         self._handle_error(rc)
 
-    def resize(self, ptype, rows, columns, frequencies):
+    def resize(self, ptype, frequencies, rows, columns):
         """
         Change the parameter type and dimensions without clearing or
         converting data.  Existing values remain undisturbed when the
@@ -1226,6 +1225,9 @@ cdef class NPData:
             ptype (PType): Set the parameter type:
                 ANY, S, T, U, Z, Y, H, G, A, B, ZIN.
 
+            frequencies (int):
+                Number of frequency points
+
             rows (int):
             columns (int):
                 Dimensions of the parameter matrix.  Rows and columns
@@ -1233,9 +1235,6 @@ cdef class NPData:
                 be 2 for T, U, H, G, A and B parameters.  Rows must
                 be 1 for ZIN parameters.  Rows and columns can be any
                 non-negative values for ANY parameters.
-
-            frequencies (int):
-                Number of frequency points
 
         """
         cdef int rc

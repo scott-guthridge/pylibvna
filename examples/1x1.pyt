@@ -85,7 +85,7 @@ jω = 2j * math.pi * f_vector
 expected = ((-3.1583e+16 + 1.5895e+08 * jω - jω**2) /
              (4.7374e+16 + 2.3843e+08 * jω + jω**2))
 expected = expected.reshape((len(f_vector), 1, 1))
-npd = NPData(PType.S, rows=1, columns=1, frequencies=len(f_vector))
+npd = NPData(PType.S, frequencies=len(f_vector), rows=1, columns=1)
 npd.frequency_vector = f_vector
 npd.data_array = expected
 npd.save('1x1-expected.s1p')

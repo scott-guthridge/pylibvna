@@ -115,7 +115,7 @@ calset.save('TRL.vnacal')
 
 # Save the solved R
 r_array = np.asarray(R.get_value(f_vector)).reshape((len(f_vector), 1, 1))
-r_data = NPData(PType.S, 1, 1, len(f_vector))
+r_data = NPData(PType.S, len(f_vector), 1, 1)
 r_data.frequency_vector = f_vector
 r_data.data_array = r_array
 r_data.format = "Sma"
@@ -123,7 +123,7 @@ r_data.save('TRL-R.s1p')
 
 # Save the solved L
 l_array = np.asarray(L.get_value(f_vector)).reshape((len(f_vector), 1, 1))
-l_data = NPData(PType.S, 1, 1, len(f_vector))
+l_data = NPData(PType.S, len(f_vector), 1, 1)
 l_data.frequency_vector = f_vector
 l_data.data_array = l_array
 l_data.format = "Sma"
@@ -154,7 +154,7 @@ for i, f in enumerate(f_vector):
     z = [[z1+z2, z2],
          [z2,    z2]]
     expected[i, :, :] = ztos(z)
-npd = NPData(PType.S, rows=2, columns=2, frequencies=len(f_vector))
+npd = NPData(PType.S, frequencies=len(f_vector), rows=2, columns=2)
 npd.frequency_vector = f_vector
 npd.data_array = expected
 npd.save('TRL-expected.s2p')
