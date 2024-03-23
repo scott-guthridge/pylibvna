@@ -30,7 +30,7 @@ jobs:
     - name: Install Python Packages
       run: |
         python -m pip install --upgrade pip
-        pip install cibuildwheel requests twine
+        pip install cibuildwheel requests
 
     # Move these into CIBW before in pyproject.toml
     - name: Install Pkg-Config (Windows)
@@ -72,6 +72,9 @@ jobs:
     needs: build_wheels
     runs-on: ubuntu-latest
     steps:
+    - name: Install Python Packages
+      run: |
+        pip install twine
     - name: Download Artifacts
       uses: actions/download-artifact@v4
       with:

@@ -7,7 +7,7 @@ To create a new release:
 - Commit the version number with first line in this format (filling
   in the new version number):
 
-     version 0.0.1
+     release 0.0.1
 
 - Create an annotated tag in this format:
 
