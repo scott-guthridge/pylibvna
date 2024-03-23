@@ -31,7 +31,7 @@ build:
       - pip install --upgrade pip
     post_install:
       - PKG_CONFIG_PATH=$HOME/.local/lib/pkgconfig pip install .
-      - ( cd examples && make )
+      - ( cd examples && PYTHON_PATH=$HOME/.local/lib/python3*/site-packages make )
 sphinx:
   configuration: docs/source/conf.py
 python:
