@@ -1,0 +1,24 @@
+To create a new release:
+
+- Make your code changes on the development branch.
+- Push the development branch: `git push`
+- Switch to the main branch and run `git rebase development`
+- Update the version number in both pyproject.toml and meson.build
+- Commit the version number with first line in this format (filling
+  in the new version number):
+
+     version 0.0.1
+
+- Create an annotated tag in this format:
+
+    git tag -a v0.0.1 -m "v0.0.1"
+
+- Push:
+
+    git push
+    git push --tags
+
+- Make sure the CI/CD process runs without errors.  If it fails,
+  fix the problem and release with minor version incremented.
+
+- Checkout the development branch and run: `git rebase main`
