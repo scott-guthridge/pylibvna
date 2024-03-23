@@ -232,7 +232,7 @@ cdef class Parameter:
 
     Note: this class cannot be instantiated directly: use
     :class:`ScalarParameter`, :class:`VectorParameter`,
-    :class:`UnknownParameter` and :class:`CorrelatedParameter`
+    :class:`UnknownParameter`, :class:`CorrelatedParameter`,
     or :func:`Parameter.from_value`.
     """
     cdef Calset calset
@@ -587,13 +587,13 @@ cdef class Solver:
 
             E12:
                 Generalization of classic SOLT: the library uses UE14
-                terms internally to solve this calibration and this type
-                corrects for exactly the same errors.  The difference
-                is only in the representation of the saved error terms:
-                after finding the error terms, the library converts
-                from inverse scattering transfer (U) to scattering (E)
-                at the end of the calibration procedure.  At least four
-                standards (e.g. short-open, match-open, match-short,
+                terms internally to solve this calibration, and this
+                type corrects for exactly the same errors at UE14.
+                The difference is only in the representation of the
+                saved error terms.  After finding the UE14 error terms,
+                the library converts from inverse scattering transfer
+                (U) error terms to scattering error terms (E).  At least
+                four standards (e.g. short-open, match-open, match-short,
                 through) are needed to solve the 2x2 E12 calibration.
 
         rows (int):
@@ -687,11 +687,11 @@ cdef class Solver:
 
         Parameters:
             b (frequencies long vector of complex matrix):
-                reflected root power from each DUT port
+                reflected root power into each VNA port
             s11 (complex, (frequency_vector, gamma_vector) tuple, or Parameter):
                 :math:`S_{11}` parameter of the the calibration standard
             a (frequencies long vector of complex matrix, optional):
-                incident root power into each DUT port, or None if
+                incident root power out of each VNA port, or None if
                 not available
             port (int, optional):
                 VNA port number connected to the standard.  If not given,
@@ -750,13 +750,13 @@ cdef class Solver:
 
         Parameters:
             b (frequencies long vector of complex matrix):
-                reflected root power from each DUT port
+                reflected root power into each VNA port
             s11 (complex, (frequency_vector, gamma_vector) tuple, or Parameter):
                 the :math:`S_{11}` parameter of the the calibration standard
             s22 (complex, (frequency_vector, gamma_vector) tuple, or Parameter):
                 the :math:`S_{22}` parameter of the calibration standard
             a (frequencies long vector of complex matrix, optional):
-                incident root power into each DUT port, or None if
+                incident root power out of each VNA port, or None if
                 not available
             port1 (int, optional):
                 VNA port number connected to port 1 of the calibration
@@ -821,9 +821,9 @@ cdef class Solver:
 
         Parameters:
             b (frequencies long vector of complex matrix):
-                reflected root power from each DUT port
+                reflected root power into each VNA port
             a (frequencies long vector of complex matrix, optional):
-                incident root power into each DUT port, or None if
+                incident root power out of each VNA port, or None if
                 not available
             port1 (int, optional):
                 First VNA port connected to the through standard.
@@ -877,13 +877,13 @@ cdef class Solver:
 
         Parameters:
             b (frequencies long vector of complex matrix):
-                reflected root power from each DUT port
+                reflected root power into each VNA port
             s (2x2 matrix):
                 S-parameter matrix of the standard, where each element
                 of the matrix can be a complex, (frequency_vector,
                 gamma_vector) tuple, or Parameter
             a (frequencies long vector of complex matrix, optional):
-                incident root power into each DUT port, or None if
+                incident root power out of each VNA port, or None if
                 not available
             port1 (int, optional):
                 VNA port number connected to port 1 of the calibration
@@ -954,13 +954,13 @@ cdef class Solver:
 
         Parameters:
             b (frequencies long vector of complex matrix):
-                reflected root power from each DUT port
+                reflected root power into each VNA port
             s (matrix):
                 S-parameter matrix of the standard, where each element
                 of the matrix can be a complex, (frequency_vector,
                 gamma_vector) tuple, or Parameter
             a (frequencies long vector of complex matrix, optional):
-                incident root power into each DUT port, or None if
+                incident root power out of each VNA port, or None if
                 not available
             port_map (vector of int, optional):
                 List of the VNA port numbers attached to each port of
@@ -1070,7 +1070,7 @@ cdef class Solver:
                 measured signal
 
         Both noise sources are assumed to be Gaussian and independent.
-        Specifying measurement errors with this function can significanlty
+        Specifying measurement errors with this function can significantly
         improve accuracy, especially for significantly overdetermined
         systems, as the 16 term models typically are.
         """
@@ -1315,9 +1315,9 @@ cdef class Calibration:
                 vector of frequencies at which the measurements were made,
                 or None if measured at the calibration frequencies
             b (frequencies long vector of complex matrix):
-                reflected root power from each DUT port
+                reflected root power into each VNA port
             a (frequencies long vector of complex matrix, optional):
-                incident root power into each DUT port, or None if
+                incident root power out of each VNA port, or None if
                 not available
 
         Return:

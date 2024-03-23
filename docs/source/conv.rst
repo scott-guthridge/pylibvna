@@ -215,7 +215,7 @@ The **t** (scattering-transfer) parameters are defined as:
    b_2
    \end{bmatrix}
 
-The **t** parameters for a cacade of two-port networks is the
+The **t** parameters for a cascade of two-port networks is the
 left-to-right matrix product of the **t** parameters of each successive
 stage.
 
@@ -236,7 +236,7 @@ The **u** (inverse scattering-transfer) parameters are defined as:
    a_1
    \end{bmatrix}
 
-The **u** parameters for a cacade of two-port networks is the
+The **u** parameters for a cascade of two-port networks is the
 right-to-left matrix product of the **u** parameters of each successive
 stage.
 

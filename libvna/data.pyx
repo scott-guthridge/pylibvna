@@ -34,7 +34,7 @@ cpdef enum PType:
     # Values:
     #
     # - ANY: unspecified data (matrices may be rectangular)
-    # - S:   scattering paramters
+    # - S:   scattering parameters
     # - T:   scattering-transfer parameters
     # - U:   inverse scattering-transfer parameters
     # - Z:   impedance parameters
@@ -1658,7 +1658,7 @@ cdef class NPData:
         Test if we would be able to save the currently selected format
         in the currently selected filetype without actually saving.
 
-        This function is useful to test if there's a conflict betweent the
+        This function is useful to test if there's a conflict between the
         requested parameter format and the save file type before doing
         potentially expensive operations such as VNA measurements only
         to ultimately fail at save time.  The *filename* argument is used
@@ -1723,7 +1723,7 @@ cdef class NPData:
         - PRC:          Zin as parallel resistance and capacitance
         - PRL:          Zin as parallel resistance and inductance
         - SRC:          Zin as series resistance and capacitance
-        - SRL:          Zin as series resistance and inducatance
+        - SRL:          Zin as series resistance and inductance
         - IL:           insertion loss (dB)
         - RL:           return loss (dB)
         - VSWR:         voltage standing wave ratio

@@ -55,7 +55,7 @@ One-Port Calibration Example with Measured Standards
 ----------------------------------------------------
 
 Create the calibration from measurements of imperfect standards that have
-been measured on a more trusted instrament, loading the S-parameters of
+been measured on a more trusted instrument, loading the S-parameters of
 each standard from a file.
 
 .. literalinclude:: ../../examples/1x1m-calibrate.py
