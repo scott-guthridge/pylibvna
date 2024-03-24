@@ -11,7 +11,7 @@ import random_error_terms as et
 
 %# Set up random error paramters for the VNA.
 # Produce consistent results.
-random.seed(1)
+random.seed(3)
 
 # Set frequency range and number of points
 fmin = 1.0e+6

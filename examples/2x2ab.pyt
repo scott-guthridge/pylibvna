@@ -11,7 +11,7 @@ import random_error_terms as et
 
 %# Set up random error paramters for the VNA.
 # Produce consistent results.
-random.seed(1)
+random.seed(4)
 
 # Set frequency range and number of points
 fmin = 1.0e+6
@@ -26,7 +26,6 @@ calset = Calset()
 %# Imports for calibration
 from libvna.cal import Calset, CalType, Solver
 import numpy as np
-
 
 # Set the calibration frequency points.
 fmin = %{fmin:7.1e%}
@@ -79,7 +78,6 @@ calset.save('2x2ab.vnacal')
 %############################# begin application ##############################
 %# Imports for calibration
 from libvna.cal import Calset
-import numpy as np
 
 
 # Load the calibration from file.
