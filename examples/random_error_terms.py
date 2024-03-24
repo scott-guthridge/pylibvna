@@ -34,8 +34,8 @@ class RandomTL2x2:
     '''
     def __init__(self):
         self.vf = 2.0 / 3.0             # velocity factor
-        self.lm = -2.50e-7              # metal loss: Np/m/Hz**(1/2)
-        self.ld = 05.86e-12             # dielectric loss: Np/m/Hz
+        self.lm = 2.50e-7               # metal loss: Np/m/Hz**(1/2)
+        self.ld = 5.86e-12              # dielectric loss: Np/m/Hz
         self.z0 = 50.0
         self.length = 0.1 + 0.25 * random.random()   # in meters
 
