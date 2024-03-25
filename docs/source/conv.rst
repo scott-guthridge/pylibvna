@@ -1,5 +1,5 @@
-libvna.conv: Network Parameter Conversion
-=========================================
+Parameter Conversion
+====================
 
 .. toctree::
    :maxdepth: 2

@@ -19,10 +19,9 @@
 #
 
 """
-This module uses measurements of calibration standards to find error
-terms for vector network analyzers (VNAs), then applies the resulting
-calibration to measurements of devices under test to correct for the
-errors.
+This module uses measurements of calibration standards to find error terms
+for vector network analyzers (VNAs).  It applies the resulting calibration
+to measurements of devices under test to correct for the errors.
 
 The basic sequence for generating a new calibration is:
 

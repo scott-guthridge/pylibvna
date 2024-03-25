@@ -13,7 +13,7 @@ analyzers (VNAs).
    :maxdepth: 2
    :caption: Contents:
 
-   cal
+   cal-menu
    data
    conv
 

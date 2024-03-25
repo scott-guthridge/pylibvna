@@ -129,6 +129,16 @@ dmypy.json
 .pyre/
 
 # generated files
-/examples/SOLT.vnacal
+examples/*-apply.py
+examples/*-calibrate.py
+examples/*-corrected.s?p
+examples/*-expected.s?p
+examples/load.s1p
+examples/*-measured.s?p
+examples/open.s1p
+examples/short.s1p
+examples/TRL-L.s1p
+examples/TRL-R.s1p
+examples/UT-T.s1p
+examples/*.vnacal
 /libvna.pc
-/src/libvna/*.c

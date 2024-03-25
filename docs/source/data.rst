@@ -1,5 +1,5 @@
-libvna.data: Network Parameter Data
-===================================
+Network Parameter Data
+======================
 
 .. toctree::
    :maxdepth: 2
