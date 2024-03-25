@@ -311,3 +311,48 @@ measurements) are known.
 At least five two-port standards are required for this calibration. A
 typical choice is: short-open, short-match, open-match, open-short
 and through.
+
+Dimensions NxN
+--------------
+
+For more than 2 ports, the error boxes follow the same pattern as above
+with 2 N ports, but only square dimensions are supported.  The following
+table shows the number of error terms for each calibration type, given
+*p* VNA ports:
+
+.. table:: Effective Number of Error Terms for p Ports
+   :widths: auto
+
+   +------------+-----------------+----------------+------------------+
+   | Type       | Linear Terms    | Off-Diagonal   | Total Terms      |
+   +============+=================+================+==================+
+   | T8, U8     | :math:`4p-1`    | 0              | :math:`4p-1`     |
+   +------------+-----------------+----------------+------------------+
+   | TE10, UE10 | :math:`4p-1`    | :math:`p(p-1)` | :math:`p^2+3p-1` |
+   +------------+-----------------+----------------+------------------+
+   | E12, UE14  | :math:`p(2p+1)` | :math:`p(p-1)` | :math:`3p^2`     |
+   +------------+-----------------+----------------+------------------+
+   | T16, U16   | :math:`4p^2-1`  | 0              | :math:`4 p^2 - 1`|
+   +------------+-----------------+----------------+------------------+
+
+To get a sense of the number of calibration standards needed, in
+all but T16 and U16: a single reflect contributes one equation to the
+linear system.  A double reflect contributes two equations.  Through and
+line standards contribute four equations.  Multi-port standards with
+through components between all ports contribute number of standards
+ports squared.  Multi-port standards made of isolated groups contribute
+the sum of the equations from each group.  Off-diagonal leakage terms
+outside of the linear system are measured opportunistically whenever
+there is no connection between the driving port and another port.
+If for each driving port, there is a case where all ports are either
+connected to reflect standards or are are not connected, they provide
+all :math:`p(p-1)` off-diagonal leakage terms.
+
+In T16 and U16, all standards contribute number of VNA ports times
+number of standards ports equations to the linear system.
+
+The number of equations in the linear system must be at least that of
+the number of linear equation error terms plus the number of unknown
+parameters.  Note that not all equations produced by standards are
+linearly independent, thus more standards may be needed than the minimum
+calculated above.
