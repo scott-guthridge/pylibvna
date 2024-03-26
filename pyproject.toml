@@ -69,7 +69,7 @@ addopts = [
 
 [tool.cibuildwheel]
 build-frontend = "build"
-build-verbosity = "2"
+# build-verbosity = "3"
 # config-settings = "build-dir=build"
 # build-frontend = { name = "pip", args = ["--no-build-isolation"] }
 
