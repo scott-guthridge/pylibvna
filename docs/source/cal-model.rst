@@ -48,7 +48,7 @@ error terms.  Rather, it's much easier to solve for them in scattering
 transfer (T) or inverse scattering transfer (U) form, where the problem
 becomes a linear system of equations.  If E terms are desired, then after
 solving for T or U error terms, we can convert them back to E terms.
-The conversion from T or U to E is the same as for conveting t-parameters
+The conversion from T or U to E is the same as for converting t-parameters
 or u-parameters to s-parameters, except that the elements of the 2x2 T
 or U matrix are, themselves, matrices.
 
@@ -68,7 +68,7 @@ given situation and choose the most appropriate calibration type.
 For all supported types, the module solves for the error terms using
 either scattering transfer (T) or inverse scattering transfer (U)
 parameters, which turn the problem into a linear system of equations.
-This provides wide flexiblity in the choice of standards used, and
+This provides wide flexibility in the choice of standards used, and
 makes it always possible to to use more than the minimum required number
 of standards.  If the resulting linear system is over-determined, the
 module finds a least-squares solution using Q-R decomposition.
@@ -118,15 +118,15 @@ Type U8
    :alt: Diagram showing a 6-error term error box for a VNA that measures
          only :math:`S_{11}` and :math:`S_{21}`.
 
-The simplest calibration the 2x1 setup has 6 error terms, one of which
-is a free variable (typically Et11 is set to 1), giving effectively
+In the simplest calibration, the 2x1 setup has 6 error terms, one of
+which is a free variable (typically Et11 is set to 1), giving effectively
 5 error terms.  The module solves for the error terms using inverse
 scattering transfer (U) parameters where they form a linear system.
 This calibration type is called U8, the 8 being the number of error
 terms this type produces in a 2x2 configuration.
 
 Typical choices of standards is: short, open, match and through.
-It's possible, however, to perform this calibratino using only three
+It's possible, however, to perform this calibration using only three
 standards, e.g. through, reflect and delay.
 
 Types UE10, E12
@@ -136,14 +136,14 @@ Types UE10, E12
    :alt: Diagram showing a 6-error term error box for a VNA that measures
          only :math:`S_{11}` and :math:`S_{21}`.
 
-We can imporove on the U8 calibration for free by adding the off-diagonal
+We can improve on the U8 calibration for free by adding the off-diagonal
 directivity leakage terms to the model, in this case, the :math:`Ed_{21}`
-term, brining the effective number of error terms to 6.  Whenever we're
-measuring a reflect standadard on port 1, we can opportunistically measrue
-the leakage term into the second detector.  The module solves this system
-using a hybrid of scattering (E) and intervase transfer (U) parameters.
-The opportunistically measured leakage terms are first subtracted out,
-then the system is solved using U parameters.
+term, bringing the effective number of error terms to 6.  Whenever we're
+measuring a reflect standard on port 1, we can opportunistically measure
+the leakage term into the second detector.  The module solves this
+system using a hybrid of scattering (E) and inverse scattering transfer
+(U) parameters.  The opportunistically measured leakage terms are first
+subtracted out, then the system is solved using U parameters.
 
 The E12 calibration type (the well-known 12-term model in 2x2) is
 equivalent to UE10 in this setup, providing six error terms.  When E12
@@ -163,7 +163,7 @@ Type U16
    :alt: Diagram showing a 12-error term error box for a VNA that measures
          only :math:`S_{11}` and :math:`S_{21}`.
 
-When using a text fixture with significant crosstalk between the probes,
+When using a text fixture with significant cross talk between the probes,
 a strong model that corrects for the additional errors is needed.  The U16
 calibration type in the 2x1 setup provides 12 error terms, one of which
 is a free variable, giving it effectively 11 error terms.  The software
@@ -195,7 +195,7 @@ Type T8
          only :math:`S_{11}` and :math:`S_{12}`.
 
 In the 2x1 setup, T8 calibration provides six error terms of which one is
-a free varaible, leaving effectively five terms.
+a free variable, leaving effectively five terms.
 
 Typical choice of standards is: short, open, match and through.  It's
 possible, however, to perform this calibration using only three standards,
@@ -224,7 +224,7 @@ Type T16
          only :math:`S_{11}` and :math:`S_{12}`.
 
 The T16 calibration type adds additional leakage terms that correct for
-crosstalk between the probes in the text figure.
+cross talk between the probes in the text figure.
 
 As in U16, in 1x2 dimension setups, at least six calibration standards
 are required.  A possible choice is: short-open, short-match, open-match,
@@ -235,7 +235,7 @@ Dimensions 2x2
 
 In a 2x2 setup, each calibration type produces the number of error terms
 in its name.  Though we have more error terms here than in the previous
-sections, perhaps surprisingly, we can often perform the calkibrations
+sections, perhaps surprisingly, we can often perform the calibrations
 with fewer standards because each calibration produces four measurements
 instead of only one or two in the previous sections.  Another difference
 is that the E12 calibration type becomes two completely independent 2x1
@@ -252,7 +252,7 @@ Types T8, U8
 In the 2x2 setup, T8 and its dual U8 produce 8 error terms, one of which
 is a free variable, giving effectively seven error terms.
 
-The 2x2 T8 and U8 calibrations requrie only three standards,
+The 2x2 T8 and U8 calibrations require only three standards,
 e.g. short-open, short-match and through.  At least one standard must be
 reflect only and at least one must have a through component, e.g. through
 or line.
@@ -303,7 +303,7 @@ Types T16, U16
 
 The T16 and U16 calibration types produce 16 error terms, one of which is
 a free variable, giving effectively 15 error terms. These calibrations
-correct for all leakages including crosstalk between the VNA probes in
+correct for all leakages including cross talk between the VNA probes in
 the test fixture. Note, however, that they don't correct for errors in
 the forward/reverse switch unless the incident signals on the DUT ('a'
 measurements) are known.
