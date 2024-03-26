@@ -13,6 +13,7 @@ jobs:
         buildplat:
         - { runs_on: ubuntu-20.04, sys: manylinux, arch: x86_64 }
         - { runs_on: macos-11,     sys: macosx,    arch: x86_64 }
+        - { runs_on: macos-14,     sys: macosx,    arch: arm64 }
         - { runs_on: windows-2019, sys: win,       arch: AMD64  }
         python:
         - { cp: "cp39",   rel: "3.9" }

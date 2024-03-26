@@ -353,6 +353,6 @@ number of standards ports equations to the linear system.
 
 The number of equations in the linear system must be at least that of
 the number of linear equation error terms plus the number of unknown
-parameters.  Note that not all equations produced by standards are
-linearly independent, thus more standards may be needed than the minimum
-calculated above.
+parameters.  Note that not all equations produced by a given choice of
+standards are linearly independent, thus more standards may be needed
+than the minimum calculated above.
