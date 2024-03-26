@@ -1072,13 +1072,13 @@ cdef class NPData:
             without interpretation.
 
         frequencies (int, optional): Number of frequency points.
-            Number of frequencies defaults to zero.  The number can be
-            changed using the :func:`init`, :func:`resize`, :func:`load`,
-            or :func:`add_frequency` functions, or by assignment to
-            the :py:attr:`frequency_vector` or or :py:attr:`fz0_array`
+            Defaults to zero.  The number can be changed using
+            the :func:`init`, :func:`resize`, :func:`load`, or
+            :func:`add_frequency` functions, or by assignment to
+            the :py:attr:`frequency_vector` or :py:attr:`fz0_array`
             attributes.
 
-        rows (int, optional), columns (int, optional):
+        rows (int, optional), **columns** (int, optional):
             Dimensions of the parameter matrix.  Rows and columns must
             be equal for S, Z and Y parameters.  They must both be 2
             for T, U, H, G, A and B parameters.  Rows must be 1 for

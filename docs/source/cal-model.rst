@@ -121,9 +121,9 @@ Type U8
 In the simplest calibration, the 2x1 setup has 6 error terms, one of
 which is a free variable (typically Et11 is set to 1), giving effectively
 5 error terms.  The module solves for the error terms using inverse
-scattering transfer (U) parameters where they form a linear system.
-This calibration type is called U8, the 8 being the number of error
-terms this type produces in a 2x2 configuration.
+scattering transfer (U) parameters.  This calibration type is called
+U8, the 8 being the number of error terms this type produces in a 2x2
+configuration.
 
 Typical choices of standards is: short, open, match and through.
 It's possible, however, to perform this calibration using only three
@@ -164,17 +164,18 @@ Type U16
          only :math:`S_{11}` and :math:`S_{21}`.
 
 When using a text fixture with significant cross talk between the probes,
-a strong model that corrects for the additional errors is needed.  The U16
-calibration type in the 2x1 setup provides 12 error terms, one of which
-is a free variable, giving it effectively 11 error terms.  The software
-solves this calibration using inverse scattering (U) parameters.
+a stronger model that corrects for the additional errors is needed.
+The U16 calibration type in the 2x1 setup provides 12 error terms,
+one of which is a free variable, giving it effectively 11 error terms.
+The software solves this calibration using inverse scattering (U)
+parameters.
 
 In 2x1 setups, at least six standards are required for calibration.
 For example, a possible choice is: short-open, short-match, open-match,
-open-short, mach-short and through.  Why six?  We have to solve for 11
+open-short, match-short and through.  Why six?  We have to solve for 11
 unknowns, and each standard gives us at most two measurements.  So at
-minimum, we need at least 5 two-port standards and 1 single port standard
-to reach 11.
+minimum, we need 5 two-port standards and 1 single port standard to
+reach 11.
 
 Dimensions 1x2
 --------------
@@ -275,7 +276,7 @@ Types E12, UE14
    :alt: Diagram showing the 7-error term forward error box between VNA and DUT.
 
 The E12 and UE14 calibration types are generalizations of the well-known
-12-term error correctly model, historically calibrated using SOLT or
+12-term error correction model, historically calibrated using SOLT or
 OSLT standards.
 
 In the forward direction, these types produce six error terms exactly
