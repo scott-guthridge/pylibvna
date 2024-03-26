@@ -51,7 +51,7 @@ dependencies = [
 ]
 
 [project.urls]
-Documentation = "https://pylibvna.readthedocs.io/en/latest/"
+Documentation = "https://libvna.readthedocs.io/en/latest/"
 Repository = "https://github.com/scott-guthridge/pylibvna"
 
 [project.optional-dependencies]
