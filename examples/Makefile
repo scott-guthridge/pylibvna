@@ -8,7 +8,8 @@
 	rm -f "$${tmpfile}"
 
 all: 1x1-corrected.s1p 1x1m-corrected.s1p 2x1-corrected.s2p \
-	2x2ab-corrected.s2p TRL-corrected.s2p UT-corrected.s2p
+	2x2ab-corrected.s2p 2PR2-corrected.s1p TRL-corrected.s2p \
+	UT-corrected.s2p
 
 1x1-corrected.s1p: 1x1-apply.py
 	python 1x1-calibrate.py
@@ -39,6 +40,12 @@ UT-corrected.s2p: UT-apply.py
 	python UT-calibrate.py
 	python UT-apply.py
 	python compare-same.py UT-expected.s2p UT-corrected.s2p
+
+2PR2-corrected.s1p: 2PR-apply.py
+	python 2PR-calibrate.py
+	python 2PR-apply.py
+	python compare-same.py 2PR1-expected.s1p 2PR1-corrected.s1p
+	python compare-same.py 2PR2-expected.s1p 2PR2-corrected.s1p
 
 clean: FRC
 	rm -f *-calibrate.py *-apply.py *.vnacal \
