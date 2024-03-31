@@ -72,50 +72,43 @@ ctypedef void (*fn_NxN_to_zin)(const double complex *in_NxN,
 # canonicalize_z0: return z0 as [m, n] where m is number of outer elements
 #
 cdef canonicalize_z0(z0, name, outer_shape, n):
-    z0 = np.asarray(z0)
+    z0 = np.asarray(z0, dtype=np.complex128, order="C")
     #
     # scalar
     #
     if z0.shape == tuple():
-        return np.asarray([[z0 for i in range(n)]],
-                          dtype=np.complex128, order="C")
-
-    #
-    # array [1]
-    #
-    if z0.shape == (1,):
-        return np.asarray([[z0[0] for i in range(n)]],
-                          dtype=np.complex128, order="C")
+        result = np.asarray([z0 for i in range(n)],
+                            dtype=np.complex128, order="C")
+        if outer_shape != tuple():
+            result = np.broadcast_to(result, outer_shape + (n,))
 
     #
     # array [n]
     #
-    if z0.shape == (n,):
-        return np.asarray([z0],
-                          dtype=np.complex128, order="C")
+    elif z0.shape == (n,):
+        result = z0
+        if outer_shape != tuple():
+            result = np.broadcast_to(result, outer_shape + (n,))
 
     #
-    # array[m][1]
+    # array[...][n]
     #
-    if z0.shape == outer_shape + (n, 1):
-        z0 = np.asarray(z0, dtype=np.complex128, order="C")
-        z0.shape = (-1, 1)
-        return np.asarray([z0[i, 0]
-                           for i in range(z0.shape[0]) for j in range(n)],
-                          dtype=np.complex128, order="C")
-
-    #
-    # array[m][n]
-    #
-    if z0.shape == outer_shape + (n,):
-        z0 = np.asarray(z0, dtype=np.complex128, order="C")
-        z0.shape = (-1, n)
-        return z0
+    elif z0.shape == outer_shape + (n,):
+        result = z0
 
     #
     # none of the above
     #
-    raise ValueError(name + ": invalid dimensions for z0")
+    else:
+        if outer_shape == tuple():
+            raise ValueError(name + f": z0 must be a scalar or "
+                                    f"length {n} vector")
+        else:
+            raise ValueError(name + f": z0 must be a scalar, "
+                                    f"length {n} vector, "
+                                    f"or shape {outer_shape + (n,)} array")
+
+    return np.array(result.reshape((-1, n)), dtype=np.complex128, order="C")
 
 #
 # helper_2x2: call fn on each 2x2 array in input
