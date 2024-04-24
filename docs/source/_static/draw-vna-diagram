@@ -1,0 +1,606 @@
+#!/usr/bin/perl
+
+our $FontSize1 = "24";
+our $FontSize2 = "24";
+our $FontSize3 = "32";
+
+#
+# Inherit from Graphics::Fig and add a few VNA-specific objects.
+#
+package VNAFig;
+use parent 'Graphics::Fig';
+use Carp;
+use Math::Trig qw(pi);
+use strict;
+use warnings;
+
+#
+# min: find min of two numbers
+#
+sub min {
+    my $a = shift;
+    my $b = shift;
+
+    return $a <= $b ? $a : $b;
+}
+
+#
+# max: find max of two numbers
+#
+sub max {
+    my $a = shift;
+    my $b = shift;
+
+    return $a >= $b ? $a : $b;
+}
+
+#
+# resistor: draw a resistor
+#   width: 4, height: 1
+#   terminals: ( -2, 0 ), ( 2, 0 )
+#
+sub v_resistor {
+    my $self = shift;
+
+    #
+    # Pull out object-specific parameters and begin the group.
+    #
+    my $rotation = 0;
+    if (scalar(@_) > 0 && ref($_[$#_]) eq "HASH") {
+	my $parameters = $_[$#_];
+	if (exists($parameters->{rotation})) {
+	    $rotation = $parameters->{rotation};
+	    delete $parameters->{rotation};
+	}
+    }
+    $self->begin(@_);
+    my $position = $self->getposition();
+    $self->moveto([ 0, 0 ]);
+
+    $self->polyline([
+            [ -2.000,  0 ],
+	    [ -1.000,  0 ],
+	    [ -0.875, -0.5 ],
+	    [ -0.625,  0.5 ],
+	    [ -0.375, -0.5 ],
+	    [ -0.125,  0.5 ],
+	    [  0.125, -0.5 ],
+	    [  0.375,  0.5 ],
+	    [  0.625, -0.5 ],
+	    [  0.875,  0.5 ],
+	    [  1.000,  0 ],
+            [  2.000,  0 ]]);
+
+    $self->rotate($rotation);
+    $self->translate($position);
+    $self->end("group", { grid => 1 });
+}
+
+#
+# v_ground: draw a ground symbol pointing down (lacking a stick)
+#   width: 1, height: 2
+#   terminal at (0, 0)
+#
+sub v_ground {
+    my $self = shift;
+
+    my $rotation = 0;
+    if (scalar(@_) > 0 && ref($_[$#_]) eq "HASH") {
+	my $parameters = $_[$#_];
+	if (exists($parameters->{rotation})) {
+	    $rotation = $parameters->{rotation};
+	    delete $parameters->{rotation};
+	}
+    }
+    $self->begin(@_);
+    my $position = $self->getposition();
+    $self->moveto([ 0, 0 ]);
+
+    $self->polyline([[ -1.0,   0 ],
+	    	     [  1.0,   0 ]]);
+    $self->polyline([[ -0.5,   0.5 ],
+    		     [  0.5,   0.5 ]]);
+    $self->polyline([[ -0.125, 1.0 ],
+    		     [  0.125, 1.0 ]]);
+
+    $self->rotate($rotation);
+    $self->translate($position);
+    $self->end("group", { grid => 1 });
+}
+
+#
+# v_RF: draw an RF source
+#   width 4, height 4
+#   connection at: ( 0, 2 )
+#
+sub v_RF {
+    my $self = shift;
+    my $rotation = -90.0;
+    if (scalar(@_) > 0) {
+	if (ref($_[$#_]) eq "HASH") {
+	    my $parameters = $_[$#_];
+	    if (exists($parameters->{rotation})) {
+		$rotation = $parameters->{rotation};
+		delete $parameters->{rotation};
+	    }
+	}
+    }
+    $self->begin(@_);
+    my $position = $self->getposition();
+    $self->moveto([ 0, 0 ]);
+    $self->circle({ r => 2.0, center => [  0, 0 ] });
+    my @points;
+    for (my $angle = -180; $angle <= 180; $angle += 5) {
+	my $x = 1.0 / 180.0 * $angle;
+	my $y = 1.5 * sin($angle / 180 * pi);
+	push(@points, [ $x, $y ]);
+    }
+    $self->spline(\@points, { subtype => "open-interpolated" });
+    $self->circle({
+        center => [  2.0 * cos($rotation / 180.0 * pi),
+                    -2.0 * sin($rotation / 180.0 * pi) ],
+	d => 0.4, areaFill => "black" });
+    $self->translate($position);
+    $self->end("group", { grid => 1 });
+}
+
+#
+# v_grounded_resistor: draw a resistor grounded on the right hand side
+#   width: 5, height: 1
+#   terminal: ( -2, 0 )
+#
+sub v_grounded_resistor {
+    my $self = shift;
+
+    my $rotation = 0;
+    if (scalar(@_) > 0 && ref($_[$#_]) eq "HASH") {
+	my $parameters = $_[$#_];
+	if (exists($parameters->{rotation})) {
+	    $rotation = $parameters->{rotation};
+	    delete $parameters->{rotation};
+	}
+    }
+    $self->begin(@_);
+    my $position = $self->getposition();
+    $self->moveto([ 0, 0 ]);
+
+    $self->v_resistor();
+    $self->v_ground({ position => [ 2, 0 ], rotation => 90 });
+
+    $self->rotate($rotation);
+    $self->translate($position);
+    $self->end("group", { grid => 1 });
+}
+
+#
+# switch: draw a switch assembly
+#   connections at: ( 0, 0 ), ( -2, 6 ), ( +2, 6 )
+#
+sub v_switch {
+    my $self = shift;
+
+    my $rotation = 0;
+    if (scalar(@_) > 0 && ref($_[$#_]) eq "HASH") {
+	my $parameters = $_[$#_];
+	if (exists($parameters->{rotation})) {
+	    $rotation = $parameters->{rotation};
+	    delete $parameters->{rotation};
+	}
+    }
+    $self->begin(@_);
+    my $position = $self->getposition();
+    $self->moveto([ 0, 0 ]);
+
+    #
+    # Draw switch dots
+    #
+    $self->circle({ center => [  0, 0 ],
+	d => 0.4, areaFill => "black" });
+    $self->circle({ center => [ -1, 2 ],
+	d => 0.4, areaFill => "black" });
+    $self->circle({ center => [  1, 2 ],
+	d => 0.4, areaFill => "black" });
+    $self->circle({ center => [ -3, 4 ],
+	d => 0.4, areaFill => "black" });
+    $self->circle({ center => [ -1, 4 ],
+	d => 0.4, areaFill => "black" });
+    $self->circle({ center => [  1, 4 ],
+	d => 0.4, areaFill => "black" });
+    $self->circle({ center => [  3, 4 ],
+	d => 0.4, areaFill => "black" });
+    $self->circle({ center => [ -2, 6 ],
+	d => 0.4, areaFill => "black" });
+    $self->circle({ center => [  2, 6 ],
+	d => 0.4, areaFill => "black" });
+
+    #
+    # Draw switch arrows
+    #
+    $self->polyline([[  0, 0 ], [ -1, 2 ]],
+	    { arrowMode => "forw", arrowStyle => "filled-indented" });
+    $self->polyline([[ -2, 6 ], [ -1, 4 ]],
+	    { arrowMode => "forw", arrowStyle => "filled-indented" });
+    $self->polyline([[  2, 6 ], [  3, 4 ]],
+	    { arrowMode => "forw", arrowStyle => "filled-indented" });
+
+    #
+    # Connect the switches
+    #
+    $self->polyline([[ -1, 2 ], [ -1, 4 ]]);
+    $self->polyline([[  1, 2 ], [  1, 4 ]]);
+
+    #
+    # Draw the left grounded resistor
+    #
+    $self->v_grounded_resistor({ position => [ -3, 2 ], rotation => 90 });
+
+    #
+    # Draw the right grounded resistor
+    #
+    $self->v_grounded_resistor({ position => [  3, 2 ], rotation => 90 });
+
+    #
+    # Draw dotted line to bank the three switches
+    #
+    $self->polyline([[ -0.25, 0.5 ],
+                     [ -0.25, 5.5 ]],
+	    { lineStyle => "dotted",
+	      styleVal  => ".025 inch" });
+    $self->polyline([[ -1.75, 5.5 ],
+                     [  2.25, 5.5 ]],
+	    { lineStyle => "dotted",
+	      styleVal  => ".025 inch" });
+
+    $self->rotate($rotation);
+    $self->translate($position);
+    $self->end("group", { grid => 1 });
+}
+
+sub v_ellipse_arc {
+    my $self  = shift;
+    my $a     = shift;
+    my $b     = shift;
+    my $start = shift;
+    my $angle = shift;
+    my $center = undef;
+    my $rotation = 0;
+
+    if (scalar(@_) > 0 && ref($_[$#_]) eq "HASH") {
+	my $parameters = $_[$#_];
+	if (exists($parameters->{center})) {
+	    $center = $parameters->{center};
+	    delete $parameters->{center};
+	}
+	if (exists($parameters->{rotation})) {
+	    $rotation = $parameters->{rotation};
+	    delete $parameters->{rotation};
+	}
+    }
+    $self->begin(@_);
+    my $stack = $self->{stack};
+    my $tos = ${$stack}[$#{$stack}];
+    my $options = ${$tos}{"options"};
+    my $position;
+    if (defined($center)) {
+	$position = $center;
+    } else {
+	$position = $self->getposition();
+    }
+    $self->moveto([ 0, 0 ]);
+
+    my @points;
+    if ($angle >= 0) {
+	for (my $theta = 0; $theta <= $angle;) {
+	    my $x =  $a * cos(($start + $theta) / 180.0 * pi);
+	    my $y = -$b * sin(($start + $theta) / 180.0 * pi);
+	    push (@points, [$x, $y]);
+	    $theta += 10 / (sqrt($x*$x + $y*$y) / min($a, $b))
+	}
+    } else {
+	for (my $theta = 0; $theta >= $angle;) {
+	    my $x =  $a * cos(($start + $theta) / 180.0 * pi);
+	    my $y = -$b * sin(($start + $theta) / 180.0 * pi);
+	    push (@points, [$x, $y]);
+	    $theta -= 10 / (sqrt($x*$x + $y*$y) / min($a, $b))
+	}
+    }
+    $self->spline(\@points);
+
+    $self->rotate($rotation);
+    $self->translate($position);
+    $self->end("group", { grid => 1 });
+}
+
+#
+# v_coupler: draw a directional coupler
+#   width: 3, height: 5
+#   connections are at:
+#       (0, 0), (0, 5), (-2, 1), (-2, 4)
+#
+sub v_coupler {
+    my $self = shift;
+    my $direction = shift;	# 1=forw, 2=back, 3=both
+
+    if ($direction != 1 && $direction != 2 && $direction != 3) {
+	croak("direction must be 1, 2 or 3");
+    }
+    
+    #
+    # Pull out object-specific parameters and begin the group.
+    #
+    my $rotation = 0;
+    if (scalar(@_) > 0 && ref($_[$#_]) eq "HASH") {
+	my $parameters = $_[$#_];
+	if (exists($parameters->{rotation})) {
+	    $rotation = $parameters->{rotation};
+	    delete $parameters->{rotation};
+	}
+    }
+    $self->begin(@_);
+    my $position = $self->getposition();
+    $self->moveto([ 0, 0 ]);
+
+    #
+    # Find the current line thickness.
+    #
+    my $stack = $self->{stack};
+    my $tos = ${$stack}[$#{$stack}];
+    my $options = ${$tos}{"options"};
+
+    my $lineThickness = $options->{lineThickness};	# in inches
+    my $scale         = $options->{"units"}[0];
+    if (!defined($lineThickness)) {
+	$lineThickness = 1.0 / 80.0;
+    }
+    $lineThickness /= $scale;				# in current units
+
+    #
+    # Draw
+    #
+    $self->polyline([[ 0, 0 ], [ 0, 5 ]],
+    		    { lineThickness => 2 * $lineThickness });
+    if ($direction & 1) {
+	$self->v_ellipse_arc(4, 2, -90, -90, {
+	    center => [-2, 0],
+	    rotation => 90
+	});
+    }
+    if ($direction & 2) {
+	$self->v_ellipse_arc(4, 2, -90, 90, {
+	    center => [-2, 5],
+	    rotation => 90
+	});
+    }
+    $self->box([[-2, 0], [1, 5]]);
+
+    $self->rotate($rotation);
+    $self->translate($position);
+    $self->end("group", { grid => 1 });
+}
+
+#
+# v_line_break draw a line break symbol
+#   width: 3, height 2
+#   connections at: ( 0, 0 ), ( 0, 2 )
+#
+sub v_line_break {
+    my $self = shift;
+
+    my $rotation = 0;
+    if (scalar(@_) > 0 && ref($_[$#_]) eq "HASH") {
+	my $parameters = $_[$#_];
+	if (exists($parameters->{rotation})) {
+	    $rotation = $parameters->{rotation};
+	    delete $parameters->{rotation};
+	}
+    }
+    $self->begin(@_);
+    my $position = $self->getposition();
+    $self->moveto([ 0, 0 ]);
+
+    $self->polyline([[  0,   0 ],
+    		     [  0,   0.25 ],
+                     [ -1.5, 0.75 ],
+                     [  1.5, 1.25 ],
+		     [  0,   1.75 ],
+		     [  0,   2.00 ]]);
+
+    $self->rotate($rotation);
+    $self->translate($position);
+    $self->end("group", { grid => 1 });
+}
+
+#
+# v_reference_plane: draw the reference plane
+#
+sub v_reference_plane {
+    my $self  = shift;
+
+    my $ports       = 1;
+    my $rotation    = 0;
+    my $portSpacing = 8;
+    if (scalar(@_) > 0) {
+	if (ref($_[0]) eq "") {
+	    $ports = shift;
+	}
+	if (ref($_[$#_]) eq "HASH") {
+	    my $parameters = $_[$#_];
+	    if (exists($parameters->{ports})) {
+		$ports = $parameters->{ports};
+		delete $parameters->{ports};
+	    }
+	    if (exists($parameters->{rotation})) {
+		$rotation = $parameters->{rotation};
+		delete $parameters->{rotation};
+	    }
+	    if (exists($parameters->{portSpacing})) {
+		$portSpacing = $parameters->{portSpacing};
+		delete $parameters->{portSpacing};
+	    }
+	}
+    }
+    $self->begin(@_);
+    my $position = $self->getposition();
+    $self->moveto([ 0, 0 ]);
+
+    if ($ports == 1) {
+	$portSpacing = 0;
+    }
+
+    #
+    # Draw the reference plain line.
+    #
+    $self->polyline([[ -3, 3 ], [ 3 + $portSpacing, 3 ]], {
+	    lineStyle => "dashed" });
+
+    #
+    # Draw the reference plain text.
+    #
+    $self->text("reference", {
+	    position => [ -3, 2 ],
+	    textJustification => "right",
+	    fontSize => $FontSize1 });
+    $self->text("plane", {
+	    position => [ -3, 3 ],
+	    textJustification => "right",
+	    fontSize => $FontSize1 });
+
+    #
+    # Draw the probe 1 line break, dot, label and wiring.
+    #
+    $self->v_line_break();
+    $self->polyline([[ 0, 2 ], [ 0, 3 ]]);
+    $self->circle({ center => [ 0, 3 ],
+	d => 0.4, areaFill => "black" });
+    $self->text($ports == 1 ? "Probe" : "Probe 1", {
+	    position => [ 0, 5 ],
+	    textJustification => "center" });
+
+    #
+    # If two ports, draw the probe 2 line break, dot label and wiring.
+    #
+    if ($ports > 1) {
+	$self->v_line_break({ position => [ $portSpacing, 0 ] });
+	$self->polyline([[ $portSpacing, 2 ], [ $portSpacing, 3 ]]);
+	$self->circle({ center => [ $portSpacing, 3 ],
+	    d => 0.4, areaFill => "black" });
+	$self->text("Probe 2", {
+		position => [ $portSpacing, 5 ],
+		textJustification => "center" });
+    }
+
+    $self->rotate($rotation);
+    $self->translate($position);
+    $self->end("group", { grid => 1 });
+}
+
+sub v_rab {
+    my $self = shift;
+    my $what = shift;
+
+    $self->begin(@_);
+    my $position = $self->getposition();
+    $self->moveto([ 0, 0 ]);
+    $self->v_RF();
+    $self->moveto([ 0, 2 ]);
+    $self->lineto([ 0, 3 ]);
+    my $cur_y = 3;
+
+    if ($what =~ m/r/) {
+	$self->v_coupler(1);
+	$self->polyline([[ -2, $cur_y + 4 ], [ -3, $cur_y + 4 ]], {
+		arrowMode  => "forw",
+		arrowStyle => "filled-indented"
+	});
+	$self->text("r", {
+	    textJustification => "right",
+	    position => [ -3.2, $cur_y + 4.2 ]
+	});
+	$self->moveto([ 0, $cur_y + 5]);
+	$self->lineto([ 0, $cur_y + 6]);
+	$cur_y += 6;
+    }
+    $self->v_switch();
+    $cur_y += 6;
+    my $show_a = ($what =~ m/a/);
+    $self->moveto([-2, $cur_y]);
+    $self->lineto([[-4, $cur_y], [-4, $cur_y + 1]]);
+    $self->v_coupler($show_a ? 3 : 2);
+    $self->moveto([+2, $cur_y]);
+    $self->lineto([[+4, $cur_y], [+4, $cur_y + 1]]);
+    $self->begin();
+    $self->v_coupler($show_a ? 3 : 2);
+    $self->scale([-1, 1]);
+    $self->end();
+    $cur_y++;
+    $self->polyline([[-6, $cur_y + 1], [-7, $cur_y + 1]], {
+	    arrowMode  => "forw",
+	    arrowStyle => "filled-indented"
+    });
+    $self->text("b1", {
+	textJustification => "right",
+	position => [ -7.2, $cur_y + 1.2 ]
+    });
+    $self->polyline([[+6, $cur_y + 1], [+7, $cur_y + 1]], {
+	    arrowMode  => "forw",
+	    arrowStyle => "filled-indented"
+    });
+    $self->text("b2", {
+	textJustification => "left",
+	position => [ +7.2, $cur_y + 1.2 ]
+    });
+    if ($show_a) {
+	$self->polyline([[-6, $cur_y + 4], [-7, $cur_y + 4]], {
+		arrowMode  => "forw",
+		arrowStyle => "filled-indented"
+	});
+	$self->text("a1", {
+	    textJustification => "right",
+	    position => [ -7.2, $cur_y + 4.2 ]
+	});
+	$self->polyline([[+6, $cur_y + 4], [+7, $cur_y + 4]], {
+		arrowMode  => "forw",
+		arrowStyle => "filled-indented"
+	});
+	$self->text("a2", {
+	    textJustification => "left",
+	    position => [ +7.2, $cur_y + 4.2 ]
+	});
+    }
+    $cur_y += 5;
+    $self->polyline([[-4, $cur_y], [-4, $cur_y + 1]]);
+    $self->polyline([[+4, $cur_y], [+4, $cur_y + 1]]);
+    $cur_y++;
+    $self->moveto([-4, $cur_y]);
+    $self->v_reference_plane({ ports => 2 });
+
+    $self->end();
+}
+
+#
+# main
+#
+package main;
+
+my $fig = VNAFig->new({ units => "0.1 inch", lineThickness => "2pt",
+			fontSize => $FontSize2 });
+
+my $SCALE = 2.0;
+
+$fig->begin();
+$fig->v_rab("");
+$fig->scale($SCALE);
+$fig->export("b.svg");
+$fig->end("discard");
+
+$fig->begin();
+$fig->v_rab("r");
+$fig->scale($SCALE);
+$fig->export("rb.svg");
+$fig->end("discard");
+
+$fig->begin();
+$fig->v_rab("a");
+$fig->scale($SCALE);
+$fig->export("ab.svg");
+$fig->end("discard");

@@ -32,7 +32,7 @@ ld = 5.86e-9			# dielectric loss (Np/m/Hz)
 line_loss = 0.02		# dB per mm per sqrt(f_GHz)
 mm_per_m = 1000.0		# mm per meter
 np_per_db = 0.11512925		# neper to dB
-c = 2.9979246e+8		# speed of light
+c = 2.9979246e+8		# speed of light (m/s)
 gl = [(lm * math.sqrt(f) + ld * f + 2.0j * math.pi * f / (vf * c)) * length
       for f in f_vector]
 γ_through_actual = np.exp(-np.asarray(gl))

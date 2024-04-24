@@ -1067,9 +1067,11 @@ cdef class NPData:
 
     Args:
         ptype (PType, optional):
-            Type of parameter data to be stored: ANY, S, T, U, Z, Y,
-            H, G, A, B, ZIN.  The default is ANY, which stores raw data
-            without interpretation.
+            Type of parameter data to be stored: ANY, S, T, U, Z, Y, H,
+            G, A, B, ZIN.  The default is ANY, which stores raw data
+            without interpretation.  When given with the *filename*
+            argument, causes the loaded parameters to be converted to
+            the indicated type as needed.
 
         frequencies (int, optional): Number of frequency points.
             Defaults to zero.  The number can be changed using

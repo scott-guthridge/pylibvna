@@ -5,18 +5,18 @@ Calibration Model
    :alt: Diagram showing 16-term error box between VNA and DUT
 
 We can compensate for most errors in the VNA, directional couplers,
-connectors, cables, text fixture and other components by modeling them as
+connectors, cables, test fixture and other components by modeling them as
 an "error box" sitting between a perfect VNA and the device under test
 (DUT).  During the calibration phase, we make measurements of known
 standards and from them, calculate the error terms of the error box.
 Later, when making measurements of a device under test, we mathematically
 remove (de-embed) the error box to correct the measurements.
 
-The **a1** and **a2** inputs into the error box are incident signals
-from the VNA to the DUT.  Some VNA's measure these signals.  When not
-measured, we assume that during the forward measurement, a1=1 and a2=0,
-and during the reverse measurement, a1=0 and a2=1.  The **b1** and **b2**
-outputs are the measured reflected signals from the DUT.
+The **a1** and **a2** inputs into the error box are incident signals from
+the VNA to the error box.  Ideally, all should be zero except for the
+currently sourcing port.  The **b1** and **b2** outputs are the measured
+reflected signals from the DUT.  More on this in the **a** and **b**
+Matrix and References section toward the end.
 
 The **x1**, **y1**, **x2**, and **y2** arrows define the "reference plane"
 that delineates the VNA from the DUT.
@@ -43,14 +43,15 @@ determined by the number of VNA ports.
 
 The goal of calibration is to solve for the error terms using measurements
 of known (and partially known) standards.  While the scattering parameter
-form above is easy to understand, it's not the best for for solving the
-error terms.  Rather, it's much easier to solve for them in scattering
-transfer (T) or inverse scattering transfer (U) form, where the problem
-becomes a linear system of equations.  If E terms are desired, then after
-solving for T or U error terms, we can convert them back to E terms.
-The conversion from T or U to E is the same as for converting t-parameters
-or u-parameters to s-parameters, except that the elements of the 2x2 T
-or U matrix are, themselves, matrices.
+form above is easy to understand, it's not the most convenient for for
+solving the error terms.  Rather, it's much easier to solve for them
+in scattering transfer (T) or inverse scattering transfer (U) form,
+where the problem becomes a linear system of equations.  If E terms are
+desired, then after solving for T or U error terms, we can convert them
+back to E terms.
+
+The next several sections describe the supported calibration types,
+the error terms they provide, and the standards needed to solve for them.
 
 Calibration Types
 -----------------
@@ -67,7 +68,7 @@ given situation and choose the most appropriate calibration type.
 
 For all supported types, the module solves for the error terms using
 either scattering transfer (T) or inverse scattering transfer (U)
-parameters, which turn the problem into a linear system of equations.
+parameters, where the problem is a linear system of equations.
 This provides wide flexibility in the choice of standards used, and
 makes it always possible to to use more than the minimum required number
 of standards.  If the resulting linear system is over-determined, the
@@ -79,7 +80,7 @@ Calibration Dimensions
 The calibration solver class types takes *rows* and *columns* parameters
 giving the dimensions of the calibration.  The *rows* parameter is the
 number of VNA ports that detect signal; the *columns* parameter is the
-number of VNA ports that transmit signal.  Normally, all VNA ports both
+number of VNA ports that transmit signal.  Ideally, all VNA ports both
 transmit and receive signal, thus both parameters are simply the number of
 VNA ports.  But many vector network analyzers measure only :math:`S_{11}`
 and :math:`S_{21}`, or :math:`S_{11}` and :math:`S_{12}`.  The calibration
@@ -163,7 +164,7 @@ Type U16
    :alt: Diagram showing a 12-error term error box for a VNA that measures
          only :math:`S_{11}` and :math:`S_{21}`.
 
-When using a text fixture with significant cross talk between the probes,
+When using a test fixture with significant cross talk between the probes,
 a stronger model that corrects for the additional errors is needed.
 The U16 calibration type in the 2x1 setup provides 12 error terms,
 one of which is a free variable, giving it effectively 11 error terms.
@@ -241,8 +242,7 @@ with fewer standards because each calibration produces four measurements
 instead of only one or two in the previous sections.  Another difference
 is that the E12 calibration type becomes two completely independent 2x1
 systems instead of 2x2.  This is useful in that it corrects for errors
-introduced by the forward/reverse switch, even if the switch lies between
-the directional couplers and DUT.
+introduced by the forward/reverse switch without an **a** matrix.
 
 Types T8, U8
 ^^^^^^^^^^^^
@@ -357,3 +357,111 @@ the number of linear equation error terms plus the number of unknown
 parameters.  Note that not all equations produced by a given choice of
 standards are linearly independent, thus more standards may be needed
 than the minimum calculated above.
+
+
+The **a** and **b** Inputs and VNA Reference Channel
+----------------------------------------------------
+
+The :func:`libvna.cal.Solver.add*` functions and the
+:func:`libvna.cal.Calibration.apply` function take a **b** matrix and
+optional **a** matrix as inputs.  This section describes these matrices.
+
+.. image:: _static/b.svg
+   :alt: Diagram showing VNA without a reference channel
+
+The figure above shows an example of a two-port VNA that measures
+full S-parameters.  The b1 and b2 signals are reflected and through
+signals coming back from the device under test.  The **b** matrix for
+this configuration is formed from:
+
+.. math::
+
+   b = \left[ \begin{array}{cc}
+   b_{11} & b_{12} \\
+   b_{21} & b_{22} \\
+   \end{array} \right]
+
+where :math:`b_{11}` and :math:`b_{21}` are the b1 and b2 measurements,
+respectively, when the VNA is sourcing signal on port 1, and
+:math:`b_{12}` and :math:`b_{22}` are the b1 and b2 measurements,
+respectively, when the VNA is sourcing signal on port 2.  In this example,
+we do not supply an **a** matrix.
+
+.. image:: _static/rb.svg
+   :alt: Diagram showing VNA with a reference channel
+
+Some vector network analyzers have a reference channel that measures the
+amplitude and phase of the source signal so that any variations in the
+source can be divided out of the measurements.  These reference values
+can be given in the **a** matrix.  For all calibration types except for
+E12 and UE14, the **a** matrix has dimensions *columns* x *columns*,
+and the reference values can be given on the major diagonal:
+
+.. math::
+
+   a = \left[ \begin{array}{cc}
+   r_1 & 0 \\
+   0 & r_2 \\
+   \end{array} \right]
+
+where :math:`r_1` is the reference measurement when the VNA is sourcing
+signal on port 1 and :math:`r_2` is the reference measurement when the
+VNA is sourcing signal on port 2.  The same pattern applies for other
+than two ports.  This causes each reference measurement to be divided
+out of the corresponding column of the **b** matrix.
+
+For calibration types E12 and UE14, however, the **a** matrix is 1 x
+*columns* row vector, and the reference values can simply be placed into
+the vector:
+
+.. math::
+
+   a = \left[ \begin{array}{cc}
+   r_1 & r_2 \\
+   \end{array} \right]
+
+The reason the E12 and UE14 calibration types are different is that these
+types use a separate n x 1 calibration for each sourcing port (column),
+and the **a** matrix in this case represents a vector of 1x1 reference
+matrices.
+
+.. image:: _static/ab.svg
+   :alt: Diagram showing VNA with full **a** and **b** matrix measurements
+
+Still more advanced VNA's measure the amplitude and phase of the
+signal leaving all ports simultaneously.  Not only does this compensate
+for variations in the source signal, but it also corrects for errors
+introduced by the switch, including RF leaking across the switch and being
+sourced from other than the intended channel, and signal received from
+the DUT hitting an impedance discontinuity in the switch and reflecting
+back out of the VNA to the DUT.  In this configuration, for all calibration
+types except for E12 and UE14, **a** is a full matrix.
+
+.. math::
+
+   a = \left[ \begin{array}{cc}
+   a_{11} & a_{12} \\
+   a_{21} & a_{22} \\
+   \end{array} \right]
+
+where :math:`a_{11}` and :math:`a_{21}` are the signals detected on a1 and
+a2, respectively, when the VNA is sourcing on port 1, and :math:`a_{12}`
+and :math:`a_{22}` are the signals detected on a1 and a2, respectively,
+when the VNA is sourcing on port 2.  The same pattern applies for other
+than two ports.
+
+The libvna.cal module removes the effect of the **a** matrix by dividing
+on the right:
+
+.. math::
+   m = b\, a^{-1}
+
+As above, in the E12 and UE14 calibration types, **a** is a row vector
+of reference values.  In this configuration, it can hold only the major
+diagonal, e.g. :math:`a_{11}` and :math:`a_{22}`.  Nothing is really
+lost, though because the E12 and UE14 calibration types compensate for
+the same switch errors as the full matrix above by incorporating them
+into the separate calibrations for each switch position.
+
+Important: the **a** matrix, if used, must be used consistently between
+calibration and applying the calibration to a device under test.

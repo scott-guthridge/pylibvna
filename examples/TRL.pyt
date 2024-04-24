@@ -37,7 +37,7 @@ R_actual = VectorParameter(calset, f_vector, r_vector)
 line_length = 0.01		# length in meters
 εr_eff = 2.50			# actual effective permittivity
 vf = 1 / math.sqrt(εr_eff)	# velocity factor
-c = 2.9979246e+8		# speed of light
+c = 2.9979246e+8		# speed of light (m/s)
 line_loss = 0.02		# dB per mm per sqrt(f_GHz)
 mm_per_m = 1000.0		# mm per meter
 np_per_db = 0.11512925		# neper to dB
@@ -73,7 +73,7 @@ solver = Solver(calset, CalType.TE10, rows=2, columns=2,
 line_length = 0.01		# length in meters
 εr_eff = 2.75			# effective permittivity
 vf = 1 / math.sqrt(εr_eff)	# velocity factor
-c = 2.9979246e+8		# speed of light
+c = 2.9979246e+8		# speed of light (m/s)
 line_estimated = np.exp(-2.0j * math.pi / (c * vf) * line_length * f_vector)
 
 # Create Unknown parameters for the reflect and line, giving

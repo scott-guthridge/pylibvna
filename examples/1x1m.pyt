@@ -84,8 +84,8 @@ calset = Calset()
 solver = Solver(calset, CalType.E12, rows=1, columns=1,
                 frequency_vector=f_vector)
 
-# Load the S parameters of the short standard and form
-# into a VectorParameter.
+# Load the parameters of the short standard, convert to S-parameters
+# (if not already in S), and form into a VectorParameter.
 short = NPData(filename='short.s1p', ptype=PType.S)
 s11 = VectorParameter(calset,
                       short.frequency_vector,
@@ -98,8 +98,8 @@ et.print_matrix(m, file=_file, indent=_indent)
 %]
 solver.add_single_reflect(m, s11)
 
-# Load the S parameters of the open standard and form
-# into a VectorParameter.
+# Load the parameters of the open standard, convert to S-parameters,
+# and form into a VectorParameter.
 open = NPData(filename='open.s1p', ptype=PType.S)
 s11 = VectorParameter(calset,
                       open.frequency_vector,
@@ -112,8 +112,8 @@ et.print_matrix(m, file=_file, indent=_indent)
 %]
 solver.add_single_reflect(m, s11)
 
-# Load the S parameters of the load standard and form
-# into a VectorParameter.
+# Load the parameters of the load standard, convert to S-parameters,
+# and form into a VectorParameter.
 load = NPData(filename='load.s1p', ptype=PType.S)
 s11 = VectorParameter(calset,
                       load.frequency_vector,

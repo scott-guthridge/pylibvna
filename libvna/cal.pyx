@@ -686,7 +686,7 @@ cdef class Solver:
 
         Parameters:
             b (frequencies long vector of complex matrix):
-                reflected root power into each VNA port
+                root power received into each VNA port
             s11 (complex, (frequency_vector, gamma_vector) tuple, or Parameter):
                 :math:`S_{11}` parameter of the the calibration standard
             a (frequencies long vector of complex matrix, optional):
@@ -749,7 +749,7 @@ cdef class Solver:
 
         Parameters:
             b (frequencies long vector of complex matrix):
-                reflected root power into each VNA port
+                root power received into each VNA port
             s11 (complex, (frequency_vector, gamma_vector) tuple, or Parameter):
                 the :math:`S_{11}` parameter of the the calibration standard
             s22 (complex, (frequency_vector, gamma_vector) tuple, or Parameter):
@@ -820,7 +820,7 @@ cdef class Solver:
 
         Parameters:
             b (frequencies long vector of complex matrix):
-                reflected root power into each VNA port
+                root power received into each VNA port
             a (frequencies long vector of complex matrix, optional):
                 incident root power out of each VNA port, or None if
                 not available
@@ -876,7 +876,7 @@ cdef class Solver:
 
         Parameters:
             b (frequencies long vector of complex matrix):
-                reflected root power into each VNA port
+                root power received into each VNA port
             s (2x2 matrix):
                 S-parameter matrix of the standard, where each element
                 of the matrix can be a complex, (frequency_vector,
@@ -953,7 +953,7 @@ cdef class Solver:
 
         Parameters:
             b (frequencies long vector of complex matrix):
-                reflected root power into each VNA port
+                root power received into each VNA port
             s (matrix):
                 S-parameter matrix of the standard, where each element
                 of the matrix can be a complex, (frequency_vector,
@@ -1314,7 +1314,7 @@ cdef class Calibration:
                 vector of frequencies at which the measurements were made,
                 or None if measured at the calibration frequencies
             b (frequencies long vector of complex matrix):
-                reflected root power into each VNA port
+                root power received into each VNA port
             a (frequencies long vector of complex matrix, optional):
                 incident root power out of each VNA port, or None if
                 not available

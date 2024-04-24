@@ -73,11 +73,10 @@ Apply the calibration to a device under test.
 Two Port Reflect Only
 ---------------------
 
-In this example, we calibrate a two-port VNA for reflection
-measurements only.  This is useful in cases where we don't need to
-make through measurements.  This example demonstrates using multiple
-solvers simultaneously and saving more than one calibration in the same
-calibration file.
+In this example, we calibrate a two-port VNA for reflection measurements
+only, useful in cases where we don't need to make through measurements.
+This example demonstrates using multiple solvers simultaneously and
+saving more than one calibration in the same calibration file.
 
 .. literalinclude:: ../../examples/2PR-calibrate.py
    :language: python
