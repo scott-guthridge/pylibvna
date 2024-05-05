@@ -127,6 +127,59 @@ class RandomErrorTerms:
             self.systems.append(RandomErrorTerms.System(rng, ctype,
                                 m_rows, m_cols, s_rows, s_cols, fmin, fmax))
 
+    def get_eterms(self, sindex, f):
+        m_rows = self.m_rows
+        m_cols = self.m_cols
+        s_rows = self.s_rows
+        s_cols = self.s_cols
+        system = self.systems[sindex]
+        el = np.zeros((m_rows, m_cols), dtype=complex)
+        er = np.zeros((m_rows, s_rows), dtype=complex)
+        et = np.zeros((s_cols, m_cols), dtype=complex)
+        em = np.zeros((s_cols, s_rows), dtype=complex)
+
+        # Add random transmission lines between VNA ports
+        # and corresponding DUT ports.
+        for port in range(max(m_rows, m_cols)):
+            temp = system.transmission[port].get_S(f)
+            if port < m_rows:
+                er[port, port] = temp
+            if self.has_colsys:
+                if port == sindex:
+                    et[port, 0] = temp
+            elif port < m_cols:
+                et[port, port] = temp
+
+        # Add el directivity/leakage error terms
+        for i in range(m_rows):
+            for j in range(m_cols):
+                term = system.el[i, j]
+                if term is not None:
+                    el[i, j] = term.evaluate(f)
+
+        # Add reflection leakage terms
+        for i in range(m_rows):
+            for j in range(s_rows):
+                term = system.er[i, j]
+                if term is not None:
+                    er[i, j] = term.evaluate(f)
+
+        # Add transmission leakage terms
+        for i in range(s_cols):
+            for j in range(m_cols):
+                term = system.et[i, j]
+                if term is not None:
+                    et[i, j] = term.evaluate(f)
+
+        # Add DUT port crosstalk leakage terms
+        for i in range(s_cols):
+            for j in range(s_rows):
+                term = system.em[i, j]
+                if term is not None:
+                    em[i, j] = term.evaluate(f)
+
+        return (el, er, et, em)
+
     def evaluate(self, calset, f_vector, s_matrix, ab=False):
         m_rows = self.m_rows
         m_cols = self.m_cols
@@ -145,50 +198,7 @@ class RandomErrorTerms:
                 for i in range(s_rows):
                     for j in range(s_cols):
                         s[i, j] = s_matrix[i][j].get_value(f)
-                el = np.zeros((m_rows, m_cols), dtype=complex)
-                er = np.zeros((m_rows, s_rows), dtype=complex)
-                et = np.zeros((s_cols, m_cols), dtype=complex)
-                em = np.zeros((s_cols, s_rows), dtype=complex)
-
-                # Add random transmission lines between VNA ports
-                # and corresponding DUT ports.
-                for port in range(max(m_rows, m_cols)):
-                    temp = system.transmission[port].get_S(f)
-                    if port < m_rows:
-                        er[port, port] = temp
-                    if self.has_colsys:
-                        if port == sindex:
-                            et[port, 0] = temp
-                    elif port < m_cols:
-                        et[port, port] = temp
-
-                # Add el directivity/leakage error terms
-                for i in range(m_rows):
-                    for j in range(m_cols):
-                        term = system.el[i, j]
-                        if term is not None:
-                            el[i, j] = term.evaluate(f)
-
-                # Add reflection leakage terms
-                for i in range(m_rows):
-                    for j in range(s_rows):
-                        term = system.er[i, j]
-                        if term is not None:
-                            er[i, j] = term.evaluate(f)
-
-                # Add transmission leakage terms
-                for i in range(s_cols):
-                    for j in range(m_cols):
-                        term = system.et[i, j]
-                        if term is not None:
-                            et[i, j] = term.evaluate(f)
-
-                # Add DUT port crosstalk leakage terms
-                for i in range(s_cols):
-                    for j in range(s_rows):
-                        term = system.em[i, j]
-                        if term is not None:
-                            em[i, j] = term.evaluate(f)
+                el, er, et, em = self.get_eterms(sindex, f)
 
                 # Compute the measured values and place them into
                 # the output array.
