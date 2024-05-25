@@ -445,9 +445,8 @@ cdef class CorrelatedParameter(Parameter):
         frequency_vector (vector of float):
             monotonically increasing list of frequencies
         sigma_vector (vector of float):
-            standard deviations of the differences between
-            this Parameter and its correlate at
-            each frequency
+            square root of the covariance between this Parameter and
+            its correlate at each frequency
 
     The frequencies must cover at least the entire span of the calibration
     frequency range, but do not have to coincide with the calibration
@@ -1069,9 +1068,10 @@ cdef class Solver:
                 measured signal
 
         Both noise sources are assumed to be Gaussian and independent.
-        Specifying measurement errors with this function can significantly
-        improve accuracy, especially for significantly overdetermined
-        systems, as the 16 term models typically are.
+        Specifying measurement errors with this function can improve
+        accuracy and repeatability in the error term solution, especially
+        for significantly overdetermined systems, as the 16 term models
+        typically are.
         """
         cdef double [::1] fv
         cdef double [::1] nfv

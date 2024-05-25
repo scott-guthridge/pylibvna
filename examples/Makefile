@@ -9,7 +9,7 @@
 
 all: 1x1-corrected.s1p 1x1m-corrected.s1p 2x1-corrected.s2p \
 	2x2ab-corrected.s2p 2PR2-corrected.s1p TRL-corrected.s2p \
-	UT-corrected.s2p
+	UT-corrected.s2p T16-EM-corrected.s2p
 
 1x1-corrected.s1p: 1x1-apply.py
 	python 1x1-calibrate.py
@@ -48,9 +48,16 @@ UT-corrected.s2p: UT-apply.py
 	python compare-same.py 2PR1-expected.s1p 2PR1-corrected.s1p
 	python compare-same.py 2PR2-expected.s1p 2PR2-corrected.s1p
 
+T16-EM-corrected.s2p: T16-EM-apply.py
+	python T16-EM-calibrate.py
+	python T16-EM-apply.py
+	python compare-same.py --atol=0.05 --rtol=0.05 \
+		T16-EM-expected.s2p T16-EM-corrected.s2p
+
 clean: FRC
 	rm -f *-calibrate.py *-apply.py *.vnacal \
 		*-corrected.s[1234]p *-expected.s[1234]p *-measured.s[1234]p \
-		short.s1p open.s1p load.s1p TRL-R.s1p TRL-L.s1p UT-T.s1p
+		short.s1p open.s1p load.s1p TRL-R.s1p TRL-L.s1p UT-T.s1p \
+		T16-EM-*.s2p error-modeling-cdfs.png
 
 FRC:
