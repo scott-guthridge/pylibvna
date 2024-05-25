@@ -102,7 +102,7 @@ class RandomErrorTerms:
                         self.em[i, j] = RandomSParameter(rng, fmin, fmax)
 
     def __init__(self, rng, ctype: CalType, rows: int, cols: int,
-                 fmin: float, fmax: float):
+                 fmin: float, fmax: float, nf_vector=None, tr_vector=None):
         has_colsys = ctype == CalType.UE14 or ctype == CalType.E12
         m_rows = rows
         if has_colsys:
@@ -123,6 +123,8 @@ class RandomErrorTerms:
         self.fmin = fmin
         self.fmax = fmax
         self.systems = []
+        self.tr_vector = tr_vector
+        self.nf_vector = nf_vector
         for sindex in range(n_systems):
             self.systems.append(RandomErrorTerms.System(rng, ctype,
                                 m_rows, m_cols, s_rows, s_cols, fmin, fmax))
@@ -209,6 +211,22 @@ class RandomErrorTerms:
                     result[findex, :, sindex] = m[:, 0]
                 else:
                     result[findex, :, :] = m
+
+        # Add tracking noise if given.
+        if self.tr_vector is not None:
+            for findex, f in enumerate(f_vector):
+                result[findex, :, :] += (result[findex, :, :] *
+                    random_complex(self.rng,
+                                   self.tr_vector[findex],
+                                   (m_rows, result_cols)))
+
+        # Add noise floor if given.
+        if self.nf_vector is not None:
+            for findex, f in enumerate(f_vector):
+                result[findex, :, :] += (
+                    random_complex(self.rng,
+                                   self.nf_vector[findex],
+                                   (m_rows, result_cols)))
 
         if ab:
             if self.has_colsys:

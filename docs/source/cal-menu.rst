@@ -8,3 +8,4 @@ Calibration
    cal-model
    cal
    cal-examples
+   cal-error-modeling
