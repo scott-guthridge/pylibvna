@@ -464,7 +464,7 @@ cdef class CorrelatedParameter(Parameter):
         if frequency_vector.ndim != 1:
             raise ValueError("frequency_vector must be a one-dimensional "
                              "array")
-        sigma_vector = np.asarray(sigma_vector, dtype=np.complex128, order="C")
+        sigma_vector = np.asarray(sigma_vector, dtype=np.double, order="C")
         if sigma_vector.ndim != 1:
             raise ValueError("sigma_vector must be a one-dimensional array")
         if len(sigma_vector) != len(frequency_vector):
