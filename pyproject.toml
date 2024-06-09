@@ -86,9 +86,8 @@ manylinux-x86_64-image = "manylinux2014"
 
 [tool.cibuildwheel.macos]
 before-build = """\
-    pip install numpy>=2.0.0.dev0 meson-python cython!=3.0.3 ninja\n\
-    brew tap scott-guthridge/extra\n\
-    brew install scott-guthridge/extra/libvna\n\
+    pip3 -v install cython!=3.0.3 meson-python ninja numpy>=2.0.0.dev0 packaging requests\n\
+    tools/build-deps-from-source\n\
 """
 repair-wheel-command = """\
     DYLD_LIBRARY_PATH=/usr/local/lib delocate-listdeps {wheel} &&\n\

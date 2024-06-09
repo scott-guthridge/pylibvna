@@ -1,0 +1,60 @@
+#!/usr/bin/python3
+'''
+Download the latest .tar.gz files for the given packages and print
+the names of the downloaded files.
+'''
+
+import argparse
+import json
+import os
+from packaging.version import Version
+import re
+import requests
+import subprocess
+import sys
+
+parser = argparse.ArgumentParser()
+parser.add_argument('-v', '--verbose', action='store_true',
+                    help = "be verbose")
+parser.add_argument('args', nargs='*', help='repo/package list')
+progname = parser.prog
+options = parser.parse_args()
+
+version_pattern = r'\d[a-zA-Z0-9_]*(?:\.\d[a-zA-Z0-9_]*)*'
+
+for arg in options.args:
+    if options.verbose:
+        print('processing... ', arg, file=sys.stderr)
+    repo, package = arg.rsplit('/', 1)
+    url = 'https://api.github.com/repos/' + repo + '/releases/latest'
+    response = requests.get(url)
+    if response.status_code != 200:
+        print(f'{progname}: error: {url}: status {response.status_code}',
+              file=sys.stderr)
+        exit(1)
+    data = response.json()
+    download = None
+    version = None
+    file = None
+    regex = re.compile(f'.*/({package}-({version_pattern}))\\.tar\\.gz$')
+    for asset in data["assets"]:
+        if "browser_download_url" in asset:
+            candidate_download = asset["browser_download_url"]
+            m = regex.match(candidate_download)
+            if m:
+                candidate_file = m.group(1)
+                candidate_version = Version(m.group(2))
+                if options.verbose:
+                    print('match:', candidate_file, candidate_version,
+                          file=sys.stderr)
+                if version is None or candidate_version > version:
+                    download = candidate_download
+                    version = candidate_version
+                    file = candidate_file
+    if download:
+        if options.verbose:
+            print('download:', download, file=sys.stderr)
+        status = subprocess.run(['curl', '-sLO', download])
+        if status.returncode != 0:
+            sys.exit(status.returncode)
+        print(file)
