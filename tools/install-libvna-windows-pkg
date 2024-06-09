@@ -1,6 +1,6 @@
 #!/usr/bin/python3
 '''
-Download the .rpm packages from the latest release of libvna and
+Download the pkg files from the latest release of libvna and
 install them.
 '''
 
