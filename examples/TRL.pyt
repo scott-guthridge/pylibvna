@@ -5,13 +5,12 @@ from libvna.data import NPData, PType
 from libvna.conv import ztos
 import math
 import numpy as np
-import random
 import random_error_terms as et
 
 
-%# Set up random error paramters for the VNA.
-# Produce consistent results.
-random.seed(5)
+%# Set up random error parameters for the VNA.
+# Set up random generator.
+rng = np.random.default_rng(seed=7)
 
 # Set frequency range and number of points
 fmin = 1.0e+9
@@ -20,7 +19,7 @@ points = 10
 f_vector = np.linspace(fmin, fmax, num=points)
 
 # Generate random error terms
-eterms = et.RandomErrorTerms(CalType.TE10, 2, 2, fmin, fmax)
+eterms = et.RandomErrorTerms(rng, CalType.TE10, 2, 2, fmin, fmax)
 calset = Calset()
 
 # The actual reflect standard is 5 ohms in series with 700pH.  Calculate

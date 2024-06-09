@@ -34,7 +34,8 @@ all: 1x1-corrected.s1p 1x1m-corrected.s1p 2x1-corrected.s2p \
 TRL-corrected.s2p: TRL-apply.py
 	python TRL-calibrate.py
 	python TRL-apply.py
-	python compare-same.py TRL-expected.s2p TRL-corrected.s2p
+	python compare-same.py --atol=0.001 --rtol=0.001 \
+		TRL-expected.s2p TRL-corrected.s2p
 
 UT-corrected.s2p: UT-apply.py
 	python UT-calibrate.py

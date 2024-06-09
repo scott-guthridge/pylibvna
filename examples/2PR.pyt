@@ -5,21 +5,20 @@ from libvna.conv import ztos
 from libvna.data import NPData, PType
 import math
 import numpy as np
-import random
 import random_error_terms as et
 
 
-%# Set up random error paramters for the VNA.
-# Produce consistent results.
-random.seed(1)
+%# Set up random error parameters for the VNA.
+# Set up random generator.
+rng = np.random.default_rng(seed=5)
 
 # Set frequency range and number of points
 fmin = 1.0e+6
 fmax = 1.0e+9
 points = 10
 f_vector = np.logspace(np.log10(fmin), np.log10(fmax), num=points)
-eterms1 = et.RandomErrorTerms(CalType.E12, 1, 1, fmin, fmax)
-eterms2 = et.RandomErrorTerms(CalType.E12, 1, 1, fmin, fmax)
+eterms1 = et.RandomErrorTerms(rng, CalType.E12, 1, 1, fmin, fmax)
+eterms2 = et.RandomErrorTerms(rng, CalType.E12, 1, 1, fmin, fmax)
 calset = Calset()
 %]
 %O 2PR-calibrate.py

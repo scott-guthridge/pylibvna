@@ -5,13 +5,12 @@ from libvna.data import NPData, PType
 from libvna.conv import ztos
 import math
 import numpy as np
-import random
 import random_error_terms as et
 
 
-%# Set up random error paramters for the VNA.
-# Produce consistent results.
-random.seed(6)
+%# Set up random error parameters for the VNA.
+# Set up random generator.
+rng = np.random.default_rng(seed=7)
 
 # Set frequency range and number of points
 fmin = 1.0e+6
@@ -20,7 +19,7 @@ points = 10
 f_vector = np.logspace(np.log10(fmin), np.log10(fmax), num=points)
 
 # Generate random error terms
-eterms = et.RandomErrorTerms(CalType.TE10, 2, 2, fmin, fmax)
+eterms = et.RandomErrorTerms(rng, CalType.TE10, 2, 2, fmin, fmax)
 calset = Calset()
 
 # Find the actual through standard modelling it as a length of

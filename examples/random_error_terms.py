@@ -2,25 +2,31 @@ from libvna.cal import CalType, Parameter, Solver
 import math
 import cmath
 import numpy as np
-import random
 import sys
+
+sqrt_2 = math.sqrt(2.0)
+
+
+def random_complex(rng, σ, size=None):
+    σ /= sqrt_2
+    return (rng.normal(0, σ, size) + rng.normal(0, σ, size) * 1j)
 
 
 class RandomSParameter:
     '''
     Make a random S parameter that varies smoothly with frequency.
     '''
-    def __init__(self, fmin, fmax):
-        self.a = random.gauss(0, 0.5)
-        self.b = random.gauss(0, 0.5)
-        self.c = random.gauss(0, 0.5)
+    def __init__(self, rng, fmin, fmax):
+        self.a = rng.normal(0, 0.5)
+        self.b = rng.normal(0, 0.5)
+        self.c = rng.normal(0, 0.5)
         # Choose random undamped natural frequency between
         # fmin / 10 and fmax * 10.
         fmin /= 10.0
         fmax *= 10.0
-        f = fmin * 10 ** (math.log10(fmax / fmin) * random.random())
+        f = fmin * 10 ** (math.log10(fmax / fmin) * rng.random())
         self.w0 = 2.0 * math.pi * f
-        self.z = 0.05 + abs(random.gauss(0, 0.95))
+        self.z = 0.05 + abs(rng.normal(0, 0.95))
 
     def evaluate(self, f):
         s = 2.0j * math.pi * f
@@ -32,12 +38,12 @@ class RandomTL2x2:
     '''
     Make a random length of RG-175 transmission line.
     '''
-    def __init__(self):
+    def __init__(self, rng):
         self.vf = 2.0 / 3.0             # velocity factor
         self.lm = 2.50e-7               # metal loss: Np/m/Hz**(1/2)
         self.ld = 5.86e-12              # dielectric loss: Np/m/Hz
         self.z0 = 50.0
-        self.length = 0.1 + 0.25 * random.random()   # in meters
+        self.length = 0.1 + 0.25 * rng.random()   # in meters
 
     def get_S(self, f: float):
         '''
@@ -52,7 +58,7 @@ class RandomTL2x2:
 
 class RandomErrorTerms:
     class System:
-        def __init__(self, ctype: CalType, m_rows: int, m_cols: int,
+        def __init__(self, rng, ctype: CalType, m_rows: int, m_cols: int,
                      s_rows: int, s_cols: int, fmin: float, fmax: float):
             # Find the nominal (for 2x2) number of error terms
             # based on the calibration type.
@@ -68,7 +74,7 @@ class RandomErrorTerms:
 
             self.transmission = []
             for port in range(max(s_rows, s_cols)):
-                self.transmission.append(RandomTL2x2())
+                self.transmission.append(RandomTL2x2(rng))
             self.el = np.full((m_rows, m_cols), None, dtype=object)
             self.er = np.full((m_rows, s_rows), None, dtype=object)
             self.et = np.full((s_cols, m_cols), None, dtype=object)
@@ -78,24 +84,24 @@ class RandomErrorTerms:
             for i in range(m_rows):
                 for j in range(m_cols):
                     if i == j or terms > 8:
-                        self.el[i, j] = RandomSParameter(fmin, fmax)
+                        self.el[i, j] = RandomSParameter(rng, fmin, fmax)
             # init Er and Ef leakages if using 16-term
             if terms == 16:
                 for i in range(m_rows):
                     for j in range(s_rows):
                         if i != j:
-                            self.er[i, j] = RandomSParameter(fmin, fmax)
+                            self.er[i, j] = RandomSParameter(rng, fmin, fmax)
                 for i in range(s_cols):
                     for j in range(m_cols):
                         if i != j:
-                            self.ef[i, j] = RandomSParameter(fmin, fmax)
+                            self.et[i, j] = RandomSParameter(rng, fmin, fmax)
             # init Em terms
             for i in range(s_cols):
                 for j in range(s_rows):
                     if i == j or terms == 16:
-                        self.em[i, j] = RandomSParameter(fmin, fmax)
+                        self.em[i, j] = RandomSParameter(rng, fmin, fmax)
 
-    def __init__(self, ctype: CalType, rows: int, cols: int,
+    def __init__(self, rng, ctype: CalType, rows: int, cols: int,
                  fmin: float, fmax: float):
         has_colsys = ctype == CalType.UE14 or ctype == CalType.E12
         m_rows = rows
@@ -108,6 +114,7 @@ class RandomErrorTerms:
         s_rows = max(rows, cols)
         s_cols = s_rows
 
+        self.rng = rng
         self.has_colsys = has_colsys
         self.m_rows = m_rows
         self.m_cols = m_cols
@@ -117,7 +124,7 @@ class RandomErrorTerms:
         self.fmax = fmax
         self.systems = []
         for sindex in range(n_systems):
-            self.systems.append(RandomErrorTerms.System(ctype,
+            self.systems.append(RandomErrorTerms.System(rng, ctype,
                                 m_rows, m_cols, s_rows, s_cols, fmin, fmax))
 
     def evaluate(self, calset, f_vector, s_matrix, ab=False):
