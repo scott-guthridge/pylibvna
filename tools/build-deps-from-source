@@ -1,0 +1,43 @@
+#!/bin/sh
+set -e
+progname=`basename "$0"`
+args=`getopt s "$@"` || {	# old form for compatibility
+    echo "usage: ${progname} [-s] -- [configure_args...]"
+    echo " -s  dont use sudo in install step"
+    exit 1
+}
+eval set -- "${args}"
+while :; do
+    case "$1" in
+	'-s')
+	    s_opt=1
+	    shift
+	    ;;
+	'--')
+	    shift
+	    break
+	    ;;
+	*)
+	    echo "${progname}: unhandled option ${1}"
+	    exit 1
+	    ;;
+    esac
+done
+
+echo "whoami: `whoami`"
+
+[ -d cbuild ] || mkdir cbuild
+cd cbuild
+libyaml=`python3 ../tools/get-tar-gz -v yaml/libyaml/yaml`
+libvna=`python3 ../tools/get-tar-gz -v scott-guthridge/libvna/libvna`
+
+for package in $libyaml $libvna; do
+    tar xzf "${package}.tar.gz"
+    ( cd "${package}" && ./configure "$@" )
+    ( cd "${package}" && make -j10 )
+    if [ -z "${s_opt}" ]; then
+	( cd "${package}" && sudo make install )
+    else
+	( cd "${package}" && make install )
+    fi
+done
