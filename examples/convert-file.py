@@ -2,8 +2,8 @@
 import argparse
 from libvna.data import NPData, FileType
 
-usage = """
-    %s [-f format] input-file output-file
+usage = '''
+convert-file [-f format] input-file output-file
     where format is a comma-separated list of:
       s[ri|ma|dB]  scattering parameters
       t[ri|ma|dB]  scattering-transfer parameters
@@ -34,7 +34,8 @@ usage = """
       Touchstone v1:          .s1p, .s2p, .s3p, .s4p
       Touchstone v2:          .ts
       Network Parameter Data: .npd
-"""
+
+'''
 
 parser = argparse.ArgumentParser(usage=usage)
 parser.add_argument("-f", "--format")
