@@ -1,17 +1,23 @@
 #!/bin/sh
 set -e
 progname=`basename "$0"`
-args=`getopt s "$@"` || {	# old form for compatibility
+args=`getopt st: "$@"` || {	# old form for compatibility
     echo "usage: ${progname} [-s] -- [configure_args...]"
     echo " -s  dont use sudo in install step"
     exit 1
 }
+s_opt=
+t_opt=
 eval set -- "${args}"
 while :; do
     case "$1" in
 	'-s')
 	    s_opt=1
 	    shift
+	    ;;
+	'-t')
+	    t_opt="-t $2"	# pass onto get-tar-gz
+	    shift; shift
 	    ;;
 	'--')
 	    shift
@@ -25,11 +31,10 @@ while :; do
 done
 
 echo "whoami: `whoami`"
-
 [ -d cbuild ] || mkdir cbuild
 cd cbuild
-libyaml=`python3 ../tools/get-tar-gz -v yaml/libyaml/yaml`
-libvna=`python3 ../tools/get-tar-gz -v scott-guthridge/libvna/libvna`
+libyaml=`python3 ../tools/get-tar-gz $t_opt -v yaml/libyaml/yaml`
+libvna=`python3 ../tools/get-tar-gz $t_opt -v scott-guthridge/libvna/libvna`
 
 for package in $libyaml $libvna; do
     tar xzf "${package}.tar.gz"
