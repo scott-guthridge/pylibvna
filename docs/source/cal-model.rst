@@ -51,7 +51,7 @@ desired, then after solving for T or U error terms, we can convert them
 back to E terms.
 
 The next several sections describe the supported calibration types,
-the error terms they provide, and the standards needed to solve for them.
+the error terms they provide, and the standards needed to solve them.
 
 Calibration Types
 -----------------
