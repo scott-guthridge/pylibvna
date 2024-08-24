@@ -1519,13 +1519,15 @@ cdef class NPData:
     # Parameter Conversion
     ######################################################################
 
-    def convert(self, PType new_ptype):
+    def convert(self, PType new_ptype, inplace=False):
         """
         Return a new NPData object with data converted to the new type.
 
         Args:
             new_type (PType): new parameter type:
                 ANY, S, T, U, Z, Y, H, G, A, B, ZIN.
+            inplace (bool): do the conversion in-place instead of
+                returning a new object
 
         Returns:
             A new NPData object in the requested type.  The original
@@ -1534,8 +1536,11 @@ cdef class NPData:
         Raises:
             ValueError: if conversion to new_type is invalid
         """
-        result = NPData()
         cdef int rc
+        if inplace:
+            result = self
+        else:
+            result = NPData()
         rc = vnadata_convert(self.vdp, result.vdp,
                              <vnadata_parameter_type_t>new_ptype)
         self._handle_error(rc)
