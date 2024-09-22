@@ -1004,7 +1004,7 @@ cdef class Solver:
             s_rows = s.shape[0]
             s_columns = s.shape[1]
             s_ports = s_rows if s_rows >= s_columns else s_columns
-            sip = <int *>malloc(s.rows * s.columns * sizeof(int))
+            sip = <int *>malloc(s_rows * s_columns * sizeof(int))
             if sip == NULL:
                 raise MemoryError()
             k = 0
