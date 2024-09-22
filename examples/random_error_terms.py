@@ -188,12 +188,11 @@ class RandomErrorTerms:
         s_rows = self.s_rows
         s_cols = self.s_cols
         s_matrix = [[Parameter.from_value(calset, s_matrix[i][j])
-                    for i in range(s_rows)] for j in range(s_cols)]
+                    for j in range(s_rows)] for i in range(s_cols)]
         n_systems = len(self.systems)
         frequencies = len(f_vector)
         result_cols = max(m_cols, n_systems)
-        result = np.empty((frequencies, m_rows, result_cols),
-                               dtype=complex)
+        result = np.empty((frequencies, m_rows, result_cols), dtype=complex)
         for sindex, system in enumerate(self.systems):
             for findex, f in enumerate(f_vector):
                 s = np.empty(shape=(s_rows, s_cols), dtype=complex)
