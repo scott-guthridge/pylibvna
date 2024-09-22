@@ -48,6 +48,7 @@ import errno
 from libc.stdio cimport FILE, fdopen, fclose
 from libc.stdlib cimport malloc, calloc, free
 from libc.string cimport memcpy
+import math
 import numpy as np
 cimport numpy as npc
 from threading import local
@@ -527,11 +528,32 @@ cdef object _prepare_C_array(object array, object name, int frequencies,
         _free_C_array(clfpp, r, c)
 
 
-cdef _free_C_array(double complex **clfpp, int rows, int columns):
+cdef void _free_C_array(double complex **clfpp, int rows, int columns):
     if clfpp != NULL:
         for k in range(rows * columns):
             free(<void *>clfpp[k])
         free(<void *>clfpp)
+
+
+cdef object _apply_delay(Calset calset, Parameter parameter,
+                         object frequency_vector, object delay_vector,
+                         int row, int column):
+    # """
+    # Given a frequency vector and vector of delays at each port of a
+    # calibration standard, return a modified parameter with the delay
+    # for the given element of the standard's S-parameter matrix.
+    # """
+    if not (isinstance(parameter, ScalarParameter)
+            or isinstance(parameter, VectorParameter)):
+        raise ValueError("cannot apply delay to unknown parameter")
+
+    cdef float delay
+    delay = delay_vector[row] + delay_vector[column]
+    if delay == 0.0:
+        return parameter
+    values = (parameter.get_value(frequency_vector)
+              * np.exp(-2j * math.pi * delay * frequency_vector))
+    return VectorParameter(calset, frequency_vector, values)
 
 
 cdef class Solver:
@@ -631,6 +653,7 @@ cdef class Solver:
     """
     cdef Calset calset
     cdef int frequencies
+    cdef object frequency_vector
     cdef vnacal_new_t *vnp
     cdef double pvalue_limit
     cdef double et_tolerance
@@ -666,6 +689,7 @@ cdef class Solver:
                 calset._handle_error(-1)
         self.calset = calset
         self.frequencies = len(frequency_vector)
+        self.frequency_vector = frequency_vector
         self.vnp = vnp
         self.pvalue_limit = 0.001
         self.et_tolerance = 1.0e-6
@@ -678,7 +702,8 @@ cdef class Solver:
         vnacal_new_free(self.vnp)
         self.vnp = NULL
 
-    def add_single_reflect(self, b, s11, *, a=None, int port=1):
+    def add_single_reflect(self, b, s11, *, a=None, float delay=0.0,
+                           int port=1):
         """
         Add the measurement of a single reflect standard with parameter
         *s11* on the given VNA port.
@@ -691,6 +716,9 @@ cdef class Solver:
             a (frequencies long vector of complex matrix, optional):
                 incident root power out of each VNA port, or None if
                 not available
+            delay (float, optional):
+                Delay in seconds between the reference plane and the
+                standard.  Can be negative.
             port (int, optional):
                 VNA port number connected to the standard.  If not given,
                 defaults to 1.
@@ -718,6 +746,10 @@ cdef class Solver:
             # Prepare S parameters
             #
             c_s11 = Parameter._from_value(self.calset, s11)
+            if delay != 0.0:
+                c_s11 = _apply_delay(self.calset, c_s11,
+                                     self.frequency_vector,
+                                     [delay], 0, 0)
 
             #
             # Call add function
@@ -740,7 +772,9 @@ cdef class Solver:
             _free_C_array(a_clfpp, a_rows, a_columns)
 
     def add_double_reflect(self, b, s11, s22, *,
-                           a=None, int port1=1, int port2=2):
+                           a=None,
+                           double delay1=0.0, double delay2=0.0,
+                           int port1=1, int port2=2):
         """
         Add the measurement of a double reflect standard with parameters
         *s11* and *s22* on the given VNA ports, assuming :math:`S_{12} =
@@ -756,6 +790,12 @@ cdef class Solver:
             a (frequencies long vector of complex matrix, optional):
                 incident root power out of each VNA port, or None if
                 not available
+            delay1 (float, optional):
+                Delay in seconds between the reference plane and port
+                1 of the standard.  Can be negative.
+            delay2 (float, optional):
+                Delay in seconds between the reference plane and port
+                2 of the standard.  Can be negative.
             port1 (int, optional):
                 VNA port number connected to port 1 of the calibration
                 standard.  If not given, defaults to 1.
@@ -788,6 +828,14 @@ cdef class Solver:
             #
             c_s11 = Parameter._from_value(self.calset, s11)
             c_s22 = Parameter._from_value(self.calset, s22)
+            if delay1 != 0.0:
+                c_s11 = _apply_delay(self.calset, c_s11,
+                                     self.frequency_vector,
+                                     [delay1], 0, 0)
+            if delay2 != 0.0:
+                c_s22 = _apply_delay(self.calset, c_s22,
+                                     self.frequency_vector,
+                                     [delay2], 0, 0)
 
             #
             # Call add function
@@ -811,7 +859,8 @@ cdef class Solver:
             _free_C_array(b_clfpp, b_rows, b_columns)
             _free_C_array(a_clfpp, a_rows, a_columns)
 
-    def add_through(self, b, *, a=None, int port1=1, int port2=2):
+    def add_through(self, b, *, a=None, float delay=0.0,
+                    int port1=1, int port2=2):
         """
         Add the measurement of a perfect through standard between *port1*
         and *port2*, i.e.
@@ -823,6 +872,8 @@ cdef class Solver:
             a (frequencies long vector of complex matrix, optional):
                 incident root power out of each VNA port, or None if
                 not available
+            delay (float, optional):
+                Delay in seconds of the standard.  Can be negative.
             port1 (int, optional):
                 First VNA port connected to the through standard.
                 If not given, defaults to 1.
@@ -838,6 +889,9 @@ cdef class Solver:
         cdef double complex **b_clfpp = NULL
         cdef int rc
 
+        if delay != 0.0:
+            return self.add_line(b, [[0.0, 1.0], [1.0, 0.0]], a=a,
+                                 delay1=delay, port1=port1, port2=port2)
         try:
             #
             # Prepare a and b arrays.
@@ -868,7 +922,8 @@ cdef class Solver:
             _free_C_array(b_clfpp, b_rows, b_columns)
             _free_C_array(a_clfpp, a_rows, a_columns)
 
-    def add_line(self, b, s, *, a=None, int port1=1, int port2=2):
+    def add_line(self, b, s, *, a=None, float delay1=0.0, float delay2=0.0,
+                 int port1=1, int port2=2):
         """
         Add the measurement of an arbitrary two-port standard with S
         parameter matrix, *s*, on the given VNA ports.
@@ -883,6 +938,12 @@ cdef class Solver:
             a (frequencies long vector of complex matrix, optional):
                 incident root power out of each VNA port, or None if
                 not available
+            delay1 (float, optional):
+                Delay in seconds between the reference plane and port
+                1 of the standard.  Can be negative.
+            delay2 (float, optional):
+                Delay in seconds between the reference plane and port
+                2 of the standard.  Can be negative.
             port1 (int, optional):
                 VNA port number connected to port 1 of the calibration
                 standard.  If not given, defaults to 1.
@@ -921,6 +982,10 @@ cdef class Solver:
             for i in range(2):
                 for j in range(2):
                     c_parameter = Parameter._from_value(self.calset, s[i, j])
+                    if delay1 != 0.0 or delay2 != 0.0:
+                        c_parameter = _apply_delay(self.calset, c_parameter,
+                                                   self.frequency_vector,
+                                                   [delay1, delay2], i, j)
                     s[i, j] = c_parameter
                     si[i][j] = c_parameter.pindex
 
@@ -944,7 +1009,8 @@ cdef class Solver:
             _free_C_array(b_clfpp, b_rows, b_columns)
             _free_C_array(a_clfpp, a_rows, a_columns)
 
-    def add_mapped_matrix(self, b, s, *, a=None, port_map=None):
+    def add_mapped_matrix(self, b, s, *, a=None,
+                          delay_vector=None, port_map=None):
         """
         Add the measurement of an arbitrary n-port standard with S
         parameter matrix, *s*, and a map of ports of the standard to
@@ -960,7 +1026,10 @@ cdef class Solver:
             a (frequencies long vector of complex matrix, optional):
                 incident root power out of each VNA port, or None if
                 not available
-            port_map (vector of int, optional):
+            delay_vector (list/array of float, optional):
+                Vector of delays in seconds between the reference plane
+                and each port of the standard.  Delays can be negative.
+            port_map (list/array of int, optional):
                 List of the VNA port numbers attached to each port of
                 the standard in order.  Optional if the standard has
                 the same number of ports as the VNA and the ports of
@@ -1007,10 +1076,18 @@ cdef class Solver:
             sip = <int *>malloc(s_rows * s_columns * sizeof(int))
             if sip == NULL:
                 raise MemoryError()
+            if delay_vector is not None:
+                if len(delay_vector) != s_ports:
+                    raise ValueError("delay_vector must have length "
+                                     f"{s_ports} ")
             k = 0
             for i in range(s_rows):
                 for j in range(s_columns):
                     c_parameter = Parameter._from_value(self.calset, s[i, j])
+                    if delay_vector is not None:
+                        c_parameter = _apply_delay(self.calset, c_parameter,
+                                                   self.frequency_vector,
+                                                   delay_vector, i, j)
                     s[i, j] = c_parameter
                     sip[k] = c_parameter.pindex
                     k += 1
@@ -1304,7 +1381,7 @@ cdef class Calibration:
         cdef double complex z0 = vnacal_get_z0(vcp, ci)
         return z0
 
-    def apply(self, f, b, *, a=None) -> NPData:
+    def apply(self, f, b, *, a=None, delay_vector=None) -> NPData:
         """
         Apply the calibration correction to measured data.  The
         calibration must have dimensions 2x1, 1x2, or NxN.
@@ -1318,6 +1395,9 @@ cdef class Calibration:
             a (frequencies long vector of complex matrix, optional):
                 incident root power out of each VNA port, or None if
                 not available
+            delay_vector (list/array of float, optional):
+                Delay in seconds between the reference plane and each
+                port of the DUT.  Delays can be negative.
 
         Return:
             libvna.data.NPData object containing the corrected parameters
@@ -1332,6 +1412,9 @@ cdef class Calibration:
         cdef int a_columns = 0
         cdef int b_rows
         cdef int b_columns
+        cdef int b_ports
+        cdef int i
+        cdef int j
         cdef double complex **a_clfpp = NULL
         cdef double complex **b_clfpp = NULL
         cdef vnadata_t *vdp
@@ -1380,10 +1463,28 @@ cdef class Calibration:
                                   vdp)
             else:
                 rc = vnacal_apply_m(vcp, ci,
-                                  frequency_vector, frequencies,
-                                  b_clfpp, b_rows, b_columns,
-                                  vdp)
+                                   frequency_vector, frequencies,
+                                   b_clfpp, b_rows, b_columns,
+                                   vdp)
             self.calset._handle_error(rc)
+
+            #
+            # If delays were given, de-embed them from the result.
+            #
+            if delay_vector is not None:
+                b_ports = max(b_rows, b_columns)
+                if len(delay_vector) != b_ports:
+                    raise f"delay_vector must have length {b_ports}"
+                f_vector = result.frequency_vector[...]
+                for i in range(b_ports):
+                    for j in range(b_ports):
+                        delay = delay_vector[i] + delay_vector[j]
+                        if delay != 0.0:
+                            values = result.data_array[:, i, j]
+                            values *= np.exp(2j * math.pi * delay
+                                             * f_vector)
+                            result.data_array[:, i, j] = values
+
             return result
 
         finally:
