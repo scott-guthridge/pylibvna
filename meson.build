@@ -37,6 +37,12 @@ dep_np = declare_dependency(include_directories: inc_np)
 
 
 test(
+    'test_cal',
+    py3,
+    args: [join_paths(testdir, 'test_cal.py')],
+    workdir: builddir
+)
+test(
     'test_conv',
     py3,
     args: [join_paths(testdir, 'test_conv.py')],
