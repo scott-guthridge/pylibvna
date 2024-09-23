@@ -85,7 +85,7 @@ solution will be used.
 
 
 Connection Non-repeatability Modeling
-------------------------------------
+-------------------------------------
 
 Each time a calibration standard or DUT is connected to the VNA, a certain
 amount of error results from connection non-repeatability.  To model this,
