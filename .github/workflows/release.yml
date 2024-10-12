@@ -85,8 +85,11 @@ jobs:
     needs: build_wheels
     runs-on: ubuntu-latest
     steps:
-    - name: Install Python Packages
+    - name: Install Python Packages in Virtual Environment
       run: |
+        python -m venv venv
+        source venv/bin/activate
+        pip install --upgrade pip
         pip install twine
     - name: Download Artifacts
       uses: actions/download-artifact@v4
@@ -95,6 +98,7 @@ jobs:
         merge-multiple: true
     - name: Publish to PyPI
       run: |
+        source venv/bin/activate
         python -m twine upload artifacts/*.whl
       env:
         TWINE_USERNAME: __token__
