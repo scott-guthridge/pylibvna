@@ -5,31 +5,38 @@ Parameter Conversion
    :maxdepth: 2
 
 The functions in this module convert between different representations
-of electrical n-port network parameters.  Supported parameter
-types include **s** (scattering), **t** (scattering-transfer), **u**
-(inverse scattering-transfer), **z** (impedance), **y** (admittance),
-**h** (hybrid), **g** (inverse hybrid), **a** (ABCD), and **b**
-(inverse ABCD).  While **s**, **z** and **y** parameters are defined for
-any number of ports (NxN matrices), **t**, **u**, **h**, **g**, **a** and
-**b** parameters are defined for two ports networks (2x2 matrices) only.
+of electrical n-port network parameters.  Supported parameter types
+include **s** (scattering), **t** (scattering-transfer), **u** (inverse
+scattering-transfer), **z** (impedance), **y** (admittance), **h**
+(hybrid), **g** (inverse hybrid), **a** (ABCD), and **b** (inverse ABCD).
+While **s**, **z** and **y** parameters are defined for any number
+of ports (NxN matrices), **t**, **u**, **h**, **g**, **a** and **b**
+parameters are defined for two ports networks (2x2 matrices) only.
 
 The **s**, **t** and **u** parameters are defined in relation to given
-reference impedances, **z0**.  When converting between these types and
-the others, the reference impedances must be known.  The *z0* parameter
-can be a scalar, or a vector with length equal to the number of ports.
-It can be real or complex.  If not specified, it defaults to 50 ohms.
+reference impedances, **z0**.  When converting between any of these types
+and any of the other types, the reference impedances must be known.
+The *z0* parameter can be a scalar, or a vector with length equal to
+the number of ports.  It can be real or complex.  If not specified,
+it defaults to 50 ohms.
 
-All functions take an array-like input parameter, *array*.
-This parameter must have at least two dimensions, with the final two
-dimensions square and consistent with the parameter type.  If the array
-has additional dimensions on the left, the matrix conversion functions
-operate on each matrix of the larger array and return a result in the
-same shape as the input.
+When converting between **s**, **t**, and **u** parameters, if the
+**z1** and **z2** arguments are given, the conversion re-normalizes
+from an original set of reference impedances, **z1**, to a new set of
+reference impedances, **z2**.  These arguments can be scalar or vector,
+real or complex, like **z0** above.
 
-In addition to the matrix conversions, the module provides functions that
-convert from each parameter type to a vector of input impedances giving
-the impedance looking into each port if the other ports are terminated
-in the reference impedances.
+All functions take an array-like input parameter, *array*.  This parameter
+must have at least two dimensions with the final two dimensions square
+and consistent with the parameter type.  If the array has additional
+dimensions on the left, the matrix conversion functions operate on each
+matrix of the larger array and return a result in the same shape as
+the input.
+
+In addition to the matrix conversions, the module provides functions
+that convert from each parameter type to a vector of input impedances
+giving the impedance looking into each port, assuming the other ports
+are terminated in the reference impedances.
 
 
 Two-Port Matrix Conversions
@@ -71,6 +78,7 @@ Two-Port Matrix Conversions
 .. autofunction:: libvna.conv.stob
 .. autofunction:: libvna.conv.stog
 .. autofunction:: libvna.conv.stoh
+.. autofunction:: libvna.conv.stos
 .. autofunction:: libvna.conv.stot
 .. autofunction:: libvna.conv.stou
 .. autofunction:: libvna.conv.ttoa
@@ -78,6 +86,7 @@ Two-Port Matrix Conversions
 .. autofunction:: libvna.conv.ttog
 .. autofunction:: libvna.conv.ttoh
 .. autofunction:: libvna.conv.ttos
+.. autofunction:: libvna.conv.ttot
 .. autofunction:: libvna.conv.ttou
 .. autofunction:: libvna.conv.ttoy
 .. autofunction:: libvna.conv.ttoz
@@ -87,6 +96,7 @@ Two-Port Matrix Conversions
 .. autofunction:: libvna.conv.utoh
 .. autofunction:: libvna.conv.utos
 .. autofunction:: libvna.conv.utot
+.. autofunction:: libvna.conv.utou
 .. autofunction:: libvna.conv.utoy
 .. autofunction:: libvna.conv.utoz
 .. autofunction:: libvna.conv.ytoa

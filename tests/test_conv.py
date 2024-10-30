@@ -7,15 +7,18 @@ import unittest
 import numpy as np
 import libvna.conv as vc
 
-TRIALS = 1
+TRIALS = 20
 
 M_SQRT1_2 = 1.41421356237309504880
 
-def crandn():
+
+def crandn(size=None):
     """
     Return a gaussian complex random number
     """
-    return M_SQRT1_2 * complex(np.random.normal(), np.random.normal())
+    return M_SQRT1_2 * (np.random.normal(size=size) +
+                        1j * np.random.normal(size=size))
+
 
 class TestModule(unittest.TestCase):
     def test_2x2(self):
@@ -309,7 +312,6 @@ class TestModule(unittest.TestCase):
             x = vc.btozi(b, [Z1, Z2])
             self.assertTrue(np.allclose(x, zi))
 
-
     def test_3x3(self):
         """
         Test all the NxN conversion cases using 3 ports.
@@ -436,7 +438,7 @@ class TestModule(unittest.TestCase):
                     # 75-50 LPAD
                     [[129.9038105676658, 86.60254037844386],
                      [86.60254037844386, 86.60254037844386]],
-                    
+
                     # 50-75 LPAD
                     [[-70.71067811865475j, -106.0660171779821j],
                      [-106.0660171779821j, -106.0660171779821j]],
@@ -541,7 +543,93 @@ class TestModule(unittest.TestCase):
             vc.ztos(z, [[[75, 50], [50, 75]],
                         [[50, 50], [50, 75]]])
 
+    def renormalize_helper(self, ports):
+        """
+        Test renormalizing conversions for a given set of ports.
+        """
+        z01v = crandn(size=(ports,))
+        z02v = crandn(size=(ports,))
+        z01  = np.diag(z01v)
+        z02  = np.diag(z02v)
+        z01c = np.diag(np.conj(z01v))
+        z02c = np.diag(np.conj(z02v))
+        zr1v = np.real(z01v)
+        zr2v = np.real(z02v)
+        k1ri = np.diag(np.sqrt(abs(zr1v)) / zr1v)
+        k2h  = np.diag(0.5 * np.sqrt(abs(zr2v))**(-1))
+        a1 = crandn(size=(ports, ports))
+        s1 = crandn(size=(ports, ports))
+        b1 = s1 @ a1
+        v  = k1ri @ (z01c @ a1 + z01 @ b1)
+        i  = k1ri @ (a1 - b1)
+        a2 = k2h @ (v + z02  @ i)
+        b2 = k2h @ (v - z02c @ i)
+        s2 = np.linalg.solve(a2.T, b2.T).T
+
+        # check s1 -> s2
+        x = vc.stos(s1, z01v, z02v)
+        self.assertTrue(np.allclose(x, s2))
+
+        # all other conversions are 2x2 only
+        if ports != 2:
+            return
+
+        # check s1 -> t1
+        t1 = vc.stot(s1)
+        c = np.vstack((a1[1], b1[1]))
+        d = np.vstack((b1[0], a1[0]))
+        self.assertTrue(np.allclose(np.matmul(t1, c), d))
+
+        # check s1 -> u1
+        u1 = vc.stou(s1)
+        c = np.vstack((b1[0], a1[0]))
+        d = np.vstack((a1[1], b1[1]))
+        self.assertTrue(np.allclose(np.matmul(u1, c), d))
+
+        # check s1 -> t2
+        t2 = vc.stot(s1, z01v, z02v)
+        c = np.vstack((a2[1], b2[1]))
+        d = np.vstack((b2[0], a2[0]))
+        self.assertTrue(np.allclose(np.matmul(t2, c), d))
+
+        # check s1 -> u2
+        u2 = vc.stou(s1, z01v, z02v)
+        c = np.vstack((b2[0], a2[0]))
+        d = np.vstack((a2[1], b2[1]))
+        self.assertTrue(np.allclose(np.matmul(u2, c), d))
+
+        # check t1 -> s2
+        x = vc.ttos(t1, z01v, z02v)
+        self.assertTrue(np.allclose(x, s2))
+
+        # check t1 -> t2
+        x = vc.ttot(t1, z01v, z02v)
+        self.assertTrue(np.allclose(x, t2))
+
+        # check t1 -> u2
+        x = vc.ttou(t1, z01v, z02v)
+        self.assertTrue(np.allclose(x, u2))
+
+        # check u1 -> s2
+        x = vc.utos(u1, z01v, z02v)
+        self.assertTrue(np.allclose(x, s2))
+
+        # check u1 -> t2
+        x = vc.utot(u1, z01v, z02v)
+        self.assertTrue(np.allclose(x, t2))
+
+        # check u1 -> u2
+        x = vc.utou(u1, z01v, z02v)
+        self.assertTrue(np.allclose(x, u2))
+
+    def test_try(self):
+        """
+        Test renormalizing conversions.
+        """
+        for _ in range(TRIALS):
+            for ports in range(1, 6):
+                self.renormalize_helper(ports)
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     unittest.main()

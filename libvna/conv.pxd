@@ -82,8 +82,14 @@ cdef extern from "<vnaconv.h>":
                       const double complex *z0)
     void vnaconv_stoh(const double complex (*s)[2], double complex (*h)[2],
                       const double complex *z0)
+    void vnaconv_stosr(const double complex (*s1)[2], double complex (*s2)[2],
+                       const double complex *z1, const double complex *z2)
     void vnaconv_stot(const double complex (*s)[2], double complex (*t)[2])
+    void vnaconv_stotr(const double complex (*s)[2], double complex (*t)[2],
+                       const double complex *z1, const double complex *z2)
     void vnaconv_stou(const double complex (*s)[2], double complex (*u)[2])
+    void vnaconv_stour(const double complex (*s)[2], double complex (*u)[2],
+                       const double complex *z1, const double complex *z2)
     void vnaconv_stoy(const double complex (*s)[2], double complex (*y)[2],
                       const double complex *z0)
     void vnaconv_stoz(const double complex (*s)[2], double complex (*z)[2],
@@ -99,7 +105,13 @@ cdef extern from "<vnaconv.h>":
     void vnaconv_ttoh(const double complex (*t)[2], double complex (*h)[2],
                       const double complex *z0)
     void vnaconv_ttos(const double complex (*t)[2], double complex (*s)[2])
+    void vnaconv_ttosr(const double complex (*t)[2], double complex (*s)[2],
+                       const double complex *z1, const double complex *z2)
+    void vnaconv_ttotr(const double complex (*t1)[2], double complex (*t2)[2],
+                       const double complex *z1, const double complex *z2)
     void vnaconv_ttou(const double complex (*t)[2], double complex (*u)[2])
+    void vnaconv_ttour(const double complex (*t)[2], double complex (*u)[2],
+                       const double complex *z1, const double complex *z2)
     void vnaconv_ttoy(const double complex (*t)[2], double complex (*y)[2],
                       const double complex *z0)
     void vnaconv_ttoz(const double complex (*t)[2], double complex (*z)[2],
@@ -115,7 +127,13 @@ cdef extern from "<vnaconv.h>":
     void vnaconv_utoh(const double complex (*u)[2], double complex (*h)[2],
                       const double complex *z0)
     void vnaconv_utos(const double complex (*u)[2], double complex (*s)[2])
+    void vnaconv_utosr(const double complex (*u)[2], double complex (*s)[2],
+                       const double complex *z1, const double complex *z2)
     void vnaconv_utot(const double complex (*u)[2], double complex (*t)[2])
+    void vnaconv_utotr(const double complex (*u)[2], double complex (*t)[2],
+                       const double complex *z1, const double complex *z2)
+    void vnaconv_utour(const double complex (*u1)[2], double complex (*u2)[2],
+                       const double complex *z1, const double complex *z2)
     void vnaconv_utoy(const double complex (*u)[2], double complex (*y)[2],
                       const double complex *z0)
     void vnaconv_utoz(const double complex (*u)[2], double complex (*z)[2],
@@ -152,6 +170,9 @@ cdef extern from "<vnaconv.h>":
     #
     # NxN conversions
     #
+    void vnaconv_stosrn(const double complex *s1, double complex *s2,
+                        const double complex *z1, const double complex *z2,
+                        int n)
     void vnaconv_stoyn(const double complex *s, double complex *y,
                        const double complex *z0, int n)
     void vnaconv_stozin(const double complex *s, double complex *zi,

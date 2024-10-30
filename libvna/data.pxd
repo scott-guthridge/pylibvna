@@ -98,6 +98,9 @@ cdef extern from "<vnadata.h>":
     int vnadata_convert(const vnadata_t *vdp_in,
                         vnadata_t *vdp_out,
                         vnadata_parameter_type_t new_parameter)
+    int vnadata_rconvert(const vnadata_t *vdp_in, vnadata_t *vdp_out,
+                         vnadata_parameter_type_t new_parameter,
+                         const double complex *new_z0, int new_z0_length)
     int vnadata_add_frequency(vnadata_t *vdp, double frequency)
     const char *vnadata_get_type_name(vnadata_parameter_type_t type)
     vnadata_filetype_t vnadata_get_filetype(const vnadata_t *vdp)

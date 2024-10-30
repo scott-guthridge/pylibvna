@@ -1519,7 +1519,7 @@ cdef class NPData:
     # Parameter Conversion
     ######################################################################
 
-    def convert(self, PType new_ptype, inplace=False):
+    def convert(self, PType new_ptype, inplace=False, new_z0=None):
         """
         Return a new NPData object with data converted to the new type.
 
@@ -1528,21 +1528,64 @@ cdef class NPData:
                 ANY, S, T, U, Z, Y, H, G, A, B, ZIN.
             inplace (bool): do the conversion in-place instead of
                 returning a new object
+            new_z0 (complex array, optional):
+                Re-normalize the reference impedances to the new values.
+                This parameter can be a scalar, ports long vector,
+                or frequencies x ports array.  Note that this parameter
+                does not scale component impedances as is done in the
+                touchstone v1 save format, i.e. the values of z, y, h,
+                g, a and b parameters do not change with a change in
+                reference impedance.  Only s, t and u parameter values
+                change.
 
         Returns:
-            A new NPData object in the requested type.  The original
-            object is left unchanged.
+            With inplace=False, returns a new NPData object in the
+            requested type with the original unchanged.  With inplace=True,
+            returns the modified NPData object.
 
         Raises:
             ValueError: if conversion to new_type is invalid
         """
         cdef int rc
+        cdef int frequencies
+        cdef int rows
+        cdef int columns
+        cdef int ports
+        cdef int new_z0_length = -1
+        cdef double complex [:] c_new_z0
+
+        # Prepare output object.
         if inplace:
             result = self
         else:
             result = NPData()
-        rc = vnadata_convert(self.vdp, result.vdp,
-                             <vnadata_parameter_type_t>new_ptype)
+
+        # Handle re-normalization.
+        if new_z0 is not None:
+            frequencies = vnadata_get_frequencies(self.vdp)
+            rows = vnadata_get_rows(self.vdp)
+            columns = vnadata_get_columns(self.vdp)
+            ports = max(rows, columns)
+            new_z0 = np.asarray(new_z0, dtype=np.complex128, order="C")
+            if new_z0.ndim == 0:
+                new_z0_length = 1
+            elif new_z0.ndim == 1:
+                if new_z0.shape[0] == ports:
+                    new_z0_length = ports
+            elif new_z0.ndim == 2:
+                if new_z0.shape[0] == frequencies and new_z0.shape[1] == ports:
+                    new_z0_length = frequencies * ports
+            if new_z0_length == -1:
+                raise ValueError(f"new_z0 must be a scalar, a length "
+                                 f"{ports} vector, or a "
+                                 f"{frequencies}x{ports} array")
+            c_new_z0 = new_z0.reshape((new_z0_length,))
+            rc = vnadata_rconvert(self.vdp, result.vdp,
+                                  <vnadata_parameter_type_t>new_ptype,
+                                  &c_new_z0[0], new_z0_length)
+        else:
+            rc = vnadata_convert(self.vdp, result.vdp,
+                                 <vnadata_parameter_type_t>new_ptype)
         self._handle_error(rc)
         return result
 
