@@ -12,7 +12,7 @@ jobs:
       matrix:
         buildplat:
         - { runs_on: ubuntu-22.04, sys: manylinux, arch: x86_64, benv: "" }
-        - { runs_on: macos-12,     sys: macosx,    arch: x86_64, benv: "10.13" }
+        - { runs_on: macos-13,     sys: macosx,    arch: x86_64, benv: "10.13" }
         - { runs_on: macos-14,     sys: macosx,    arch: arm64,  benv: "12.3" }
         - { runs_on: windows-2019, sys: win,       arch: AMD64,  benv: "" }
         python:
