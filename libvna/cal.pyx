@@ -442,7 +442,7 @@ cdef class CorrelatedParameter(Parameter):
         frequency_vector (vector of float):
             monotonically increasing list of frequencies
         sigma_vector (vector of float):
-            square root of the covariance between this Parameter and
+            standard deviation between this Parameter and
             its correlate at each frequency
 
     The frequencies must cover at least the entire span of the calibration

@@ -168,8 +168,8 @@ When using a test fixture with significant cross talk between the probes,
 a stronger model that corrects for the additional errors is needed.
 The U16 calibration type in the 2x1 setup provides 12 error terms,
 one of which is a free variable, giving it effectively 11 error terms.
-The software solves this calibration using inverse scattering (U)
-parameters.
+The software solves this calibration using inverse scattering transfer
+(U) parameters.
 
 In 2x1 setups, at least six standards are required for calibration.
 For example, a possible choice is: short-open, short-match, open-match,
@@ -230,7 +230,7 @@ cross talk between the probes in the text figure.
 
 As in U16, in 1x2 dimension setups, at least six calibration standards
 are required.  A possible choice is: short-open, short-match, open-match,
-open=short, match-short and through.
+open-short, match-short and through.
 
 Dimensions 2x2
 --------------

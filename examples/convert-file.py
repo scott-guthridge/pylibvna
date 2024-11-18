@@ -28,7 +28,7 @@ convert-file [-f format] input-file output-file
       ma  magnitude, angle
       dB  decibels, angle
 
-    Specifiers are case-insensitive."
+    Specifiers are case-insensitive.
 
     File Types
       Touchstone v1:          .s1p, .s2p, .s3p, .s4p

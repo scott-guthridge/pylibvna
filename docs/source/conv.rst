@@ -225,9 +225,8 @@ The **t** (scattering-transfer) parameters are defined as:
    b_2
    \end{bmatrix}
 
-The **t** parameters for a cascade of two-port networks is the
-left-to-right matrix product of the **t** parameters of each successive
-stage.
+The **t** parameters for a cascade of two-port networks is the matrix
+product of the **t** parameters of each successive stage, left to right.
 
 The **u** (inverse scattering-transfer) parameters are defined as:
 
@@ -246,9 +245,8 @@ The **u** (inverse scattering-transfer) parameters are defined as:
    a_1
    \end{bmatrix}
 
-The **u** parameters for a cascade of two-port networks is the
-right-to-left matrix product of the **u** parameters of each successive
-stage.
+The **u** parameters for a cascade of two-port networks is the matrix
+product of the **u** parameters of each successive stage, right to left.
 
 The **z** (impedance) parameters are defined as:
 
@@ -335,10 +333,10 @@ The **a** (ABCD) parameters are defined as:
    -i_2
    \end{bmatrix}
 
-The **a** parameters for a cascade of two-port networks is the
-left-to-right matrix product of the **a** parameters for each
-successive stage.  Don't confuse the **a** matrix with the :math:`a_1`
-and :math:`a_2` variables above.
+The **a** parameters for a cascade of two-port networks is the matrix
+product of the **a** parameters for each successive stage, left to right.
+Don't confuse the **a** matrix with the :math:`a_1` and :math:`a_2`
+variables above.
 
 The **b** (inverse ABCD) parameters are defined as:
 
@@ -357,10 +355,10 @@ The **b** (inverse ABCD) parameters are defined as:
    i_1
    \end{bmatrix}
 
-The **b** parameters for a cascade of two-port networks is the
-right-to-left matrix product of the **b** parameters for each
-successive stage.  Don't confuse the **b** matrix with the :math:`b_1`
-and :math:`b_2` variables above.
+The **b** parameters for a cascade of two-port networks is the matrix
+product of the **b** parameters for each successive stage, right to left.
+Don't confuse the **b** matrix with the :math:`b_1` and :math:`b_2`
+variables above.
 
 .. rubric:: Footnotes
 

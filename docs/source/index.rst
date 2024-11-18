@@ -14,7 +14,7 @@ SOLT, TRD, etc. techniques, the 8-term T parameter techniques: TRL,
 LRL, TRM, LRM, TXYZ, LXYZ, TXYX, LXYX, LRRM, UXYZ (a.k.a. unknown
 through), etc., and the 16-term T parameter techniques for any number
 of ports. Calibration can model both measurement and connection
-non-repeatability errors. The library includes 72 network parameter
+non-repeatability errors. The library includes 75 network parameter
 conversions plus conversion to impedance looking into each DUT
 port. It supports Touchstone 1 and 2 file formats and a more general
 space-separated-field network parameter data (.npd) file format.
