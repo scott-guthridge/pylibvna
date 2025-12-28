@@ -13,7 +13,10 @@ import sys
 URL = 'https://api.github.com/repos/scott-guthridge/libvna/releases/latest'
 try:
     progname = os.path.basename(sys.argv[0])
-    response = requests.get(URL)
+    response = requests.get(
+        URL,
+        headers={'User-Agent': 'libvna-ci-helper'}
+    )
     if response.status_code != 200:
         print(f'{progname}: error: {URL}: status {response.status_code}')
         exit(1)
@@ -23,7 +26,7 @@ try:
         if "browser_download_url" in asset:
             download = asset["browser_download_url"]
             if download.endswith('.rpm') and not download.endswith('.src.rpm'):
-                status = subprocess.run(['curl', '-sLO', download])
+                status = subprocess.run(['curl', '-sLO', '--no-netrc', download])
                 if status.returncode != 0:
                     sys.exit(status.returncode)
                 packages.append(os.path.basename(download))
