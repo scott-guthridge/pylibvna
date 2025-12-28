@@ -57,7 +57,7 @@ test = ["unittest"]
 docs = [
     "sphinx",
     "sphinx_rtd_theme",
-    "readthedocs-sphinx-search"
+    "readthedocs-sphinx-search>=0.3.2"
 ]
 
 [tool.pytest.ini_options]
