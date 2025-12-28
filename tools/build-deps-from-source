@@ -2,8 +2,9 @@
 set -e
 progname=`basename "$0"`
 args=`getopt st: "$@"` || {	# old form for compatibility
-    echo "usage: ${progname} [-s] -- [configure_args...]"
-    echo " -s  dont use sudo in install step"
+    echo "usage: ${progname} [-s] [-t token] -- [configure_args...]"
+    echo " -s        dont use sudo in install step"
+    echo " -t token  auth token"
     exit 1
 }
 s_opt=
