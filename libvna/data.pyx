@@ -25,7 +25,9 @@ from threading import local
 import warnings
 
 
-cnp.import_array()   # otherwise, PyArray_SimpleNewFromData segfaults
+# Initialize numpy array interface for Cython
+cnp.import_array()
+
 
 cpdef enum PType:
     # Note: current cython version does not allow a docstring here.

@@ -50,13 +50,16 @@ from libc.stdlib cimport malloc, calloc, free
 from libc.string cimport memcpy
 import math
 import numpy as np
-cimport numpy as npc
+cimport numpy as cnp
 from threading import local
 import warnings
 import libvna.data
 from libvna.data import NPData
 
-npc.import_array()   # otherwise, PyArray_SimpleNewFromData segfaults
+
+# Initialize numpy array interface for Cython
+cnp.import_array()
+
 
 cpdef enum CalType:
     # """

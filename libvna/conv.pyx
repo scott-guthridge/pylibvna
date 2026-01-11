@@ -19,7 +19,12 @@
 #
 
 import numpy as np
-cimport numpy as np
+cimport numpy as cnp
+
+
+# Initialize numpy array interface for Cython
+cnp.import_array()
+
 
 #
 # fn_2x2: pointer to function taking two double complex [2][2] matrices
