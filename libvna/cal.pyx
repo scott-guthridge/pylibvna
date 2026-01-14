@@ -83,7 +83,7 @@ cdef void _error_fn(const char *message, void *error_arg,
     self = <Calset>error_arg
     if self._thread_local._vna_cal_exception is not None:
         return
-    umessage = (<bytes>message).decode("utf8")
+    umessage = message.decode("utf-8")
     if   category == VNAERR_SYSTEM:
         if errno.errorcode == errno.ENOMEM:
             self._thread_local._vna_cal_exception = MemoryError(umessage)
@@ -173,16 +173,9 @@ cdef void _py_to_property(object root, vnaproperty_t **rootptr):
         rootptr[0] = NULL
         return
 
-    if isinstance(root, str):
-        if isinstance(root, unicode):
-            root = (<unicode>root).encode("UTF-8")
-        cstring = root
-        rc = vnaproperty_set(rootptr, ".=%s", <const char *>&cstring[0])
-        if rc == -1:
-            raise OSError(errno.errorcode)
-        return
-
-    if isinstance(root, bytes):
+    if isinstance(root, (str, bytes)):
+        if isinstance(root, str):
+            root = root.encode("utf-8")
         cstring = root
         rc = vnaproperty_set(rootptr, ".=%s", <const char *>&cstring[0])
         if rc == -1:
@@ -193,8 +186,8 @@ cdef void _py_to_property(object root, vnaproperty_t **rootptr):
         if vnaproperty_set_subtree(rootptr, "{}") == NULL:
             raise MemoryError()
         for key, value in root.items():
-            if isinstance(key, unicode):
-                key  = (<unicode>key).encode("UTF-8")
+            if isinstance(key, str):
+                key = key.encode("utf-8")
             elif not isinstance(key, bytes):
                 raise ValueError("dictionary key must be str or bytes")
             cstring = key
@@ -1287,13 +1280,15 @@ cdef class Solver:
         Returns:
             Index of the new entry in Calset.calibrations
         """
+        cdef Calset calset = self.calset
         cdef vnacal_t *vcp = self.calset.vcp
         cdef vnacal_new_t *vnp = self.vnp
-        if isinstance(name, unicode):
-            name = (<unicode>name).encode("UTF-8")
+        if isinstance(name, str):
+            name = name.encode("utf-8")
         cdef const unsigned char[:] c_name = name
-        cdef int rc = vnacal_add_calibration(vcp, <const char *>&c_name[0],
-                                             vnp)
+        cdef int rc = vnacal_add_calibration(
+            vcp, <const char *>&c_name[0], vnp
+        )
         self.calset._handle_error(rc)
         self.calset._index_to_ci.append(rc)
         return len(self.calset._index_to_ci) - 1
@@ -1677,8 +1672,8 @@ cdef class Calset:
         self._thread_local._vna_cal_exception = None
         self._thread_local._vna_cal_warning = None
         if filename is not None:
-            if isinstance(filename, unicode):
-                filename = (<unicode>filename).encode("UTF-8")
+            if isinstance(filename, str):
+                filename = filename.encode("utf-8")
             cfilename = filename
             self.vcp = vnacal_load(<const char *>&cfilename[0],
                                    <vnaerr_error_fn_t *>&_error_fn,
@@ -1773,8 +1768,8 @@ cdef class Calset:
                 should included in *filename*.
         """
         self._put_all_properties()
-        if isinstance(filename, unicode):
-            filename = (<unicode>filename).encode("UTF-8")
+        if isinstance(filename, str):
+            filename = filename.encode("utf-8")
         cdef const unsigned char[:] cfilename = filename
         cdef int rc = vnacal_save(self.vcp, <const char *>&cfilename[0])
         self._handle_error(rc)

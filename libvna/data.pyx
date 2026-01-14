@@ -96,7 +96,7 @@ cdef void _error_fn(const char *message, void *error_arg,
     self = <NPData>error_arg
     if self._thread_local._vna_data_exception is not None:
         return
-    umessage = (<bytes>message).decode("UTF-8")
+    umessage = message.decode("UTF-8")
     if   category == VNAERR_SYSTEM:
         if errno.errorcode == errno.ENOMEM:
             self._thread_local._vna_data_exception = MemoryError(umessage)
@@ -1274,7 +1274,10 @@ cdef class NPData:
 
         Type: str
         """
-        return vnadata_get_type_name(vnadata_get_type(self.vdp))
+        cdef const char *type_name
+
+        type_name = vnadata_get_type_name(vnadata_get_type(self.vdp))
+        return type_name.decode("UTF-8")
 
     @property
     def rows(self):
@@ -1614,8 +1617,8 @@ cdef class NPData:
             OSError:     if can't open file
             SyntaxError: if the file is badly formed
         """
-        if isinstance(filename, unicode):
-            filename = (<unicode>filename).encode("UTF-8")
+        if isinstance(filename, str):
+            filename = filename.encode("utf-8")
         cdef const unsigned char[:] cfilename = filename
         cdef int rc
         rc = vnadata_load(self.vdp, <const char *>&cfilename[0])
@@ -1648,8 +1651,8 @@ cdef class NPData:
         if fp is NULL:
             close(fd2)
             self._handle_error(-1)
-        if isinstance(filename, unicode):
-            filename = (<unicode>filename).encode("UTF-8")
+        if isinstance(filename, str):
+            filename = filename.encode("utf-8")
         cdef const unsigned char[:] cfilename = filename
         cdef int rc
         rc = vnadata_fload(self.vdp, fp, <const char *>&cfilename[0])
@@ -1669,8 +1672,8 @@ cdef class NPData:
             OSError:        if can't open file
             ValueError:     if file type inconsistent with parameter data
         """
-        if isinstance(filename, unicode):
-            filename = (<unicode>filename).encode("UTF-8")
+        if isinstance(filename, str):
+            filename = filename.encode("utf-8")
         cdef const unsigned char[:] cfilename = filename
         cdef int rc
         rc = vnadata_save(self.vdp, <const char *>&cfilename[0])
@@ -1702,8 +1705,8 @@ cdef class NPData:
         if fp is NULL:
             close(fd2)
             self._handle_error(-1)
-        if isinstance(filename, unicode):
-            filename = (<unicode>filename).encode("UTF-8")
+        if isinstance(filename, str):
+            filename = filename.encode("utf-8")
         cdef const unsigned char[:] cfilename = filename
         cdef int rc
         rc = vnadata_fsave(self.vdp, fp, <const char *>&cfilename[0])
@@ -1729,8 +1732,8 @@ cdef class NPData:
         Raises:
             ValueError: if file type inconsistent with parameter data
         """
-        if isinstance(filename, unicode):
-            filename = (<unicode>filename).encode("UTF-8")
+        if isinstance(filename, str):
+            filename = filename.encode("utf-8")
         cdef const unsigned char[:] cfilename = filename
         cdef int rc
         rc = vnadata_cksave(self.vdp, <const char *>&cfilename[0])
@@ -1807,13 +1810,13 @@ cdef class NPData:
         cdef const char *fmt = vnadata_get_format(self.vdp)
         if fmt == NULL:
             self._handle_error(-1)
-        return (<bytes>fmt).decode("UTF-8")
+        return fmt.decode("UTF-8")
 
     @format.setter
     def format(self, value):
         # no docstring for setter
-        if isinstance(value, unicode):
-            value = (<unicode>value).encode("UTF-8")
+        if isinstance(value, str):
+            value = value.encode("utf-8")
         cdef int rc = vnadata_set_format(self.vdp, <const char *>value)
         self._handle_error(rc)
 
