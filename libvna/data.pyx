@@ -15,7 +15,7 @@
 
 from cpython.exc cimport PyErr_SetFromErrno
 from cpython.pycapsule cimport PyCapsule_New
-import errno
+from libc.errno cimport errno, ENOMEM
 from libc.stdio cimport FILE, fdopen, fclose
 import numpy as np
 cimport numpy as cnp
@@ -89,7 +89,7 @@ cdef enum IndexClass:
 
 
 cdef void _error_fn(const char *message, void *error_arg,
-                    vnaerr_category_t category) noexcept:
+                    vnaerr_category_t category) noexcept with gil:
     # """
     # C callback function for vnaerr
     # """
@@ -98,11 +98,11 @@ cdef void _error_fn(const char *message, void *error_arg,
         return
     umessage = message.decode("UTF-8")
     if   category == VNAERR_SYSTEM:
-        if errno.errorcode == errno.ENOMEM:
+        if errno == errno.ENOMEM:
             self._thread_local._vna_data_exception = MemoryError(umessage)
         else:
             self._thread_local._vna_data_exception = OSError(
-                    errno.errorcode, umessage)
+                    errno, umessage)
     elif category == VNAERR_USAGE:
         self._thread_local._vna_data_exception = ValueError(umessage)
     elif category == VNAERR_VERSION:
@@ -321,7 +321,7 @@ cdef class _FrequencyVectorHelper:
         # If given an integer index, set one entry.
         if mask == 1:
             rc = vnadata_set_frequency(vdp, indices[0], value)
-            self.npd._handle_error(rc)
+            self.npd._check_error(rc)
 
         # Set the sliced items
         else:
@@ -330,7 +330,7 @@ cdef class _FrequencyVectorHelper:
             i = 0
             for findex in f_range:
                 rc = vnadata_set_frequency(vdp, findex, array[i])
-                self.npd._handle_error(rc)
+                self.npd._check_error(rc)
                 i += 1
 
     def __array__(self, *args, **kwargs):
@@ -343,7 +343,7 @@ cdef class _FrequencyVectorHelper:
         shape[0] = <cnp.npy_intp>frequencies
         cdef const double *lfp = vnadata_get_frequency_vector(vdp)
         if lfp == NULL:
-            self.npd._handle_error(-1)
+            self.npd._check_error(-1)
         a = cnp.PyArray_SimpleNewFromData(
             1, &shape[0], cnp.NPY_DOUBLE, <void *>lfp)
         return np.asarray(a, *args, **kwargs)
@@ -401,7 +401,7 @@ cdef class _DataArrayHelper:
         cdef double complex *clfp
         clfp = vnadata_get_matrix(vdp, findex)
         if clfp == NULL:
-            self.npd._handle_error(-1)
+            self.npd._check_error(-1)
         return cnp.PyArray_SimpleNewFromData(
             2, &shape[0], cnp.NPY_COMPLEX128, <void *>clfp)
 
@@ -560,7 +560,7 @@ cdef class _DataArrayHelper:
             array = _form_complex_array((1,), value)
             rc = vnadata_set_cell(vdp, indices[0], indices[1], indices[2],
                                   array[0])
-            self.npd._handle_error(rc)
+            self.npd._check_error(rc)
 
         elif mask == IDX_IIS:
             c_range = range(*indices[2])
@@ -570,7 +570,7 @@ cdef class _DataArrayHelper:
             for column in c_range:
                 rc = vnadata_set_cell(vdp, indices[0], indices[1], column,
                                       array[k])
-                self.npd._handle_error(rc)
+                self.npd._check_error(rc)
                 k += 1
 
         elif mask == IDX_ISI:
@@ -581,7 +581,7 @@ cdef class _DataArrayHelper:
             for row in r_range:
                 rc = vnadata_set_cell(vdp, indices[0], row, indices[2],
                                       array[j])
-                self.npd._handle_error(rc)
+                self.npd._check_error(rc)
                 j += 1
 
         elif mask == IDX_ISS:
@@ -592,7 +592,7 @@ cdef class _DataArrayHelper:
                 array = _form_complex_array((rows, columns), value)
                 v2 = array
                 rc = vnadata_set_matrix(vdp, findex, &v2[0][0])
-                self.npd._handle_error(rc)
+                self.npd._check_error(rc)
 
             # Else, iterate over the slices.
             else:
@@ -608,7 +608,7 @@ cdef class _DataArrayHelper:
                     for column in c_range:
                         rc = vnadata_set_cell(vdp, indices[0], row, column,
                                               v2[j, k])
-                        self.npd._handle_error(rc)
+                        self.npd._check_error(rc)
                         k += 1
                     j += 1
 
@@ -620,7 +620,7 @@ cdef class _DataArrayHelper:
             for findex in f_range:
                 rc = vnadata_set_cell(vdp, findex, indices[1], indices[2],
                                       array[i])
-                self.npd._handle_error(rc)
+                self.npd._check_error(rc)
                 i += 1
 
         elif mask == IDX_SIS:
@@ -636,7 +636,7 @@ cdef class _DataArrayHelper:
                 for column in c_range:
                     rc = vnadata_set_cell(
                         vdp, findex, indices[1], column, v2[i, k])
-                    self.npd._handle_error(rc)
+                    self.npd._check_error(rc)
                     k += 1
                 i += 1
 
@@ -653,7 +653,7 @@ cdef class _DataArrayHelper:
                 for row in r_range:
                     rc = vnadata_set_cell(
                         vdp, findex, row, indices[2], v2[i, j])
-                    self.npd._handle_error(rc)
+                    self.npd._check_error(rc)
                     j += 1
                 i += 1
 
@@ -686,7 +686,7 @@ cdef class _DataArrayHelper:
                         for column in c_range:
                             rc = vnadata_set_cell(
                                 vdp, findex, row, column, v3[i, j, k])
-                            self.npd._handle_error(rc)
+                            self.npd._check_error(rc)
                             k += 1
                         j += 1
                     i += 1
@@ -808,7 +808,7 @@ cdef class _Z0VectorHelper:
         # If given an integer index, set one entry.
         if mask == 1:
             rc = vnadata_set_z0(vdp, indices[0], value)
-            self.npd._handle_error(rc)
+            self.npd._check_error(rc)
 
         # Set the sliced items.
         else:
@@ -817,7 +817,7 @@ cdef class _Z0VectorHelper:
             i = 0
             for port in p_range:
                 rc = vnadata_set_z0(vdp, port, array[i])
-                self.npd._handle_error(rc)
+                self.npd._check_error(rc)
                 i += 1
 
     def __array__(self, *args, **kwargs):
@@ -832,7 +832,7 @@ cdef class _Z0VectorHelper:
         shape[0] = <cnp.npy_intp>ports
         cdef const double complex *clfp = vnadata_get_z0_vector(vdp)
         if clfp == NULL:
-            self.npd._handle_error(-1)
+            self.npd._check_error(-1)
         a = cnp.PyArray_SimpleNewFromData(
             1, &shape[0], cnp.NPY_COMPLEX128, <void *>clfp)
         return np.asarray(a, *args, **kwargs)
@@ -970,7 +970,7 @@ cdef class _FZ0ArrayHelper:
         # II
         if mask == 3:
             rc = vnadata_set_fz0(vdp, indices[0], indices[1], value)
-            self.npd._handle_error(rc)
+            self.npd._check_error(rc)
 
         # SI
         elif mask == 2:
@@ -980,7 +980,7 @@ cdef class _FZ0ArrayHelper:
             i = 0
             for findex in f_range:
                 rc = vnadata_set_fz0(vdp, findex, port, array[i])
-                self.npd._handle_error(rc)
+                self.npd._check_error(rc)
                 i += 1
 
         # IS
@@ -990,7 +990,7 @@ cdef class _FZ0ArrayHelper:
                 array = _form_complex_array((ports,), value)
                 v1 = array
                 rc = vnadata_set_fz0_vector(vdp, findex, &v1[0])
-                self.npd._handle_error(rc)
+                self.npd._check_error(rc)
 
             else:
                 p_range = range(*indices[1])
@@ -998,7 +998,7 @@ cdef class _FZ0ArrayHelper:
                 j = 0
                 for port in p_range:
                     rc = vnadata_set_fz0(vdp, findex, port, array[j])
-                    self.npd._handle_error(rc)
+                    self.npd._check_error(rc)
                     j += 1
 
         # SS
@@ -1128,7 +1128,7 @@ cdef class NPData:
     # Internal Functions
     ######################################################################
 
-    cdef _handle_error(self, int rc):
+    cdef _check_error(self, int rc):
         # """
         # Check if _error_fn has saved an exception for this thread or
         # if rc is -1.  In either case, raise an exception or warning.
@@ -1143,10 +1143,10 @@ cdef class NPData:
         warning = self._thread_local._vna_data_warning
         self._thread_local._vna_data_exception = None
         self._thread_local._vna_data_warning = None
-        if rc == -1 and exception is None:
-            PyErr_SetFromErrno(OSError)
         if exception is not None:
             raise exception
+        if rc == -1:
+            raise OSError(errno, "libvna call failed")
         if warning is not None:
             warnings.warn(warning)
 
@@ -1166,7 +1166,7 @@ cdef class NPData:
         self.vdp = vnadata_alloc_and_init(
             <vnaerr_error_fn_t *>&_error_fn, <void *>self,
             <vnadata_parameter_type_t>ptype, rows, columns, frequencies)
-        self._handle_error(0 if self.vdp else -1)
+        self._check_error(0 if self.vdp else -1)
 
         # If filename is given, load from file.
         if filename:
@@ -1179,7 +1179,7 @@ cdef class NPData:
             if ptype != PType.ANY:
                 rc = vnadata_convert(self.vdp, self.vdp,
                                      <vnadata_parameter_type_t>ptype)
-                self._handle_error(rc)
+                self._check_error(rc)
 
         elif filehandle:
             raise ValueError("filename must be given with filehandle")
@@ -1213,7 +1213,7 @@ cdef class NPData:
         """
         cdef int rc
         rc = vnadata_init(self.vdp, ptype, rows, columns, frequencies)
-        self._handle_error(rc)
+        self._check_error(rc)
 
     def resize(self, ptype, frequencies, rows, columns):
         """
@@ -1243,7 +1243,7 @@ cdef class NPData:
         """
         cdef int rc
         rc = vnadata_resize(self.vdp, ptype, rows, columns, frequencies)
-        self._handle_error(rc)
+        self._check_error(rc)
 
     @property
     def ptype(self):
@@ -1265,7 +1265,7 @@ cdef class NPData:
         # no docstring for setter
         cdef int rc
         rc = vnadata_set_type(self.vdp, <vnadata_parameter_type_t>value)
-        self._handle_error(rc)
+        self._check_error(rc)
 
     @property
     def ptype_name(self):
@@ -1342,12 +1342,12 @@ cdef class NPData:
                             vnadata_get_rows(self.vdp),
                             vnadata_get_columns(self.vdp),
                             array.shape[0])
-        self._handle_error(rc)
+        self._check_error(rc)
 
         # Set the vector.
         cdef double [:] cvector = array
         rc = vnadata_set_frequency_vector(self.vdp, &cvector[0])
-        self._handle_error(rc)
+        self._check_error(rc)
 
     def add_frequency(self, double frequency):
         """
@@ -1361,7 +1361,7 @@ cdef class NPData:
         """
         cdef int rc
         rc = vnadata_add_frequency(self.vdp, frequency)
-        self._handle_error(rc)
+        self._check_error(rc)
 
     ######################################################################
     # Data Elements
@@ -1392,7 +1392,7 @@ cdef class NPData:
                             array.shape[1],
                             array.shape[2],
                             array.shape[0])
-        self._handle_error(rc)
+        self._check_error(rc)
 
         # Fill in the values
         cdef int findex
@@ -1400,7 +1400,7 @@ cdef class NPData:
         for findex in range(array.shape[0]):
             rc = vnadata_set_matrix(self.vdp, findex,
                                     &c_array[findex][0][0])
-            self._handle_error(rc)
+            self._check_error(rc)
 
     ######################################################################
     # Ordinary System Impedances
@@ -1446,7 +1446,7 @@ cdef class NPData:
             rc = vnadata_resize(self.vdp,
                                 vnadata_get_type(self.vdp),
                                 ports, ports, vnadata_get_frequencies(self.vdp))
-            self._handle_error(rc)
+            self._check_error(rc)
 
         else:
             # Otherwise, size must match or be broadcastable
@@ -1455,7 +1455,7 @@ cdef class NPData:
         # Set the vector.
         cdef double complex [:] cvector = array
         rc = vnadata_set_z0_vector(vdp, &cvector[0])
-        self._handle_error(rc)
+        self._check_error(rc)
 
     ######################################################################
     # Frequency-Dependent System Impedances
@@ -1513,7 +1513,7 @@ cdef class NPData:
             rc = vnadata_resize(self.vdp,
                                 vnadata_get_type(self.vdp),
                                 ports, ports, frequencies)
-            self._handle_error(rc)
+            self._check_error(rc)
 
         # Otherwise, it must be broadcastable to the current size.
         else:
@@ -1523,7 +1523,7 @@ cdef class NPData:
         cdef double complex [:, :] cvector = array
         for findex in range(frequencies):
             rc = vnadata_set_fz0_vector(vdp, findex, &cvector[findex][0])
-            self._handle_error(rc)
+            self._check_error(rc)
 
     ######################################################################
     # Parameter Conversion
@@ -1598,7 +1598,7 @@ cdef class NPData:
         else:
             rc = vnadata_convert(self.vdp, result.vdp,
                                  <vnadata_parameter_type_t>new_ptype)
-        self._handle_error(rc)
+        self._check_error(rc)
         return result
 
     ######################################################################
@@ -1622,7 +1622,7 @@ cdef class NPData:
         cdef const unsigned char[:] cfilename = filename
         cdef int rc
         rc = vnadata_load(self.vdp, <const char *>&cfilename[0])
-        self._handle_error(rc)
+        self._check_error(rc)
 
     def fload(self, filehandle, filename):
         """
@@ -1646,11 +1646,11 @@ cdef class NPData:
         cdef int fd1 = filehandle.fileno()
         lseek(fd1, start_position, 0)
         cdef int fd2 = dup(fd1)
-        self._handle_error(fd2)
+        self._check_error(fd2)
         cdef FILE *fp = fdopen(fd2, "r")
         if fp is NULL:
             close(fd2)
-            self._handle_error(-1)
+            self._check_error(-1)
         if isinstance(filename, str):
             filename = filename.encode("utf-8")
         cdef const unsigned char[:] cfilename = filename
@@ -1659,7 +1659,7 @@ cdef class NPData:
         fclose(fp)
         cdef off_t end_position = lseek(fd1, 0, 1)
         filehandle.seek(end_position)
-        self._handle_error(rc)
+        self._check_error(rc)
 
     def save(self, filename):
         """
@@ -1677,7 +1677,7 @@ cdef class NPData:
         cdef const unsigned char[:] cfilename = filename
         cdef int rc
         rc = vnadata_save(self.vdp, <const char *>&cfilename[0])
-        self._handle_error(rc)
+        self._check_error(rc)
 
     def fsave(self, filehandle, filename):
         """
@@ -1700,11 +1700,11 @@ cdef class NPData:
         cdef int fd1 = filehandle.fileno()
         lseek(fd1, start_position, 0)
         cdef int fd2 = dup(fd1)
-        self._handle_error(fd2)
+        self._check_error(fd2)
         cdef FILE *fp = fdopen(fd2, "w")
         if fp is NULL:
             close(fd2)
-            self._handle_error(-1)
+            self._check_error(-1)
         if isinstance(filename, str):
             filename = filename.encode("utf-8")
         cdef const unsigned char[:] cfilename = filename
@@ -1713,7 +1713,7 @@ cdef class NPData:
         fclose(fp)
         cdef off_t end_position = lseek(fd1, 0, 1)
         filehandle.seek(end_position)
-        self._handle_error(rc)
+        self._check_error(rc)
 
     def cksave(self, filename):
         """
@@ -1737,7 +1737,7 @@ cdef class NPData:
         cdef const unsigned char[:] cfilename = filename
         cdef int rc
         rc = vnadata_cksave(self.vdp, <const char *>&cfilename[0])
-        self._handle_error(rc)
+        self._check_error(rc)
 
     @property
     def filetype(self):
@@ -1756,14 +1756,14 @@ cdef class NPData:
         the file extension, set *filetype* back to AUTO before saving.
         """
         cdef int rc = vnadata_get_filetype(self.vdp)
-        self._handle_error(rc)
+        self._check_error(rc)
         return <FileType>rc
 
     @filetype.setter
     def filetype(self, value):
         # no docstring for setter
         cdef rc = vnadata_set_filetype(self.vdp, value)
-        self._handle_error(rc)
+        self._check_error(rc)
 
     @property
     def format(self):
@@ -1809,7 +1809,7 @@ cdef class NPData:
         """
         cdef const char *fmt = vnadata_get_format(self.vdp)
         if fmt == NULL:
-            self._handle_error(-1)
+            self._check_error(-1)
         return fmt.decode("UTF-8")
 
     @format.setter
@@ -1818,7 +1818,7 @@ cdef class NPData:
         if isinstance(value, str):
             value = value.encode("utf-8")
         cdef int rc = vnadata_set_format(self.vdp, <const char *>value)
-        self._handle_error(rc)
+        self._check_error(rc)
 
     @property
     def fprecision(self):
@@ -1829,14 +1829,14 @@ cdef class NPData:
         Type: int
         """
         cdef int rc = vnadata_get_fprecision(self.vdp)
-        self._handle_error(rc)
+        self._check_error(rc)
         return rc
 
     @fprecision.setter
     def fprecision(self, value):
         # no docstring for setter
         cdef int rc = vnadata_set_fprecision(self.vdp, value)
-        self._handle_error(rc)
+        self._check_error(rc)
 
     @property
     def dprecision(self):
@@ -1847,14 +1847,14 @@ cdef class NPData:
         Type: int
         """
         cdef int rc = vnadata_get_dprecision(self.vdp)
-        self._handle_error(rc)
+        self._check_error(rc)
         return rc
 
     @dprecision.setter
     def dprecision(self, digits):
         # no docstring for setter
         cdef int rc = vnadata_set_dprecision(self.vdp, digits)
-        self._handle_error(rc)
+        self._check_error(rc)
 
     ######################################################################
     # Python Specific Methods
@@ -1873,7 +1873,7 @@ cdef class NPData:
         result = NPData()
         rc = vnadata_convert(self.vdp, result.vdp,
                              <vnadata_parameter_type_t>self.ptype)
-        self._handle_error(rc)
+        self._check_error(rc)
         return result
 
     def __iter__(self):

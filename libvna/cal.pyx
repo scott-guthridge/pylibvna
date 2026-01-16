@@ -44,7 +44,7 @@ The sequence for applying a calibration to a device measurement is:
 
 from cpython.exc cimport PyErr_SetFromErrno
 from cpython.pycapsule cimport PyCapsule_GetPointer
-import errno
+from libc.errno cimport errno, ENOMEM
 from libc.stdio cimport FILE, fdopen, fclose
 from libc.stdlib cimport malloc, calloc, free
 from libc.string cimport memcpy
@@ -76,7 +76,7 @@ cpdef enum CalType:
 
 
 cdef void _error_fn(const char *message, void *error_arg,
-                    vnaerr_category_t category) noexcept:
+                    vnaerr_category_t category) noexcept with gil:
     # """
     # C callback function for vnaerr
     # """
@@ -85,11 +85,10 @@ cdef void _error_fn(const char *message, void *error_arg,
         return
     umessage = message.decode("utf-8")
     if   category == VNAERR_SYSTEM:
-        if errno.errorcode == errno.ENOMEM:
+        if errno == ENOMEM:
             self._thread_local._vna_cal_exception = MemoryError(umessage)
         else:
-            self._thread_local._vna_cal_exception = OSError(errno.errorcode,
-                                                            umessage)
+            self._thread_local._vna_cal_exception = OSError(errno, umessage)
     elif category == VNAERR_USAGE:
         self._thread_local._vna_cal_exception = ValueError(umessage)
     elif category == VNAERR_VERSION:
@@ -179,7 +178,7 @@ cdef void _py_to_property(object root, vnaproperty_t **rootptr):
         cstring = root
         rc = vnaproperty_set(rootptr, ".=%s", <const char *>&cstring[0])
         if rc == -1:
-            raise OSError(errno.errorcode)
+            raise OSError(errno)
         return
 
     if isinstance(root, dict):
@@ -287,7 +286,7 @@ cdef class Parameter:
         cdef vnacal_t *vcp = self.calset.vcp
         cdef double complex result
         result = vnacal_get_parameter_value(vcp, self.pindex, frequency)
-        self.calset._handle_error(0)
+        self.calset._check_error(0)
         return result
 
     cdef _get_array_value(self, f_array):
@@ -346,7 +345,7 @@ cdef class ScalarParameter(Parameter):
             rc = VNACAL_SHORT
         else:
             rc = vnacal_make_scalar_parameter(vcp, gamma)
-            calset._handle_error(rc)
+            calset._check_error(rc)
         self.calset = calset
         self.pindex = rc
 
@@ -394,7 +393,7 @@ cdef class VectorParameter(Parameter):
         cdef int rc = vnacal_make_vector_parameter(vcp, &fv_view[0],
                                                    len(frequency_vector),
                                                    &gv_view[0])
-        calset._handle_error(rc)
+        calset._check_error(rc)
         self.calset = calset
         self.pindex = rc
 
@@ -419,7 +418,7 @@ cdef class UnknownParameter(Parameter):
         cdef vnacal_t *vcp = calset.vcp
         cdef Parameter c_other = Parameter._from_value(calset, initial_guess)
         cdef int rc = vnacal_make_unknown_parameter(vcp, c_other.pindex)
-        calset._handle_error(rc)
+        calset._check_error(rc)
         self.calset = calset
         self.pindex = rc
 
@@ -474,7 +473,7 @@ cdef class CorrelatedParameter(Parameter):
                                                        &fv_view[0],
                                                        len(frequency_vector),
                                                        &sv_view[0])
-        calset._handle_error(rc)
+        calset._check_error(rc)
         self.calset = calset
         self.pindex = rc
 
@@ -674,18 +673,18 @@ cdef class Solver:
         vnp = vnacal_new_alloc(vcp, <vnacal_type_t>ctype, rows, columns,
                                len(frequency_vector))
         if vnp == NULL:
-            calset._handle_error(-1)
+            calset._check_error(-1)
         cdef int rc
         cdef const double [::1] fv_view = frequency_vector
         rc = vnacal_new_set_frequency_vector(vnp, &fv_view[0])
         if rc == -1:
             vnacal_new_free(vnp)
-            calset._handle_error(-1)
+            calset._check_error(-1)
         if z0 != 50.0:
             rc = vnacal_new_set_z0(vnp, z0)
             if rc == -1:
                 vnacal_new_free(vnp)
-                calset._handle_error(-1)
+                calset._check_error(-1)
         self.calset = calset
         self.frequencies = len(frequency_vector)
         self.frequency_vector = frequency_vector
@@ -762,7 +761,7 @@ cdef class Solver:
                 rc = vnacal_new_add_single_reflect_m(self.vnp,
                                                      b_clfpp, b_rows, b_columns,
                                                      c_s11.pindex, port)
-            self.calset._handle_error(rc)
+            self.calset._check_error(rc)
 
             return
 
@@ -850,7 +849,7 @@ cdef class Solver:
                                                      b_clfpp, b_rows, b_columns,
                                                      c_s11.pindex, c_s22.pindex,
                                                      port1, port2)
-            self.calset._handle_error(rc)
+            self.calset._check_error(rc)
 
             return
 
@@ -913,7 +912,7 @@ cdef class Solver:
                 rc = vnacal_new_add_through_m(self.vnp,
                                               b_clfpp, b_rows, b_columns,
                                               port1, port2)
-            self.calset._handle_error(rc)
+            self.calset._check_error(rc)
 
             return
 
@@ -1000,7 +999,7 @@ cdef class Solver:
                 rc = vnacal_new_add_line_m(self.vnp,
                                            b_clfpp, b_rows, b_columns,
                                            &si[0][0], port1, port2)
-            self.calset._handle_error(rc)
+            self.calset._check_error(rc)
 
             return
 
@@ -1116,7 +1115,7 @@ cdef class Solver:
                                                     b_clfpp, b_rows, b_columns,
                                                     sip, s_rows, s_columns,
                                                     mip)
-            self.calset._handle_error(rc)
+            self.calset._check_error(rc)
             return
 
         finally:
@@ -1181,7 +1180,7 @@ cdef class Solver:
             trp = &trv[0]
 
         rc = vnacal_new_set_m_error(self.vnp, &fv[0], n, &nfv[0], trp)
-        self.calset._handle_error(rc)
+        self.calset._check_error(rc)
         return
 
     @property
@@ -1201,7 +1200,7 @@ cdef class Solver:
         # no docstring for setter
         cdef int rc
         rc = vnacal_new_set_pvalue_limit(self.vnp, value)
-        self.calset._handle_error(rc)
+        self.calset._check_error(rc)
         self.pvalue_limit = value
 
     @property
@@ -1218,7 +1217,7 @@ cdef class Solver:
         # no docstring for setter
         cdef int rc
         rc = vnacal_new_set_et_tolerance(self.vnp, value)
-        self.calset._handle_error(rc)
+        self.calset._check_error(rc)
         self.et_tolerance = value
 
     @property
@@ -1237,7 +1236,7 @@ cdef class Solver:
         # no docstring for setter
         cdef int rc
         rc = vnacal_new_set_p_tolerance(self.vnp, value)
-        self.calset._handle_error(rc)
+        self.calset._check_error(rc)
         self.p_tolerance = value
 
     @property
@@ -1254,7 +1253,7 @@ cdef class Solver:
         # no docstring for setter
         cdef int rc
         rc = vnacal_new_set_iteration_limit(self.vnp, value)
-        self.calset._handle_error(rc)
+        self.calset._check_error(rc)
         self.iteration_limit = value
 
     def solve(self):
@@ -1264,7 +1263,7 @@ cdef class Solver:
         add additional standards and try again.
         """
         cdef int rc = vnacal_new_solve(self.vnp)
-        self.calset._handle_error(rc)
+        self.calset._check_error(rc)
 
     def add_to_calset(self, name) -> int:
         """
@@ -1289,7 +1288,7 @@ cdef class Solver:
         cdef int rc = vnacal_add_calibration(
             vcp, <const char *>&c_name[0], vnp
         )
-        self.calset._handle_error(rc)
+        self.calset._check_error(rc)
         self.calset._index_to_ci.append(rc)
         return len(self.calset._index_to_ci) - 1
 
@@ -1469,7 +1468,7 @@ cdef class Calibration:
                                    frequency_vector, frequencies,
                                    b_clfpp, b_rows, b_columns,
                                    vdp)
-            self.calset._handle_error(rc)
+            self.calset._check_error(rc)
 
             #
             # If delays were given, de-embed them from the result.
@@ -1681,7 +1680,7 @@ cdef class Calset:
         else:
             self.vcp = vnacal_create(<vnaerr_error_fn_t *>&_error_fn,
                                      <void *>self)
-        self._handle_error(0 if self.vcp != NULL else -1)
+        self._check_error(0 if self.vcp != NULL else -1)
 
         #
         # Build a dense index of the saved calibrations.
@@ -1772,7 +1771,7 @@ cdef class Calset:
             filename = filename.encode("utf-8")
         cdef const unsigned char[:] cfilename = filename
         cdef int rc = vnacal_save(self.vcp, <const char *>&cfilename[0])
-        self._handle_error(rc)
+        self._check_error(rc)
 
     def index(self, name) -> int:
         """
@@ -1826,7 +1825,7 @@ cdef class Calset:
     # Internal Functions
     ######################################################################
 
-    cdef _handle_error(self, int rc):
+    cdef void _check_error(self, int rc):
         # """
         # Check if _error_fn has saved an exception for this thread or
         # if rc is -1.  In either case, raise an exception or warning.
@@ -1842,9 +1841,9 @@ cdef class Calset:
         warning = self._thread_local._vna_cal_warning
         self._thread_local._vna_cal_exception = None
         self._thread_local._vna_cal_warning = None
-        if rc == -1 and exception is None:
-            PyErr_SetFromErrno(OSError)
         if exception is not None:
             raise exception
+        if rc == -1:
+            raise OSError(errno, "libvna call failed")
         if warning is not None:
             warnings.warn(warning)
