@@ -264,7 +264,7 @@ cdef class Parameter:
         assert calset is not None
         if isinstance(value, Parameter):
             return value
-        if isinstance(value, (complex, float, int)):
+        if np.isscalar(value):
             return ScalarParameter(calset, value)
         if isinstance(value, tuple):
             if len(value) != 2:
@@ -289,10 +289,10 @@ cdef class Parameter:
         """
         return Parameter._from_value(calset, value)
 
-    cdef complex _get_simple_value(self, double frequency):
+    cdef double complex _get_simple_value(self, double frequency):
         # Return the parameter value at a given frequency.
         cdef vnacal_t *vcp = self.calset.vcp
-        cdef complex result
+        cdef double complex result
         result = vnacal_get_parameter_value(vcp, self.pindex, frequency)
         self.calset._handle_error(0)
         return result
@@ -300,7 +300,7 @@ cdef class Parameter:
     cdef _get_array_value(self, f_array):
         # Return the parameter value at a given array of frequencies,
         # returning the same shape as the input.
-        result = np.empty(f_array.shape, dtype=np.complex128, order="C")
+        result = np.empty(f_array.shape, dtype=np.cdouble, order="C")
         for index in np.ndindex(f_array.shape):
             result[index] = self._get_simple_value(f_array[index])
         return result
@@ -320,8 +320,9 @@ cdef class Parameter:
         successfully, :func:`get_value` returns the solved value, again
         interpolating as necessary.
         """
-        f_array = np.asarray(frequencies, dtype=np.double, order="C")
-        if f_array.ndim == 0:
+        cdef bool is_scalar = np.isscalar(frequencies)
+        f_array = np.ascontiguousarray(frequencies, dtype=np.double)
+        if is_scalar:
             return self._get_simple_value(frequencies)
         else:
             return self._get_array_value(f_array)
@@ -383,13 +384,13 @@ cdef class VectorParameter(Parameter):
         if calset is None:
             raise ValueError("calset cannot be None")
         cdef vnacal_t *vcp = calset.vcp
-        frequency_vector = np.asarray(frequency_vector, dtype=np.double,
-                                      order="C")
+        frequency_vector = np.ascontiguousarray(
+            frequency_vector, dtype=np.double
+        )
         if frequency_vector.ndim != 1:
             raise ValueError("frequency_vector must be a one-dimensional "
                              "array")
-        gamma_vector = np.asarray(gamma_vector, dtype=np.complex128,
-                                  order="C")
+        gamma_vector = np.ascontiguousarray(gamma_vector, dtype=np.cdouble)
         if gamma_vector.ndim != 1:
             raise ValueError("gamma_vector must be a one-dimensional array")
         if len(gamma_vector) != len(frequency_vector):
@@ -462,12 +463,13 @@ cdef class CorrelatedParameter(Parameter):
             raise ValueError("calset cannot be None")
         cdef vnacal_t *vcp = calset.vcp
         cdef Parameter c_other = Parameter._from_value(calset, other)
-        frequency_vector = np.asarray(frequency_vector, dtype=np.double,
-                                      order="C")
+        frequency_vector = np.ascontiguousarray(
+            frequency_vector, dtype=np.double
+        )
         if frequency_vector.ndim != 1:
             raise ValueError("frequency_vector must be a one-dimensional "
                              "array")
-        sigma_vector = np.asarray(sigma_vector, dtype=np.double, order="C")
+        sigma_vector = np.ascontiguousarray(sigma_vector, dtype=np.double)
         if sigma_vector.ndim != 1:
             raise ValueError("sigma_vector must be a one-dimensional array")
         if len(sigma_vector) != len(frequency_vector):
@@ -494,7 +496,7 @@ cdef object _prepare_C_array(object array, object name, int frequencies,
     # a flattened rows x columns matrix of pointers to frequencies long
     # vectors of values expected by the C code.
     # """
-    array = np.asarray(array, dtype=complex, order="C")
+    array = np.ascontiguousarray(array, dtype=np.cdouble)
     if array.ndim != 3:
         raise ValueError(f"{name} must be a (frequencies x rows x columns) "
                          f"array")
@@ -550,7 +552,7 @@ cdef object _apply_delay(Calset calset, Parameter parameter,
             or isinstance(parameter, VectorParameter)):
         raise ValueError("cannot apply delay to unknown parameter")
 
-    cdef float delay
+    cdef double delay
     delay = delay_vector[row] + delay_vector[column]
     if delay == 0.0:
         return parameter
@@ -668,8 +670,9 @@ cdef class Solver:
         if calset is None:
             raise ValueError("calset cannot be None")
 
-        frequency_vector = np.asarray(frequency_vector, dtype=np.double,
-                                      order="C")
+        frequency_vector = np.ascontiguousarray(
+            frequency_vector, dtype=np.double
+        )
         if frequency_vector.ndim != 1:
             raise ValueError("frequency_vector must be 1 dimensional "
                              "array-like")
@@ -1099,7 +1102,7 @@ cdef class Solver:
             # Prepare port map.
             #
             if port_map is not None:
-                port_map = np.asarray(port_map, dtype=np.intc, order="C")
+                port_map = np.ascontiguousarray(port_map, dtype=np.int32)
                 if port_map.ndim != 1 or port_map.shape[0] < s_ports:
                     raise ValueError(f"port_map must be a length {s_ports} "
                                      f"vector")
@@ -1159,8 +1162,9 @@ cdef class Solver:
         cdef double *trp = NULL
         cdef int rc
 
-        frequency_vector = np.asarray(frequency_vector, dtype=np.double,
-                                      order="C")
+        frequency_vector = np.ascontiguousarray(
+            frequency_vector, dtype=np.double
+        )
         if frequency_vector.ndim != 1:
             raise ValueError("frequency_vector must be a one-dimensional "
                              "array")
@@ -1168,14 +1172,15 @@ cdef class Solver:
         fv = frequency_vector
         if noise_floor is None:
             raise ValueError("noise_floor cannot be None")
-        noise_floor = np.asarray(noise_floor, dtype=np.double, order="C")
+        noise_floor = np.ascontiguousarray(noise_floor, dtype=np.double)
         if len(noise_floor) != n:
             raise ValueError("length of noise_floor vector must match "
                              "that of frequency_vector")
         nfv = noise_floor
         if tracking_error is not None:
-            tracking_error = np.asarray(tracking_error, dtype=np.double,
-                                        order="C")
+            tracking_error = np.ascontiguousarray(
+                tracking_error, dtype=np.double
+            )
             if len(tracking_error) != n:
                 raise ValueError("length of tracking_error vector must match "
                                  "that of frequency_vector")
@@ -1432,7 +1437,7 @@ cdef class Calibration:
             frequency_vector = vnacal_get_frequency_vector(vcp, ci)
             assert(frequency_vector != NULL)
         else:
-            f_array = np.asarray(f, dtype=np.double, order="C")
+            f_array = np.ascontiguousarray(f, dtype=np.double)
             if f_array.ndim != 1:
                 raise ValueError("f must be a one-dimensional array or None")
             frequencies = f_array.shape[0]

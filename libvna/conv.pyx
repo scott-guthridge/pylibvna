@@ -110,13 +110,14 @@ cdef check_renormalize(name, z1, z2):
 # canonicalize_z0: return z0 as [m, n] where m is number of outer elements
 #
 cdef canonicalize_z0(z0, name, outer_shape, n):
-    z0 = np.asarray(z0, dtype=np.complex128, order='C')
+    is_scalar = np.isscalar(z0)
+    z0 = np.ascontiguousarray(z0, dtype=np.cdouble)
+
     #
     # scalar
     #
-    if z0.shape == tuple():
-        result = np.asarray([z0 for i in range(n)],
-                            dtype=np.complex128, order='C')
+    if is_scalar:
+        result = np.full((n,), z0.item(), dtype=np.cdouble)
         if outer_shape != tuple():
             result = np.broadcast_to(result, outer_shape + (n,))
 
@@ -139,14 +140,14 @@ cdef canonicalize_z0(z0, name, outer_shape, n):
     #
     else:
         if outer_shape == tuple():
-            raise ValueError(name + f': z0 must be a scalar or '
-                                    f'length {n} vector')
+            raise ValueError(name + f': z0 shape invalid: expected scalar or '
+                                    f'({n},), got {z0.shape}')
         else:
-            raise ValueError(name + f': z0 must be a scalar, '
-                                    f'length {n} vector, '
-                                    f'or shape {outer_shape + (n,)} array')
+            raise ValueError(name + f': z0 shape invalid: expected scalar, '
+                                    f'({n},), or {outer_shape + (n,)}, '
+                                    f'got {z0.shape}')
 
-    return np.array(result.reshape((-1, n)), dtype=np.complex128, order='C')
+    return np.array(result.reshape((-1, n)), dtype=np.cdouble, order='C')
 
 
 #
@@ -158,10 +159,10 @@ cdef helper_2x2(fn_2x2 fn, name, array):
     # validate that the last two dimensions are 2x2, and create the
     # output array with same shape as input.
     #
-    input = np.asarray(array, dtype=np.complex128, order='C')
+    input = np.ascontiguousarray(array, dtype=np.cdouble)
     if input.ndim < 2 or input.shape[-2] != 2 or input.shape[-1] != 2:
         raise ValueError(name + ': expected 2x2 array')
-    output = np.empty(input.shape, dtype=np.complex128, order='C')
+    output = np.empty(input.shape, dtype=np.cdouble, order='C')
 
     #
     # Create views into the input and output arrays that flatten
@@ -194,10 +195,10 @@ cdef helper_2x2_with_z0(fn_2x2_with_z0 fn, name, array, z0):
     # validate that the last two dimensions are 2x2, and create the
     # output array with same shape as input.
     #
-    input = np.asarray(array, dtype=np.complex128, order='C')
+    input = np.ascontiguousarray(array, dtype=np.cdouble)
     if input.ndim < 2 or input.shape[-2] != 2 or input.shape[-1] != 2:
         raise ValueError(name + ': expected 2x2 array')
-    output = np.empty(input.shape, dtype=np.complex128, order='C')
+    output = np.empty(input.shape, dtype=np.cdouble, order='C')
 
     #
     # Make views into input and output with outer dimensions flattened
@@ -237,10 +238,10 @@ cdef helper_2x2_renormalize(fn_2x2_renormalize fn, name, array, z1, z2):
     # validate that the last two dimensions are 2x2, and create the
     # output array with same shape as input.
     #
-    input = np.asarray(array, dtype=np.complex128, order='C')
+    input = np.ascontiguousarray(array, dtype=np.cdouble)
     if input.ndim < 2 or input.shape[-2] != 2 or input.shape[-1] != 2:
         raise ValueError(name + ': expected 2x2 array')
-    output = np.empty(input.shape, dtype=np.complex128, order='C')
+    output = np.empty(input.shape, dtype=np.cdouble, order='C')
 
     #
     # Make views into input and output with outer dimensions flattened
@@ -282,10 +283,10 @@ cdef helper_NxN(fn_NxN fn, fn_2x2 fn2, name, array):
     # validate that the last two dimensions are square, and create
     # the output array with same shape as input.
     #
-    input = np.asarray(array, dtype=np.complex128, order='C')
+    input = np.ascontiguousarray(array, dtype=np.cdouble)
     if input.ndim < 2 or input.shape[-2] != input.shape[-1]:
         raise ValueError(name + ': expected NxN array')
-    output = np.empty(input.shape, dtype=np.complex128, order='C')
+    output = np.empty(input.shape, dtype=np.cdouble, order='C')
     n = input.shape[-1]
 
     #
@@ -323,10 +324,10 @@ cdef helper_NxN_with_z0(fn_NxN_with_z0 fn, fn_2x2_with_z0 fn2, name, array, z0):
     # validate that the last two dimensions are square, and create
     # the output array with same shape as input.
     #
-    input = np.asarray(array, dtype=np.complex128, order='C')
+    input = np.ascontiguousarray(array, dtype=np.cdouble)
     if input.ndim < 2 or input.shape[-2] != input.shape[-1]:
         raise ValueError(name + ': expected NxN array')
-    output = np.empty(input.shape, dtype=np.complex128, order='C')
+    output = np.empty(input.shape, dtype=np.cdouble, order='C')
     n = input.shape[-1]
 
     #
@@ -372,10 +373,10 @@ cdef helper_NxN_renormalize(fn_NxN_renormalize fn, fn_2x2_renormalize fn2,
     # validate that the last two dimensions are square, and create
     # the output array with same shape as input.
     #
-    input = np.asarray(array, dtype=np.complex128, order='C')
+    input = np.ascontiguousarray(array, dtype=np.cdouble)
     if input.ndim < 2 or input.shape[-2] != input.shape[-1]:
         raise ValueError(name + ': expected NxN array')
-    output = np.empty(input.shape, dtype=np.complex128, order='C')
+    output = np.empty(input.shape, dtype=np.cdouble, order='C')
     n = input.shape[-1]
 
     #
@@ -422,10 +423,10 @@ cdef helper_2x2_to_zin(fn_2x2_to_zin fn, name, array, z0):
     # validate that the last two dimensions are 2x2, and create the
     # output vector with same shape as input with last component removed.
     #
-    input = np.asarray(array, dtype=np.complex128, order='C')
+    input = np.ascontiguousarray(array, dtype=np.cdouble)
     if input.ndim < 2 or input.shape[-2] != 2 or input.shape[-1] != 2:
         raise ValueError(name + ': expected 2x2 array')
-    output = np.empty(input.shape[0:-1], dtype=np.complex128, order='C')
+    output = np.empty(input.shape[0:-1], dtype=np.cdouble, order='C')
 
     #
     # Make views into input and output with outer dimensions flattened
@@ -465,10 +466,10 @@ cdef helper_NxN_to_zin(fn_NxN_to_zin fn, fn_2x2_to_zin fn2, name, array, z0):
     # the output array with same shape as input with last dimension
     # removed.
     #
-    input = np.asarray(array, dtype=np.complex128, order='C')
+    input = np.ascontiguousarray(array, dtype=np.cdouble)
     if input.ndim < 2 or input.shape[-2] != input.shape[-1]:
         raise ValueError(name + ': expected NxN array')
-    output = np.empty(input.shape[0:-1], dtype=np.complex128, order='C')
+    output = np.empty(input.shape[0:-1], dtype=np.cdouble, order='C')
     n = input.shape[-1]
 
     #

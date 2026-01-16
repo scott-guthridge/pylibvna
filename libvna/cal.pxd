@@ -20,6 +20,10 @@
 from libc.stdio cimport FILE
 cimport libvna.data as data
 
+cdef extern from "<stdbool.h>":
+    ctypedef bint bool
+
+
 cdef extern from "<stdarg.h>":
     ctypedef struct va_list:
         pass    # opaque

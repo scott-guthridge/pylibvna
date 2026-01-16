@@ -230,7 +230,7 @@ def _form_double_array(shape, value):
     # Returns:
     #    An array in C order with the given dimensions.
     # """
-    array = np.asarray(value, dtype=np.double, order="C")
+    array = np.ascontiguousarray(value, dtype=np.double)
     if array.shape == shape:
         return array
 
@@ -249,12 +249,12 @@ def _form_complex_array(shape, value):
     # Returns:
     #     A complex array in C order with the given dimensions.
     # """
-    array = np.asarray(value, dtype=np.complex128, order="C")
+    array = np.ascontiguousarray(value, dtype=np.cdouble)
     if array.shape == shape:
         return array
 
     # Allow broadcasting, e.g. a scalar, over the array.
-    array = np.empty(shape, dtype=np.complex128, order="C")
+    array = np.empty(shape, dtype=np.cdouble, order="C")
     array[:] = value
     return array
 
@@ -438,7 +438,7 @@ cdef class _DataArrayHelper:
 
         if mask == IDX_IIS:
             c_range = range(*indices[2])
-            a = np.empty((len(c_range),), dtype=np.complex128)
+            a = np.empty((len(c_range),), dtype=np.cdouble)
             k = 0
             for column in c_range:
                 a[k] = vnadata_get_cell(vdp, indices[0], indices[1], column)
@@ -447,7 +447,7 @@ cdef class _DataArrayHelper:
 
         if mask == IDX_ISI:
             r_range = range(*indices[1])
-            a = np.empty((len(r_range),), dtype=np.complex128)
+            a = np.empty((len(r_range),), dtype=np.cdouble)
             j = 0
             for row in r_range:
                 a[j] = vnadata_get_cell(vdp, indices[0], row, indices[2])
@@ -464,7 +464,7 @@ cdef class _DataArrayHelper:
             # Else, iterate over the slices.
             r_range = range(*indices[1])
             c_range = range(*indices[2])
-            a = np.empty((len(r_range), len(c_range)), dtype=np.complex128)
+            a = np.empty((len(r_range), len(c_range)), dtype=np.cdouble)
             j = 0
             for row in r_range:
                 k = 0
@@ -476,7 +476,7 @@ cdef class _DataArrayHelper:
 
         if mask == IDX_SII:
             f_range = range(*indices[0])
-            a = np.empty((len(f_range),), dtype=np.complex128)
+            a = np.empty((len(f_range),), dtype=np.cdouble)
             i = 0
             for findex in f_range:
                 a[i] = vnadata_get_cell(vdp, findex, indices[1], indices[2])
@@ -486,7 +486,7 @@ cdef class _DataArrayHelper:
         if mask == IDX_SIS:
             f_range = range(*indices[0])
             c_range = range(*indices[2])
-            a = np.empty((len(f_range), len(c_range)), dtype=np.complex128)
+            a = np.empty((len(f_range), len(c_range)), dtype=np.cdouble)
             i = 0
             for findex in f_range:
                 k = 0
@@ -500,7 +500,7 @@ cdef class _DataArrayHelper:
         if mask == IDX_SSI:
             f_range = range(*indices[0])
             r_range = range(*indices[1])
-            a = np.empty((len(f_range), len(r_range)), dtype=np.complex128)
+            a = np.empty((len(f_range), len(r_range)), dtype=np.cdouble)
             i = 0
             for findex in f_range:
                 j = 0
@@ -515,7 +515,7 @@ cdef class _DataArrayHelper:
             r_range = range(*indices[1])
             c_range = range(*indices[2])
             a = np.empty((len(f_range), len(r_range), len(c_range)),
-                         dtype=np.complex128)
+                         dtype=np.cdouble)
             i = 0
             for findex in f_range:
                 j = 0
@@ -702,7 +702,7 @@ cdef class _DataArrayHelper:
         cdef int frequencies = vnadata_get_frequencies(vdp)
         cdef int rows = vnadata_get_rows(vdp)
         cdef int columns = vnadata_get_columns(vdp)
-        array = np.empty((frequencies, rows, columns), dtype=np.complex128)
+        array = np.empty((frequencies, rows, columns), dtype=np.cdouble)
         for findex in range(frequencies):
             for row in range(rows):
                 for column in range(columns):
@@ -778,7 +778,7 @@ cdef class _Z0VectorHelper:
 
         # If given a slice, return a vector.
         p_range = range(*indices[0])
-        array = np.empty((len(p_range),), dtype=np.complex128)
+        array = np.empty((len(p_range),), dtype=np.cdouble)
         i = 0
         for port in p_range:
             array[i] = vnadata_get_z0(vdp, port)
@@ -910,7 +910,7 @@ cdef class _FZ0ArrayHelper:
         # SI
         elif mask == 2:
             f_range = range(*indices[0])
-            array = np.empty((len(f_range),), dtype=np.complex128)
+            array = np.empty((len(f_range),), dtype=np.cdouble)
             i = 0
             for findex in f_range:
                 array[i] = vnadata_get_fz0(vdp, findex, indices[1])
@@ -920,7 +920,7 @@ cdef class _FZ0ArrayHelper:
         # IS
         elif mask == 1:
             p_range = range(*indices[1])
-            array = np.empty((len(p_range),), dtype=np.complex128)
+            array = np.empty((len(p_range),), dtype=np.cdouble)
             j = 0
             for port in p_range:
                 array[j] = vnadata_get_fz0(vdp, indices[0], port)
@@ -932,7 +932,7 @@ cdef class _FZ0ArrayHelper:
             f_range = range(*indices[0])
             p_range = range(*indices[1])
             array = np.empty((len(f_range), len(p_range)),
-                             dtype=np.complex128)
+                             dtype=np.cdouble)
             i = 0
             for findex in f_range:
                 j = 0
@@ -1026,7 +1026,7 @@ cdef class _FZ0ArrayHelper:
         cdef int rows = vnadata_get_rows(vdp)
         cdef int columns = vnadata_get_columns(vdp)
         cdef int ports = max(rows, columns)
-        array = np.empty((frequencies, ports), dtype=np.complex128)
+        array = np.empty((frequencies, ports), dtype=np.cdouble)
         for findex in range(frequencies):
             for port in range(ports):
                 array[findex, port] = vnadata_get_fz0(vdp, findex, port)
@@ -1328,7 +1328,7 @@ cdef class NPData:
     @frequency_vector.setter
     def frequency_vector(self, vector):
         # no docstring for setter
-        array = np.asarray(vector, dtype=np.double)
+        array = np.ascontiguousarray(vector, dtype=np.double)
         if array.ndim != 1:
             raise ValueError("frequency_vector: value must have exactly "
                              "one dimension")
@@ -1379,7 +1379,7 @@ cdef class NPData:
     @data_array.setter
     def data_array(self, vector):
         # no docstring for setter
-        array = np.asarray(vector, dtype=np.complex128, order="C")
+        array = np.ascontiguousarray(vector, dtype=np.cdouble)
         if array.ndim != 3:
             raise ValueError("data_array: value must have three dimensions")
 
@@ -1425,11 +1425,14 @@ cdef class NPData:
         cdef int columns = vnadata_get_columns(vdp)
         cdef int ports = max(rows, columns)
         cdef int rc
+        cdef bool is_scalar
+
         if ports == 0:
             # If rows and columns are both zero, allow automatic resize
             # to square matrix matching number of given elements.
-            array = np.asarray(vector)
-            if array.ndim == 0:
+            is_scalar = np.isscalar(vector)
+            array = np.ascontiguousarray(vector, dtype=np.cdouble)
+            if is_scalar:
                 raise ValueError("z0_vector: cannot broadcast scalar "
                                  "until dimensions have been set")
             if array.ndim != 1:
@@ -1488,13 +1491,15 @@ cdef class NPData:
         cdef int columns = vnadata_get_columns(vdp)
         cdef int ports = max(rows, columns)
         cdef int rc
+        cdef bool is_scalar
 
         # If the vnadata object has all zero dimensions, allow
         # automatic resize to a square data matrix based on the
         # value.
         if ports == 0 and frequencies == 0:
-            array = np.asarray(value)
-            if array.ndim == 0:
+            is_scalar = np.isscalar(value)
+            array = np.ascontiguousarray(value, dtype=np.cdouble)
+            if is_scalar:
                 raise ValueError("fz0_array: cannot broadcast scalar "
                                  "until dimensions have been set")
             if array.ndim != 2:
@@ -1555,6 +1560,7 @@ cdef class NPData:
         cdef int ports
         cdef int new_z0_length = -1
         cdef double complex [:] c_new_z0
+        cdef bool is_scalar
 
         # Prepare output object.
         if inplace:
@@ -1568,8 +1574,9 @@ cdef class NPData:
             rows = vnadata_get_rows(self.vdp)
             columns = vnadata_get_columns(self.vdp)
             ports = max(rows, columns)
-            new_z0 = np.asarray(new_z0, dtype=np.complex128, order="C")
-            if new_z0.ndim == 0:
+            is_scalar = np.isscalar(new_z0)
+            new_z0 = np.ascontiguousarray(new_z0, dtype=np.cdouble)
+            if is_scalar:
                 new_z0_length = 1
             elif new_z0.ndim == 1:
                 if new_z0.shape[0] == ports:
