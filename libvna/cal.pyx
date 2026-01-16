@@ -128,7 +128,7 @@ cdef object _property_to_py(vnaproperty_t *root):
     if ptype == ord("m"):
         result = {}
         keys = vnaproperty_keys(root, "{}")
-        assert(keys != NULL)
+        assert keys != NULL
         try:
             i = 0
             while keys[i] != NULL:
@@ -149,7 +149,7 @@ cdef object _property_to_py(vnaproperty_t *root):
     if ptype == ord("l"):
         result = []
         count = vnaproperty_count(root, "[]")
-        assert(count >= 0)
+        assert count >= 0
         for i in range(count):
             subtree = vnaproperty_get_subtree(root, "[%d]", i)
             result.append(_property_to_py(subtree))
@@ -1311,7 +1311,7 @@ cdef class Calibration:
         cdef int ci = self.ci
         cdef const char *cp
         cp = vnacal_get_name(vcp, ci)
-        assert(cp != NULL)
+        assert cp != NULL
         return cp.decode("UTF-8")
 
     @property
@@ -1332,7 +1332,7 @@ cdef class Calibration:
         cdef vnacal_t *vcp = self.calset.vcp
         cdef int ci = self.ci
         cdef int rows = vnacal_get_rows(vcp, ci)
-        assert(rows != -1)
+        assert rows != -1
         return rows
 
     @property
@@ -1343,7 +1343,7 @@ cdef class Calibration:
         cdef vnacal_t *vcp = self.calset.vcp
         cdef int ci = self.ci
         cdef int columns = vnacal_get_columns(vcp, ci)
-        assert(columns != -1)
+        assert columns != -1
         return columns
 
     @property
@@ -1354,7 +1354,7 @@ cdef class Calibration:
         cdef vnacal_t *vcp = self.calset.vcp
         cdef int ci = self.ci
         cdef int frequencies = vnacal_get_frequencies(vcp, ci)
-        assert(frequencies != -1)
+        assert frequencies != -1
         return frequencies
 
     @property
@@ -1365,7 +1365,7 @@ cdef class Calibration:
         cdef vnacal_t *vcp = self.calset.vcp
         cdef int ci = self.ci
         cdef int frequencies = vnacal_get_frequencies(vcp, ci)
-        assert(frequencies != -1)
+        assert frequencies != -1
         result = np.empty((frequencies,), dtype=np.double, order="C")
         cdef double[::1] v = result
         cdef const double *lfp = vnacal_get_frequency_vector(vcp, ci)
@@ -1429,7 +1429,7 @@ cdef class Calibration:
         if f is None:
             frequencies = vnacal_get_frequencies(vcp, ci)
             frequency_vector = vnacal_get_frequency_vector(vcp, ci)
-            assert(frequency_vector != NULL)
+            assert frequency_vector != NULL
         else:
             f_array = np.ascontiguousarray(f, dtype=np.double)
             if f_array.ndim != 1:
@@ -1555,7 +1555,7 @@ cdef class _CalList:
         cdef vnacal_t *vcp = calset.vcp
         cdef int ci = self._find_ci_by_index_or_name(index)
         cdef int rc = vnacal_delete_calibration(vcp, ci)
-        assert(rc == 0)
+        assert rc == 0
         del calset._index_to_ci[index]
 
     def __getitem__(self, index) -> Calibration:
@@ -1787,7 +1787,7 @@ cdef class Calset:
         cdef const char *cp
         for i, ci in enumerate(self._index_to_ci):
             cp = vnacal_get_name(vcp, ci)
-            assert(cp != NULL)
+            assert cp != NULL
             if cp.decode("UTF-8") == name:
                 return i
         raise KeyError(f"calibration {name} not found")

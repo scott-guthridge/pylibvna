@@ -528,7 +528,7 @@ cdef class _DataArrayHelper:
                 i += 1
             return a
 
-        assert(False)
+        assert False
 
     def __setitem__(self, indices, value):
         # """
@@ -692,7 +692,7 @@ cdef class _DataArrayHelper:
                     i += 1
 
         else:
-            assert(False)
+            assert False
 
     def __array__(self, *args, **kwargs):
         # """
@@ -943,7 +943,7 @@ cdef class _FZ0ArrayHelper:
             return array
 
         else:
-            assert(False)
+            assert False
 
     def __setitem__(self, indices, value):
         # """
@@ -1015,7 +1015,7 @@ cdef class _FZ0ArrayHelper:
                 i += 1
 
         else:
-            assert(False)
+            assert False
 
     def __array__(self, *args, **kwargs):
         # """
