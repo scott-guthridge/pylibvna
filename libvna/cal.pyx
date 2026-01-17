@@ -1279,18 +1279,28 @@ cdef class Solver:
         Returns:
             Index of the new entry in Calset.calibrations
         """
-        cdef Calset calset = self.calset
-        cdef vnacal_t *vcp = self.calset.vcp
         cdef vnacal_new_t *vnp = self.vnp
+        cdef Calset calset = self.calset
+        cdef vnacal_t *vcp = calset.vcp
         if isinstance(name, str):
             name = name.encode("utf-8")
         cdef const unsigned char[:] c_name = name
-        cdef int rc = vnacal_add_calibration(
+        cdef int ci = vnacal_add_calibration(
             vcp, <const char *>&c_name[0], vnp
         )
-        self.calset._check_error(rc)
-        self.calset._index_to_ci.append(rc)
-        return len(self.calset._index_to_ci) - 1
+        calset._check_error(ci)
+
+        # If we're replacing a calibration, invalidate the cached
+        # Calibration object (if any) --  "ci" will remain unchanged.
+        if ci in calset._index_to_ci:
+            index = calset._index_to_ci.index(ci)
+            if len(calset._index_to_calibration) > index:
+                calset._index_to_calibration[index] = None
+            return index
+
+        # Otherwise, append the new ci to the end of the dense map.
+        calset._index_to_ci.append(ci)
+        return len(calset._index_to_ci) - 1
 
 
 cdef class Calibration:
@@ -1523,29 +1533,75 @@ cdef class _CalList:
     # """
     cdef Calset calset
 
-    def _find_ci_by_index_or_name(self, index):
+    cdef object _find_dense_index(self, index):
         # """
-        # Find the vnacal calibration index (ci) from the dense
-        # index or name.
+        # If given an index, test that it's valid and return it.  If
+        # given a string, then forward to index().
         # """
         cdef Calset calset = self.calset
-        cdef vnacal_t *vcp = calset.vcp
-        cdef Calibration calibration
         if isinstance(index, int):
-            return calset._index_to_ci[index]
+            if index < 0 or index >= len(calset._index_to_ci):
+                raise IndexError(f"invalid calibration index: {index}")
+            return index
 
-        if isinstance(index, str):
-            return calset.index(index)
+        if isinstance(index, str):  # if str, convert to dense index
+            index = self.index(index)
+            assert index >= 0 and index < len(calset._index_to_ci)
+            return index
 
         raise IndexError("index must have type int or str")
 
     def __contains__(self, key):
         cdef Calset calset = self.calset
+        cdef Calibration calibration
+        if isinstance(key, Calibration):
+            try:
+                index = self.index(key)
+            except KeyError:
+                return False
+
+            # If a reference is held on the calibration after it has been
+            # removed from the Calset, then it can't be reallocated and
+            # reinserted as a different calibration.
+            calibration = key
+            assert calibration.calset is calset
+            assert calibration.ci == calset._index_to_ci[index]
+            return True
+
         cdef int i
-        for i in range(len(calset._index_to_ci)):
-            if self[i].name == key:
-                return True
+        if isinstance(key, str):
+            for i in range(len(calset._index_to_ci)):
+                if self[i].name == key:
+                    return True
         return False
+
+    def index(self, name) -> int:
+        """
+        Convert from calibration or calibration name to index:
+
+        Parameters:
+            name (Calibration or str):
+                calibration or calibration name to find
+        """
+        cdef Calset calset = self.calset
+        cdef vnacal_t *vcp = calset.vcp
+        cdef int i
+        cdef int ci
+        cdef const char *cp
+        if isinstance(name, Calibration):
+            return calset._index_to_calibration.index(name)
+
+        if isinstance(name, str):
+            for i, ci in enumerate(calset._index_to_ci):
+                cp = vnacal_get_name(vcp, ci)
+                assert cp != NULL
+                if cp.decode("UTF-8") == name:
+                    return i
+            raise KeyError(f"calibration {name} not found")
+
+        raise ValueError(
+            f"expected Calibration or name; got {name}"
+        )
 
     def __delitem__(self, index):
         """
@@ -1553,21 +1609,33 @@ cdef class _CalList:
         """
         cdef Calset calset = self.calset
         cdef vnacal_t *vcp = calset.vcp
-        cdef int ci = self._find_ci_by_index_or_name(index)
+        index = self._find_dense_index(index)
+        cdef int ci = calset._index_to_ci[index]
         cdef int rc = vnacal_delete_calibration(vcp, ci)
         assert rc == 0
         del calset._index_to_ci[index]
+        if index < len(calset._index_to_calibration):
+            del calset._index_to_calibration[index]
 
     def __getitem__(self, index) -> Calibration:
         """
         Return a Calibration object by name or index.
         """
         cdef Calset calset = self.calset
-        cdef int ci = self._find_ci_by_index_or_name(index)
+        index = self._find_dense_index(index)
+        if index >= len(calset._index_to_calibration):
+            calset._index_to_calibration.extend(
+                [None] * (index + 1 - len(calset._index_to_calibration))
+            )
+        cdef int ci = calset._index_to_ci[index]
         cdef Calibration calibration
+        if calset._index_to_calibration[index] is not None:
+            return calset._index_to_calibration[index]
+
         calibration = Calibration()
         calibration.calset = calset
         calibration.ci = ci
+        calset._index_to_calibration[index] = calibration
         return calibration
 
     def __iter__(self):
@@ -1596,13 +1664,13 @@ cdef class _CalList:
         """
         Return a string representation of the Calibrations array
         """
-        result = ""
-        cdef int i
-        for i, cal in enumerate(self.calset.calibrations):
-            if i > 0:
-                result += "\n"
-            result += str(cal)
-        return result
+        return f"Calibrations: {list(self.keys())}"
+
+    def __repr__(self):
+        """
+        Return a more detailed representation of the Calibrations array
+        """
+        return f"{self.__class__.__name__}({list(self.keys())})"
 
     def items(self):
         """
@@ -1659,6 +1727,7 @@ cdef class Calset:
     cdef object _properties
     cdef object _thread_local
     cdef object _index_to_ci
+    cdef object _index_to_calibration
 
     def __cinit__(self, filename=None):
         cdef int ci
@@ -1686,6 +1755,7 @@ cdef class Calset:
         # Build a dense index of the saved calibrations.
         #
         self._index_to_ci = []
+        self._index_to_calibration = []
         ci_end = vnacal_get_calibration_end(self.vcp)
         for ci in range(ci_end):
             ctype = vnacal_get_type(self.vcp, ci)
@@ -1775,28 +1845,28 @@ cdef class Calset:
 
     def index(self, name) -> int:
         """
-        Convert from calibration name to index:
+        Convert from calibration or calibration name to index (deprecated)
 
         Parameters:
-            name (str):
-                Name of the calibration
+            name (Calibration or str):
+                calibration or calibration name to find
         """
-        cdef vnacal_t *vcp = self.vcp
-        cdef int i
-        cdef int ci
-        cdef const char *cp
-        for i, ci in enumerate(self._index_to_ci):
-            cp = vnacal_get_name(vcp, ci)
-            assert cp != NULL
-            if cp.decode("UTF-8") == name:
-                return i
-        raise KeyError(f"calibration {name} not found")
+        # This function was incorrectly placed in Calset instead of
+        # Calset.calibrations.  Forward it with a deprecation warning.
+        warnings.warn(
+            "Calset.index() is deprecated and will be removed in a future "
+            "release.  Use Calset.calibrations.index() instead.",
+            DeprecationWarning
+        )
+        return self.calibrations.index(name)
 
     @property
     def calibrations(self):
         """
         Vector of Calibration objects in this Calset.  This attribute
         is indexable, iterable, and the elements can be deleted.
+        The index can be either int, or a str containing the name of
+        the calibration.
         """
         helper = _CalList()
         helper.calset = self
@@ -1819,7 +1889,6 @@ cdef class Calset:
     @properties.setter
     def properties(self, value):
         self._set_properties(-1, value)
-
 
     ######################################################################
     # Internal Functions
