@@ -225,10 +225,13 @@ cdef class Parameter:
     through component of a transmission line, or an unknown parameter
     the library must solve, e.g. the R or L parameters in TRL.
 
-    Note: this class cannot be instantiated directly: use
-    :class:`ScalarParameter`, :class:`VectorParameter`,
-    :class:`UnknownParameter`, :class:`CorrelatedParameter`,
-    or :func:`Parameter.from_value`.
+    Note: this class cannot be instantiated directly.  Use the
+    factory methods:
+    :func:`Calset.scalar_parameter`,
+    :func:`Calset.vector_parameter`,
+    :func:`Calset.unknown_parameter`,
+    :func:`Calset.correlated_parameter`, or
+    :func:`Parameter.from_value`.
     """
     cdef Calset calset
     cdef int pindex
@@ -268,17 +271,6 @@ cdef class Parameter:
 
     @staticmethod
     def from_value(Calset calset, value):
-        """
-        Construct a Parameter from a given value.
-
-        Parameters:
-            calset (Calset):
-                The associated calibration set.
-            value:
-                If number, return a ScalarParameter.  If
-                tuple(frequency_vector, value_vector), return a
-                VectorParameter.  If Parameter, return the argument.
-        """
         return Parameter._from_value(calset, value)
 
     cdef double complex _get_simple_value(self, double frequency):
@@ -321,17 +313,6 @@ cdef class Parameter:
 
 
 cdef class ScalarParameter(Parameter):
-    """
-    An element of the S parameter matrix of a calibration standard that
-    has a constant value at all frequencies, e.g. -1 for short.
-
-    Parameters:
-        calset (Calset):
-            The associated calibration set.
-        value (complex):
-            an element of the S parameter matrix of the standard
-            that doesn't depend on frequency, e.g. 0 for match.
-    """
     def __cinit__(self, Calset calset, value):
         if calset is None:
             raise ValueError("calset cannot be None")
@@ -354,24 +335,6 @@ cdef class ScalarParameter(Parameter):
 
 
 cdef class VectorParameter(Parameter):
-    """
-    An element of the S parameter matrix of a calibration standard
-    that varies with frequency.
-
-    Parameters:
-        calset (Calset):
-            The associated calibration set.
-        frequency_vector (vector of float):
-            monotonically increasing list of frequencies
-        value_vector (vector of complex):
-            list or array of complex values corresponding
-            to each frequency in *frequency_vector*
-
-    The frequencies must cover the entire span of the calibration
-    frequency range, but do not have to coincide with the calibration
-    frequencies -- the library uses rational function interpolation
-    as needed to interpolate between frequency points.
-    """
     def __cinit__(self, Calset calset, frequency_vector, value_vector):
         if calset is None:
             raise ValueError("calset cannot be None")
@@ -402,16 +365,6 @@ cdef class VectorParameter(Parameter):
 
 
 cdef class UnknownParameter(Parameter):
-    """
-    An element of the S parameter matrix of a calibration standard that
-    is only approximately known and that the library must determine.
-
-    Parameters:
-        calset (Calset):
-            The associated calibration set.
-        initial_guess (complex, (frequency_vector, value_vector) tuple, or Parameter):
-            Approximate value of the unknown parameter
-    """
     def __cinit__(self, Calset calset, initial_guess):
         if calset is None:
             raise ValueError("calset cannot be None")
@@ -427,29 +380,6 @@ cdef class UnknownParameter(Parameter):
 
 
 cdef class CorrelatedParameter(Parameter):
-    """
-    An element of the S parameter matrix of a calibration standard
-    that is known to be correlated with another (possibly unknown)
-    Parameter.  This type of parameter is useful for modeling connection
-    non-repeatability.
-
-    Parameters:
-        calset (Calset):
-            The associated calibration set.
-        other (complex, (frequency_vector, value_vector) tuple, or Parameter):
-            Another Parameter to which this
-            Parameter is known to be correlated
-        frequency_vector (vector of float):
-            monotonically increasing list of frequencies
-        sigma_vector (vector of float):
-            standard deviation between this Parameter and
-            its correlate at each frequency
-
-    The frequencies must cover at least the entire span of the calibration
-    frequency range, but do not have to coincide with the calibration
-    frequencies -- the library uses natural cubic spline interpolation
-    as needed to interpolate between points.
-    """
     def __cinit__(self, Calset calset, other, frequency_vector, sigma_vector):
         if calset is None:
             raise ValueError("calset cannot be None")
@@ -554,100 +484,6 @@ cdef object _apply_delay(Calset calset, Parameter parameter,
 
 
 cdef class Solver:
-    """
-    Error Term Solver: solve for VNA error terms from measurements
-    of calibration standards.
-
-    Args:
-        calset (Calset):
-            The associated calibration set.
-
-        ctype (CalType):
-            The calibration type determines which error terms the
-            library corrects.  Valid values are:
-
-            T8, U8:
-                8-term T or U parameters: correct for directivity,
-                reflection / transmission tracking, and port
-                match errors on each VNA port.  At least three
-                standards, (e.g. short-open, short-match, through)
-                are needed to solve the 2x2 T8 or U8 calibration.
-
-            TE10, UE10:
-                8-term T or U parameters plus 2 leakage: correct
-                for the same errors as T8 and U8, but also correct
-                for leakage within the VNA from the driving port
-                to the other ports.  At least three standards
-                (e.g. short-open, short-match, through) are needed
-                to solve the 2x2 TE10 or UE10 calibration.
-
-            T16, U16:
-                16-term T or U parameters: correct for the same
-                errors as TE10 and UE10, but add the remaining
-                leakage terms including leakage between the DUT
-                ports in the test fixture.  At least five standards
-                (e.g. short-open, short-match, open-match, open-short,
-                through) are needed to solve the 2x2 T16 or U16
-                calibration.
-
-            UE14:
-                Correct for the same errors as TE10 and UE10, except treat
-                each column (driving port) as an independent calibration.
-                This type produces separate error parameters for the
-                forward and reverse directions, and for this reason,
-                it's able to correct for errors in the forward-reverse
-                switch without reference (*a* matrix) measurements,
-                even for a switch that lies between the detectors and
-                the DUT.  At least four standards (e.g. short-open,
-                match-open, match-short, through) are needed to solve
-                the 2x2 UE14 calibration.
-
-            E12:
-                Generalization of classic SOLT: the library uses UE14
-                terms internally to solve this calibration, and this
-                type corrects for exactly the same errors at UE14.
-                The difference is only in the representation of the
-                saved error terms.  After finding the UE14 error terms,
-                the library converts from inverse scattering transfer
-                (U) error terms to scattering error terms (E).  At least
-                four standards (e.g. short-open, match-open, match-short,
-                through) are needed to solve the 2x2 E12 calibration.
-
-        rows (int):
-            Number of rows in the calibration, where *rows* is the
-            number of VNA ports that detect signal.  Normally, *rows*
-            and *columns* are both simply the number of VNA ports.
-            Some simple VNAs, however, measure only a subset of the
-            S parameters such as :math:`S_{11}` and :math:`S_{21}`.
-            If the VNA measures :math:`S_{11}` and :math:`S_{21}`
-            only, set *rows* to 2 and *columns* to 1.  If the VNA
-            measures :math:`S_{11}` and :math:`S_{12}` only, set
-            *rows* to 1 and *columns* to 2.  In general, if *rows* >
-            *columns*, U parameters must be used; if *rows* < *columns*,
-            T parameters must be used.  For square calibrations, either
-            T or U parameters may be used.
-
-        columns (int):
-            Number columns in the calibration, where *columns* is
-            the number of VNA ports that transmit signal.  See *rows*.
-
-        frequency_vector (list/array of float):
-            Vector of frequency points to be used in the calibration.
-            Must be monotonically increasing.
-
-        z0 (complex, optional):
-            Reference impedance of the VNA ports.  All ports must
-            have the same reference impedance.  If not specified,
-            *z0* defaults to 50 ohms.
-
-    Note that the calibration method used, e.g. LRL, LRM, LRRL, LRRM,
-    LXYZ, SOLT, TRD, TRL, TRM, TXYZ, UXYZ, etc., does not have to be
-    specified.  The library automatically determines the method based
-    on the standards given, or uses a general solver if it does not
-    have a special solver for the given set of standards.  The main
-    requirement is that the standards used must provide a sufficient
-    number of conditions for the number of unknowns to be solved.
-    """
     cdef Calset calset
     cdef int frequencies
     cdef object frequency_vector
@@ -1413,7 +1249,6 @@ cdef class Calibration:
 
         Return:
             libvna.data.NPData object containing the corrected parameters
-               
         """
         cdef vnacal_t *vcp = self.calset.vcp
         cdef int ci = self.ci
@@ -1826,6 +1661,203 @@ cdef class Calset:
             if value is not ...:
                 self._put_properties(index - 1)
 
+    def parameter(self, value) -> Parameter:
+        """
+        Return an element of the S-parameter matrix of a calibration
+        standard constructed from the given value.
+
+        Parameters:
+            value:
+                If a scalar, return a ScalarParameter.  If
+                tuple(frequency_vector, value_vector), return a
+                VectorParameter.  If already a parameter, just
+                return it.
+        """
+        return Parameter.from_value(self, value)
+
+    def scalar_parameter(self, value) -> ScalarParameter:
+        """
+        Return an element of the S-parameter matrix of a calibration
+        standard that has a constant value at all frequencies, e.g. -1
+        for short.
+
+        Parameters:
+            value (complex):
+                an element of the S-parameter matrix of the standard
+                that doesn't depend on frequency, e.g. 0 for match
+        """
+        return ScalarParameter(self, value)
+
+    def vector_parameter(
+        self, frequency_vector, value_vector
+    ) -> VectorParameter:
+        """
+        Return an element of the S-parameter matrix of a calibration
+        standard that varies with frequency.
+
+        Parameters:
+            frequency_vector (vector of float):
+                monotonically increasing list of frequencies
+
+            value_vector (vector of complex):
+                list or array of complex values corresponding
+                to each frequency in *frequency_vector*
+
+        The frequencies must cover the entire span of the calibration
+        frequency range, but do not have to coincide with the calibration
+        frequencies -- the library uses rational function interpolation
+        as needed to interpolate between frequency points.
+        """
+        return VectorParameter(self, frequency_vector, value_vector)
+
+    def unknown_parameter(self, initial_guess) -> UnknownParameter:
+        """
+        Return an element of the S-parameter matrix of a calibration
+        standard that is only approximately known that the library
+        must determine.
+
+        Parameters:
+            initial_guess:
+                approximate value of the unknown parameter
+
+                May be specified as a complex scalar,
+                ``(frequency_vector, value_vector)`` tuple,
+                or a ``Parameter``.
+        """
+        return UnknownParameter(self, initial_guess)
+
+    def correlated_parameter(
+        self, other, frequency_vector, sigma_vector
+    ) -> CorrelatedParameter:
+        """
+        Return an element of the S-parameter matrix of a calibration
+        standard that is known to be correlated with another (possibly
+        unknown) Parameter.  This type of parameter is useful for modeling
+        connection non-repeatability.
+
+        Parameters:
+            other:
+                another Parameter to which this Parameter is known to
+                be correlated
+
+                May be specified as a complex scalar,
+                ``(frequency_vector, value_vector)`` tuple,
+                or a ``Parameter``.
+
+            frequency_vector (vector of float):
+                monotonically increasing list of frequencies
+
+            sigma_vector (vector of float):
+                standard deviation between this Parameter and
+                its correlate at each frequency
+
+        The frequencies must cover at least the entire span of the calibration
+        frequency range, but do not have to coincide with the calibration
+        frequencies -- the library uses natural cubic spline interpolation
+        as needed to interpolate between points.
+        """
+        return CorrelatedParameter(self, other, frequency_vector, sigma_vector)
+
+    def solver(
+        self, CalType ctype, int rows, int columns, frequency_vector,
+        double complex z0 = 50.0
+    ) -> Solver:
+        """
+        Error Term Solver: solve for VNA error terms from measurements
+        of calibration standards.
+
+        Parameters:
+            calset (Calset):
+                The associated calibration set.
+
+            ctype (CalType):
+                The calibration type determines which error terms the
+                library corrects.  Valid values are:
+
+                T8, U8:
+                    8-term T or U parameters: correct for directivity,
+                    reflection / transmission tracking, and port
+                    match errors on each VNA port.  At least three
+                    standards, (e.g. short-open, short-match, through)
+                    are needed to solve the 2x2 T8 or U8 calibration.
+
+                TE10, UE10:
+                    8-term T or U parameters plus 2 leakage: correct
+                    for the same errors as T8 and U8, but also correct
+                    for leakage within the VNA from the driving port
+                    to the other ports.  At least three standards
+                    (e.g. short-open, short-match, through) are needed
+                    to solve the 2x2 TE10 or UE10 calibration.
+
+                T16, U16:
+                    16-term T or U parameters: correct for the same
+                    errors as TE10 and UE10, but add the remaining
+                    leakage terms including leakage between the DUT
+                    ports in the test fixture.  At least five standards
+                    (e.g. short-open, short-match, open-match, open-short,
+                    through) are needed to solve the 2x2 T16 or U16
+                    calibration.
+
+                UE14:
+                    Correct for the same errors as TE10 and UE10, except treat
+                    each column (driving port) as an independent calibration.
+                    This type produces separate error parameters for the
+                    forward and reverse directions, and for this reason,
+                    it's able to correct for errors in the forward-reverse
+                    switch without reference (*a* matrix) measurements,
+                    even for a switch that lies between the detectors and
+                    the DUT.  At least four standards (e.g. short-open,
+                    match-open, match-short, through) are needed to solve
+                    the 2x2 UE14 calibration.
+
+                E12:
+                    Generalization of classic SOLT: the library uses UE14
+                    terms internally to solve this calibration, and this
+                    type corrects for exactly the same errors at UE14.
+                    The difference is only in the representation of the
+                    saved error terms.  After finding the UE14 error terms,
+                    the library converts from inverse scattering transfer
+                    (U) error terms to scattering error terms (E).  At least
+                    four standards (e.g. short-open, match-open, match-short,
+                    through) are needed to solve the 2x2 E12 calibration.
+
+            rows (int):
+                Number of rows in the calibration, where *rows* is the
+                number of VNA ports that detect signal.  Normally, *rows*
+                and *columns* are both simply the number of VNA ports.
+                Some simple VNAs, however, measure only a subset of the
+                S-parameters such as :math:`S_{11}` and :math:`S_{21}`.
+                If the VNA measures :math:`S_{11}` and :math:`S_{21}`
+                only, set *rows* to 2 and *columns* to 1.  If the VNA
+                measures :math:`S_{11}` and :math:`S_{12}` only, set
+                *rows* to 1 and *columns* to 2.  In general, if *rows* >
+                *columns*, U parameters must be used; if *rows* < *columns*,
+                T parameters must be used.  For square calibrations, either
+                T or U parameters may be used.
+
+            columns (int):
+                Number columns in the calibration, where *columns* is
+                the number of VNA ports that transmit signal.  See *rows*.
+
+            frequency_vector (list/array of float):
+                Vector of frequency points to be used in the calibration.
+                Must be monotonically increasing.
+
+            z0 (complex, optional):
+                Reference impedance of the VNA ports.  All ports must
+                have the same reference impedance.  If not specified,
+                *z0* defaults to 50 ohms.
+
+        Note that the calibration method used, e.g. LRL, LRM, LRRL, LRRM,
+        LXYZ, SOLT, TRD, TRL, TRM, TXYZ, UXYZ, etc., does not have to be
+        specified.  The library automatically determines the method based
+        on the standards given, or uses a general solver if it does not
+        have a special solver for the given set of standards.  The main
+        requirement is that the standards used must provide a sufficient
+        number of conditions for the number of unknowns to be solved.
+        """
+        return Solver(self, ctype, rows, columns, frequency_vector, z0)
+
     def save(self, filename):
         """
         Save the Calset to a file.
@@ -1863,10 +1895,10 @@ cdef class Calset:
     @property
     def calibrations(self):
         """
-        Vector of Calibration objects in this Calset.  This attribute
-        is indexable, iterable, and the elements can be deleted.
-        The index can be either int, or a str containing the name of
-        the calibration.
+        Vector of solved Calibration objects in this Calset.
+        This attribute is indexable, iterable, and the elements can
+        be deleted.  The index can be either int, or a str containing
+        the name of the calibration.
         """
         helper = _CalList()
         helper.calset = self

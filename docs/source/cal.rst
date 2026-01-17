@@ -4,11 +4,8 @@ libvna.cal Module
 .. automodule:: libvna.cal
 
 .. autoclass:: libvna.cal.Calset
-   :members: calibrations, index, properties, save
-
-.. autoclass:: libvna.cal.Calibration
-   :members: name, ctype, rows, columns, frequencies, frequency_vector,
-        z0, properties, apply
+   :members: parameter, scalar_parameter, vector_parameter, unknown_parameter,
+       correlated_parameter, solver, calibrations, index, properties, save
 
 .. autoclass:: libvna.cal.Parameter
    :members:
@@ -33,3 +30,7 @@ libvna.cal Module
    :members: add_single_reflect, add_double_reflect, add_through, add_line,
         add_mapped_matrix, set_m_error, et_tolerance, p_tolerance,
         iteration_limit, pvalue_limit, solve, add_to_calset
+
+.. autoclass:: libvna.cal.Calibration
+   :members: name, ctype, rows, columns, frequencies, frequency_vector,
+        z0, properties, apply

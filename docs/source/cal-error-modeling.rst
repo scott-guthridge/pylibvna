@@ -94,7 +94,7 @@ the library provides a special type of unknown calibration parameter, the
 
 .. code-block:: python
 
-   CorrelatedParameter parameter(calset, other, frequency_vector, sigma_vector)
+   calset.correlated_parameter(other, frequency_vector, sigma_vector)
 
 where `calset` is the calibration set used for calibration, `other` is
 another calibration parameter (possibly also unknown) to which this
