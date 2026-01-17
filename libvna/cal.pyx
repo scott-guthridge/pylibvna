@@ -35,7 +35,7 @@ The basic sequence for generating a new calibration is:
 
 The sequence for applying a calibration to a device measurement is:
 
-#. Load the calibration by passing the calibration filename to the
+#. Load the calibration by passing the saved calibration filename to the
    *Calset* constructor.
 #. Get the *Calibration* object from the *Calset.calibrations* attribute.
 #. Measure the device under test.
@@ -46,16 +46,16 @@ The sequence for applying a calibration to a device measurement is:
 from cpython.exc cimport PyErr_SetFromErrno
 from cpython.pycapsule cimport PyCapsule_GetPointer
 from libc.errno cimport errno, ENOMEM
+from libc.math cimport INFINITY
 from libc.stdio cimport FILE, fdopen, fclose
 from libc.stdlib cimport malloc, calloc, free
-from libc.string cimport memcpy
+from libc.string cimport memcpy, memset
+from libvna.data import NPData, PType
 import math
-import numpy as np
 cimport numpy as cnp
+import numpy as np
 from threading import local
 import warnings
-import libvna.data
-from libvna.data import NPData
 
 
 # Initialize numpy array interface for Cython
@@ -223,15 +223,19 @@ cdef class Parameter:
     standard.  The Parameter is an abstraction that can represent a
     single complex scalar such as -1 for short, a tuple(frequency_vector,
     value_vector) representing a reflect with complex impedance or the
-    through component of a transmission line, or an unknown parameter
-    the library will solve for, e.g. the R or L parameters in TRL.
+    through component of a transmission line, an unknown parameter the
+    library will solve for, e.g. the R or L parameters in TRL, or the
+    element of a calkit or data standard.
 
     Note: this class cannot be instantiated directly.  Use the
     factory methods:
+    :func:`Calset.short_standard`,
+    :func:`Calset.open_standard`,
+    :func:`Calset.load_standard`,
     :func:`Calset.parameter`,
     :func:`Calset.scalar_parameter`,
     :func:`Calset.vector_parameter`,
-    :func:`Calset.unknown_parameter`, or
+    :func:`Calset.unknown_parameter`, and
     :func:`Calset.correlated_parameter`.
     """
     cdef Calset calset
@@ -258,15 +262,31 @@ cdef class Parameter:
         # is found, automatically convert it to a vector parameter.
         # """
         assert calset is not None
+        if isinstance(value, ParameterMatrix):
+            if value.shape != (1, 1):
+                raise ValueError(
+                    f"Parameter.from_value: expected 1x1 (one-port) standard "
+                    f"but found shape {value.shape}"
+                )
+            value = value[0, 0]
+
         if isinstance(value, Parameter):
+            if not calset is (<Parameter>value).calset:
+                raise ValueError(
+                    f"Parameter.from_value: existing "
+                    f"{value.__class__.__name__} belongs to different Calset"
+                )
             return value
+
         if np.isscalar(value):
             return ScalarParameter(calset, value)
+
         if isinstance(value, tuple):
             if len(value) != 2:
                 raise ValueError("expected Parameter, number or "
                                  "tuple(frequency_vector, value_vector)")
             return VectorParameter(calset, *value)
+
         raise ValueError("value must be class Parameter, a number, or "
                          "tuple(frequency_vector, value_vector)")
 
@@ -413,6 +433,378 @@ cdef class CorrelatedParameter(Parameter):
         pass
 
 
+cdef class _ParameterMatrixElement(Parameter):
+    __slots__ = ()  # hide from python
+    def __init__(self, Calset calset, int pindex):
+        self.calset = calset
+        self.pindex = pindex
+
+
+class ParameterMatrix(np.ndarray):
+    """
+    An array of Parameter objects describing the S-parameter matrix
+    of a multi-port calibration standard.
+
+    Note: this class cannot be instantiated directly.  Use the
+    factory methods:
+    :func:`Calset.through_standard`,
+    :func:`Calset.data_standard`,
+    :func:`Calset.parameter_matrix`, and
+    :func:`Calset.parameter`.
+    """
+    def __init__(self, *args, **kwargs):
+        raise TypeError("Cannot instantiate abstract class ParameterMatrix")
+
+    @staticmethod
+    def from_array(Calset calset, value):
+        if isinstance(value, ParameterMatrix):
+            if not calset is value.calset:
+                raise ValueError(
+                    f"ParameterMatrix.from_array: existing "
+                    f"{value.__class__.__name__} belongs to different Calset"
+                )
+            return value
+
+        a = np.asarray(value, dtype=object).view(__class__)
+        if a.ndim == 0:
+            a.reshape((1, 1))
+        elif a.ndim == 2:
+            pass
+        else:
+            raise ValueError(
+                f"Expected a two-dimensional array: found {a.ndim} dimensions"
+            )
+        cdef object [:, :] v = a
+        cdef int r
+        cdef int c
+        for r in range(a.shape[0]):
+            for c in range(a.shape[1]):
+                if not isinstance(a[r, c], Parameter):
+                    v[r, c] = Parameter._from_value(calset, v[r, c])
+        return a
+
+    def to_npdata(self, frequency_vector, z0) -> NPData:
+        """
+        Construct an NPData object from the standard.
+
+        Parameters:
+            frequency_vector (vector of float):
+                monotonically increasing list of frequencies
+
+            z0 (complex):
+                reference impedances
+
+                z0 can be specified as a scalar, number of ports long
+                vector, or frequencies by ports matrix.
+        """
+        cdef int rows = self.shape[0]
+        cdef int columns = self.shape[1]
+        if rows == 0 or rows != columns:
+            raise ValueError(
+                "ParameterMatrix.to_npdata: matrix must non-empty and square"
+            )
+        cdef int ports = max(rows, columns)
+        frequency_vector = np.ascontiguousarray(
+            frequency_vector, dtype=np.double
+        )
+        frequencies = len(frequency_vector)
+        z0 = np.ascontiguousarray(z0, dtype=np.cdouble)
+        if (
+            z0.size != 1
+            and (
+                z0.ndim != 1
+                or z0.shape[0] != ports
+            )
+            and (
+                z0.ndim != 2
+                or z0.shape[0] != frequencies
+                or z0.shape[1] != ports
+            )
+        ):
+            raise ValueError(
+                f"z0 shape invalid: expected scalar, ({ports},) or "
+                f"({frequencies},{ports}), got {z0.shape}"
+            )
+
+        cdef Parameter parameter = self[0, 0]
+        cdef Calset calset = parameter.calset
+        cdef vnacal_t *vcp = calset.vcp
+        npdata = NPData(
+            ptype=PType.S,
+            frequencies=frequencies,
+            rows=rows,
+            columns=columns)
+        npdata.frequency_vector = frequency_vector
+        if z0.ndim != 2:
+            npdata.z0_vector = z0
+        else:
+            npdata.fz0_array = z0
+        cdef vnadata_t *vdp
+        vdp = <vnadata_t *>PyCapsule_GetPointer(npdata._get_vdp(), NULL)
+        parameter_matrix = np.ndarray(
+            (rows, columns), dtype=np.int32, order="C"
+        )
+        cdef int i, j
+        for i in range(rows):
+            for j in range(columns):
+                parameter_matrix[i, j] = (<Parameter>self[i, j]).pindex
+        cdef int [:, :] parameter_view = parameter_matrix
+        cdef int rc = vnacal_parameter_matrix_to_data(
+            vcp, &parameter_view[0][0], rows, columns, vdp
+        )
+        calset._check_error(rc)
+        return npdata
+
+
+    def eval(self, f, z0):
+        """
+        Evaluate the standard at one or more frequencies.
+
+        Parameters:
+            f (float or array_like of float):
+                Frequency or list/array of frequencies at which to
+                evaluate.  If a single scalar is provided, the result
+                is 2D (rows × columns).  If multiple frequencies
+                are provided, the result is 3D (frequencies × rows
+                × columns).
+
+            z0 (complex):
+                reference impedances
+
+                Can be: a scalar (same impedance for all ports and
+                frequencies), a 1D array of length `ports` (same for
+                all frequencies), or a 2D array of shape (frequencies,
+                ports) for per-frequency, per-port values
+
+        Returns:
+            ndarray of complex
+                If `frequency_vector` is scalar: shape (rows, columns).
+                Otherwise: shape (frequencies, rows, columns).
+        """
+        cdef int rows = self.shape[0]
+        cdef int columns = self.shape[1]
+        cdef int ports = max(rows, columns)
+
+        # Normalize frequency input
+        is_scalar_freq = np.isscalar(f)
+        frequency_vector = np.ascontiguousarray(
+            f, dtype=np.double
+        )
+        cdef double[:] frequency_view = frequency_vector
+        frequencies = len(frequency_vector)
+
+        # Normalize z0 to (frequencies, ports)
+        z0 = np.ascontiguousarray(z0, dtype=np.cdouble)
+        if z0.size == 1:
+            z0_matrix = np.full(
+                (frequencies, ports), z0.item(), dtype=np.cdouble
+            )
+        elif z0.ndim == 1 and z0.shape[0] == ports:
+            z0_matrix = np.tile(z0, (frequencies, 1))
+        elif z0.ndim == 2 and z0.shape == (frequencies, ports):
+            z0_matrix = z0
+        else:
+            raise ValueError(
+                f"z0 shape invalid: expected scalar, ({ports},) or "
+                f"({frequencies},{ports}), got {z0.shape}"
+            )
+
+        cdef double complex[:, :] fz0_view = z0_matrix
+
+        # Allocate result
+        result = np.empty(
+            (frequencies, rows, columns), dtype=np.cdouble, order="C"
+        )
+        cdef double complex[:, :, :] result_view = result
+
+        # Special-case empty where we don't have the Calset
+        if frequencies == 0 or rows == 0 or columns == 0:
+            return result[0] if is_scalar_freq else result
+
+        # Prepare parameter index matrix
+        parameter_matrix = np.empty((rows, columns), dtype=np.int32, order="C")
+        cdef int[:, :] parameter_view = parameter_matrix
+        cdef int i, j
+        for i in range(rows):
+            for j in range(columns):
+                parameter_view[i, j] = (<Parameter>self[i, j]).pindex
+
+        cdef Parameter parameter = self[0, 0]
+        cdef Calset calset = parameter.calset
+        cdef vnacal_t *vcp = calset.vcp
+        cdef double frequency
+        cdef int rc
+
+        # Evaluate at each frequency point
+        cdef int findex
+        for findex in range(frequencies):
+            frequency = frequency_view[findex]
+            rc = vnacal_eval_parameter_matrix(
+                vcp, &parameter_view[0][0], rows, columns, frequency,
+                &fz0_view[findex, 0], &result_view[findex, 0, 0]
+            )
+            calset._check_error(rc)
+
+        # Return 2D if scalar frequency
+        return result[0] if is_scalar_freq else result
+
+cdef class ShortStandard(Parameter):
+    def __cinit__(
+        self, Calset calset, double offset_delay = 0.0,
+        double offset_loss = 0.0, double offset_z0 = 50.0,
+        double fmin = 0.0, double fmax = INFINITY,
+        bool traditional = False, object L = None
+    ):
+        cdef vnacal_t *vcp = calset.vcp
+        cdef vnacal_calkit_data_t vcd
+        memset(&vcd, 0, sizeof(vnacal_calkit_data_t))
+        vcd.vcd_type = VNACAL_CALKIT_SHORT
+        vcd.vcd_flags = VNACAL_CKF_TRADITIONAL if traditional else 0
+        vcd.vcd_offset_delay = offset_delay
+        vcd.vcd_offset_loss = offset_loss
+        vcd.vcd_offset_z0 = offset_z0
+        vcd.vcd_fmin = fmin
+        vcd.vcd_fmax = fmax
+        if L is None:
+            L = (0.0,)
+        L = np.ascontiguousarray(L, dtype=float)
+        if L.ndim > 1:
+            raise ValueError('L must have at most one dimension')
+        L = L.reshape(-1)
+        if len(L) > 4:
+            raise ValueError('L cannot have more than four elements')
+        for i, v in enumerate(L):
+            vcd.vcd_l_coefficients[i] = v
+
+        cdef int rc = vnacal_make_calkit_parameter(vcp, &vcd)
+        calset._check_error(rc)
+        self.calset = calset
+        self.pindex = rc
+
+    def __init__(self, *args, **kwargs):
+        pass
+
+
+cdef class OpenStandard(Parameter):
+    def __cinit__(
+        self, Calset calset, double offset_delay = 0.0,
+        double offset_loss = 0.0, double offset_z0 = 50.0,
+        double fmin = 0.0, double fmax = INFINITY,
+        bool traditional = False, object C = None
+    ):
+        cdef vnacal_t *vcp = calset.vcp
+        cdef vnacal_calkit_data_t vcd
+        memset(&vcd, 0, sizeof(vnacal_calkit_data_t))
+        vcd.vcd_type = VNACAL_CALKIT_OPEN
+        vcd.vcd_flags = VNACAL_CKF_TRADITIONAL if traditional else 0
+        vcd.vcd_offset_delay = offset_delay
+        vcd.vcd_offset_loss = offset_loss
+        vcd.vcd_offset_z0 = offset_z0
+        vcd.vcd_fmin = fmin
+        vcd.vcd_fmax = fmax
+        if C is None:
+            C = (0.0,)
+        C = np.ascontiguousarray(C, dtype=float)
+        if C.ndim > 1:
+            raise ValueError('C must have at most one dimension')
+        C = C.reshape(-1)
+        if len(C) > 4:
+            raise ValueError('C cannot have more than four elements')
+        for i, v in enumerate(C):
+            vcd.vcd_c_coefficients[i] = v
+        cdef int rc = vnacal_make_calkit_parameter(vcp, &vcd)
+        calset._check_error(rc)
+        self.calset = calset
+        self.pindex = rc
+
+    def __init__(self, *args, **kwargs):
+        pass
+
+
+cdef class LoadStandard(Parameter):
+    def __cinit__(
+        self, Calset calset, double offset_delay = 0.0,
+        double offset_loss = 0.0, double offset_z0 = 50.0,
+        double fmin = 0.0, double fmax = INFINITY,
+        bool traditional = False, double complex Zl = 50.0
+    ):
+        cdef vnacal_t *vcp = calset.vcp
+        cdef vnacal_calkit_data_t vcd
+        memset(&vcd, 0, sizeof(vnacal_calkit_data_t))
+        vcd.vcd_type = VNACAL_CALKIT_LOAD
+        vcd.vcd_flags = VNACAL_CKF_TRADITIONAL if traditional else 0
+        vcd.vcd_offset_delay = offset_delay
+        vcd.vcd_offset_loss = offset_loss
+        vcd.vcd_offset_z0 = offset_z0
+        vcd.vcd_fmin = fmin
+        vcd.vcd_fmax = fmax
+        vcd.vcd_zl = complex(Zl)
+        cdef int rc = vnacal_make_calkit_parameter(vcp, &vcd)
+        calset._check_error(rc)
+        self.calset = calset
+        self.pindex = rc
+
+    def __init__(self, *args, **kwargs):
+        pass
+
+
+class ThroughStandard(ParameterMatrix):
+    def __new__(
+        cls, Calset calset, double offset_delay = 0.0,
+        double offset_loss = 0.0, double offset_z0 = 50.0,
+        double fmin = 0.0, double fmax = INFINITY,
+        bool traditional = False
+    ):
+        self = np.ndarray.__new__(cls, (2, 2), dtype=object)
+        cdef vnacal_t *vcp = calset.vcp
+        cdef vnacal_calkit_data_t vcd
+        memset(&vcd, 0, sizeof(vnacal_calkit_data_t))
+        vcd.vcd_type = VNACAL_CALKIT_THROUGH
+        vcd.vcd_flags = VNACAL_CKF_TRADITIONAL if traditional else 0
+        vcd.vcd_offset_delay = offset_delay
+        vcd.vcd_offset_loss = offset_loss
+        vcd.vcd_offset_z0 = offset_z0
+        vcd.vcd_fmin = fmin
+        vcd.vcd_fmax = fmax
+        cdef int aai[2][2]
+        cdef int rc = vnacal_make_calkit_parameter_matrix(
+            vcp, &vcd, &aai[0][0], sizeof(aai)
+        )
+        calset._check_error(rc)
+        cdef int i, j
+        for i in range(2):
+            for j in range(2):
+                self[i, j] = _ParameterMatrixElement(calset, aai[i][j])
+        return self
+
+    def __init__(self, *args, **kwargs):
+        pass
+
+
+class DataStandard(ParameterMatrix):
+    def __new__(cls, Calset calset, npdata):
+        cdef vnacal_t *vcp = calset.vcp
+        cdef int rows = npdata.rows
+        cdef int columns = npdata.columns
+        cdef vnadata_t *vdp
+        vdp = <vnadata_t *>PyCapsule_GetPointer(npdata._get_vdp(), NULL)
+        self = np.ndarray.__new__(cls, (rows, columns), dtype=object)
+        a = np.ndarray(shape=(rows, columns), dtype=np.int32, order="C")
+        cdef int [:, :] v = a
+        cdef int rc = vnacal_make_data_parameter_matrix(
+            vcp, vdp, &v[0][0], rows * columns * sizeof(int)
+        )
+        calset._check_error(rc)
+        cdef int i, j
+        for i in range(rows):
+            for j in range(columns):
+                self[i, j] = _ParameterMatrixElement(calset, v[i][j])
+        return self
+
+    def __init__(self, *args, **kwargs):
+        pass
+
+
 cdef object _prepare_C_array(object array, object name, int frequencies,
         double complex ***clfppp, int *rows, int *columns):
     # """
@@ -545,21 +937,25 @@ cdef class Solver:
         *s11* on the given VNA port.
 
         Parameters:
-            b (frequencies long vector of complex matrix):
-                root power received into each VNA port
+            b (sequence of complex matrices):
+                Raw VNA measurements at each frequency.  Each entry is
+                a complex matrix whose columns correspond to the driven
+                ports and whose rows give the complex amplitudes received
+                on the measured ports at that excitation.
 
             s11:
-                :math:`S_{11}` parameter of the the calibration standard
+                :math:`S_{11}` parameter of the calibration standard
 
-                Can be:
-                - a scalar
-                - a tuple(frequency_vector, value_vector),
-                - a Parameter,
-                - a 1x1 Standard
+                May be specified as complex scalar, a
+                (frequency_vector, value_vector) tuple, a
+                :class:`Parameter`, or a 1×1 :class:`ParameterMatrix`.
 
-            a (frequencies long vector of complex matrix, optional):
-                incident root power out of each VNA port, or None if
-                not available
+            a (sequence of complex matrices, optional):
+                When present, measurements of the signals leaving the VNA
+                ports at each frequency.  Each entry is a complex matrix
+                whose columns correspond to the driven ports and whose
+                rows give the complex amplitudes leaving the measured
+                ports at that excitation.
 
             delay (float, optional):
                 Delay in seconds between the reference plane and the
@@ -627,18 +1023,32 @@ cdef class Solver:
         S_{21} = 0`.
 
         Parameters:
-            b (frequencies long vector of complex matrix):
-                root power received into each VNA port
+            b (sequence of complex matrices):
+                Raw VNA measurements at each frequency.  Each entry is
+                a complex matrix whose columns correspond to the driven
+                ports and whose rows give the complex amplitudes received
+                on the measured ports at that excitation.
 
-            s11 (complex, (frequency_vector, value_vector) tuple, or Parameter):
-                the :math:`S_{11}` parameter of the the calibration standard
+            s11:
+                :math:`S_{11}` parameter of the calibration standard
 
-            s22 (complex, (frequency_vector, value_vector) tuple, or Parameter):
-                the :math:`S_{22}` parameter of the calibration standard
+                May be specified as complex scalar, a
+                (frequency_vector, value_vector) tuple, a
+                :class:`Parameter`, or a 1×1 :class:`ParameterMatrix`.
 
-            a (frequencies long vector of complex matrix, optional):
-                incident root power out of each VNA port, or None if
-                not available
+            s22:
+                :math:`S_{22}` parameter of the calibration standard
+
+                May be specified as complex scalar, a
+                (frequency_vector, value_vector) tuple, a
+                :class:`Parameter`, or a 1×1 :class:`ParameterMatrix`.
+
+            a (sequence of complex matrices, optional):
+                When present, measurements of the signals leaving the VNA
+                ports at each frequency.  Each entry is a complex matrix
+                whose columns correspond to the driven ports and whose
+                rows give the complex amplitudes leaving the measured
+                ports at that excitation.
 
             delay1 (float, optional):
                 delay in seconds between the reference plane and port
@@ -656,11 +1066,9 @@ cdef class Solver:
                 VNA port number connected to port 2 of the calibration
                 standard.  If not given, defaults to 2.
 
-            The s11 and s22 parameters can be:
-                - a scalar
-                - a tuple(frequency_vector, value_vector),
-                - a Parameter,
-                - a 1x1 Standard
+            The s11 and s22 parameters can be: scalar,
+            tuple(frequency_vector, value_vector), Parameter, or 1x1
+            ParameterMatrix.
         """
         cdef int a_rows = 0
         cdef int a_columns = 0
@@ -726,12 +1134,18 @@ cdef class Solver:
         :math:`S_{12} = S_{21} = 1` and :math:`S_{11} = S_{22} = 0`.
 
         Parameters:
-            b (frequencies long vector of complex matrix):
-                root power received into each VNA port
+            b (sequence of complex matrices):
+                Raw VNA measurements at each frequency.  Each entry is
+                a complex matrix whose columns correspond to the driven
+                ports and whose rows give the complex amplitudes received
+                on the measured ports at that excitation.
 
-            a (frequencies long vector of complex matrix, optional):
-                incident root power out of each VNA port, or None if
-                not available
+            a (sequence of complex matrices, optional):
+                When present, measurements of the signals leaving the VNA
+                ports at each frequency.  Each entry is a complex matrix
+                whose columns correspond to the driven ports and whose
+                rows give the complex amplitudes leaving the measured
+                ports at that excitation.
 
             delay (float, optional):
                 delay in seconds of the standard.  Can be negative.
@@ -792,24 +1206,25 @@ cdef class Solver:
         parameter matrix, *s*, on the given VNA ports.
 
         Parameters:
-            b (frequencies long vector of complex matrix):
-                root power received into each VNA port
+            b (sequence of complex matrices):
+                Raw VNA measurements at each frequency.  Each entry is
+                a complex matrix whose columns correspond to the driven
+                ports and whose rows give the complex amplitudes received
+                on the measured ports at that excitation.
 
             s (2x2 matrix):
-                S-parameter matrix of the standard, where each element
-                of the matrix can be a complex, (frequency_vector,
-                value_vector) tuple, or Parameter
+                S-parameter matrix of the standard.  Can be specified
+                as a 2×2 :class:`ParameterMatrix`, or a matrix where each
+                element is complex scalar,
+                a (frequency_vector, value_vector) tuple,
+                or :class:`Parameter`.
 
-                Can be:
-                - 2x2 Standard
-                - 2x2 array of:
-                    - scalar
-                    - tuple(frequency_vector, value_vector)
-                    - Parameter
-
-            a (frequencies long vector of complex matrix, optional):
-                incident root power out of each VNA port, or None if
-                not available
+            a (sequence of complex matrices, optional):
+                When present, measurements of the signals leaving the VNA
+                ports at each frequency.  Each entry is a complex matrix
+                whose columns correspond to the driven ports and whose
+                rows give the complex amplitudes leaving the measured
+                ports at that excitation.
 
             delay1 (float, optional):
                 delay in seconds between the reference plane and port
@@ -852,8 +1267,8 @@ cdef class Solver:
             #
             # Prepare S parameters
             #
-            s = np.asarray(s, dtype=object)
-            if s.ndim < 2 or s.shape[0] != 2 or s.shape[1] != 2:
+            s = ParameterMatrix.from_array(self.calset, s)
+            if s.ndim != 2 or s.shape[0] != 2 or s.shape[1] != 2:
                 raise ValueError("s must be a 2x2 matrix of parameters")
             for i in range(2):
                 for j in range(2):
@@ -893,20 +1308,25 @@ cdef class Solver:
         ports of the VNA in *port_map*.
 
         Parameters:
-            b (frequencies long vector of complex matrix):
-                root power received into each VNA port
+            b (sequence of complex matrices):
+                Raw VNA measurements at each frequency.  Each entry is
+                a complex matrix whose columns correspond to the driven
+                ports and whose rows give the complex amplitudes received
+                on the measured ports at that excitation.
 
             s (matrix):
-                S-parameter matrix of the standard
+                S-parameter matrix of the standard.  Can be specified
+                as a :class:`ParameterMatrix`, or a matrix where each
+                element is complex scalar,
+                a (frequency_vector, value_vector) tuple,
+                or :class:`Parameter`.
 
-                Can be a Standard or an array where each element is:
-                - a scalar
-                - a tuple(frequency_vector, value_vector),
-                - a Parameter,
-
-            a (frequencies long vector of complex matrix, optional):
-                incident root power out of each VNA port, or None if
-                not available
+            a (sequence of complex matrices, optional):
+                When present, measurements of the signals leaving the VNA
+                ports at each frequency.  Each entry is a complex matrix
+                whose columns correspond to the driven ports and whose
+                rows give the complex amplitudes leaving the measured
+                ports at that excitation.
 
             delay_vector (list/array of float, optional):
                 vector of delays in seconds between the reference plane
@@ -950,12 +1370,12 @@ cdef class Solver:
             #
             # Prepare S parameters
             #
-            s = np.asarray(s, dtype=object)
-            if s.ndim < 2:
-                raise ValueError("s must be a matrix of parameters")
+            s = ParameterMatrix.from_array(self.calset, s)
+            if s.ndim != 2:
+                raise ValueError("s must have two dimensions")
             s_rows = s.shape[0]
             s_columns = s.shape[1]
-            s_ports = s_rows if s_rows >= s_columns else s_columns
+            s_ports = max(s_rows, s_columns)
             sip = <int *>malloc(s_rows * s_columns * sizeof(int))
             if sip == NULL:
                 raise MemoryError()
@@ -1015,8 +1435,8 @@ cdef class Solver:
 
         Parameters:
             frequency_vector (vector of float):
-                vector of ascending frequencies spanning at least the
-                full calibration frequency range
+                vector of ascending frequencies spanning calibration
+                frequency range
 
             noise_floor (vector of float):
                 vector of noise floor root-power measurements at the
@@ -1222,7 +1642,7 @@ cdef class Calibration:
     @property
     def rows(self) -> int:
         """
-        Number of rows in the calibration (int, readonly)
+        number of rows in the calibration (int, readonly)
         """
         cdef vnacal_t *vcp = self.calset.vcp
         cdef int ci = self.ci
@@ -1233,7 +1653,7 @@ cdef class Calibration:
     @property
     def columns(self) -> int:
         """
-        Number of columns in the calibration (int, readonly)
+        number of columns in the calibration (int, readonly)
         """
         cdef vnacal_t *vcp = self.calset.vcp
         cdef int ci = self.ci
@@ -1244,7 +1664,7 @@ cdef class Calibration:
     @property
     def frequencies(self) -> int:
         """
-        Number of frequencies in the calibration (int, readonly)
+        number of frequencies in the calibration (int, readonly)
         """
         cdef vnacal_t *vcp = self.calset.vcp
         cdef int ci = self.ci
@@ -1255,7 +1675,7 @@ cdef class Calibration:
     @property
     def frequency_vector(self):
         """
-        Vector of calibration frequencies (array of float, readonly)
+        vector of calibration frequencies (array of float, readonly)
         """
         cdef vnacal_t *vcp = self.calset.vcp
         cdef int ci = self.ci
@@ -1267,10 +1687,11 @@ cdef class Calibration:
         memcpy(&v[0], lfp, frequencies * sizeof(double))
         return result
 
+    # TODO: return vector or matrix as needed
     @property
     def z0(self) -> complex:
         """
-        Reference frequency of all ports in the calibration (complex,
+        reference frequency of all ports in the calibration (complex,
         readonly)
         """
         cdef vnacal_t *vcp = self.calset.vcp
@@ -1288,19 +1709,26 @@ cdef class Calibration:
                 vector of frequencies at which the measurements were made,
                 or None if measured at the calibration frequencies
 
-            b (frequencies long vector of complex matrix):
-                root power received into each VNA port
+            b (sequence of complex matrices):
+                Raw VNA measurements at each frequency.  Each entry is
+                a complex matrix whose columns correspond to the driven
+                ports and whose rows give the complex amplitudes received
+                on the measured ports at that excitation.
 
-            a (frequencies long vector of complex matrix, optional):
-                incident root power out of each VNA port, or None if
-                not available
+            a (sequence of complex matrices, optional):
+                When present, measurements of the signals leaving the VNA
+                ports at each frequency.  Each entry is a complex matrix
+                whose columns correspond to the driven ports and whose
+                rows give the complex amplitudes leaving the measured
+                ports at that excitation.  Note that use of an **a** matrix
+                here must match use of the **a** matrix during calibration.
 
             delay_vector (list/array of float, optional):
                 delay in seconds between the reference plane and each
                 port of the DUT.  Delays can be negative.
 
         Return:
-            libvna.data.NPData object containing the corrected parameters
+            NPData object containing the corrected parameters
         """
         cdef vnacal_t *vcp = self.calset.vcp
         cdef int ci = self.ci
@@ -1348,7 +1776,7 @@ cdef class Calibration:
             #
             # Prepare result object
             #
-            result = libvna.data.NPData()
+            result = NPData()
             vdp = <vnadata_t *>PyCapsule_GetPointer(result._get_vdp(), NULL)
 
             #
@@ -1393,10 +1821,10 @@ cdef class Calibration:
     @property
     def properties(self):
         """
-        A tree of nested dictionaries, lists, scalars and None values
-        representing arbitrary user-defined properties of the calibration.
-        Some examples are the calibration date, cable lengths, and test
-        set used.
+        Tree of nested dictionaries, lists, scalars and None values
+        representing arbitrary user-defined metadata to be saved with
+        the calibration.  Examples might include calibration date,
+        cable lengths, and test set used.
         """
         cdef int ci = self.ci
         return self.calset._get_properties(ci)
@@ -1599,19 +2027,17 @@ cdef class _CalList:
 
 cdef class Calset:
     """
-    The Calset loads, saves and manages solved VNA calibrations.  It's
-    the central data structure of VNA calibration, needed by other
-    classes in the module.
+    The Calset is a container of solved calibrations and a context
+    for creating new calibrations.
 
     Though the Calset usually holds just one calibration, it can hold
-    any number of related calibrations, for example, covering different
-    frequency bands or test set configurations.
+    any number of calibrations, for example, covering different frequency
+    bands or test set configurations.
 
     Parameters:
         filename (str, optional):
-            Load the Calset from the given file.  Note that the
-            recommended .vnacal extension is not added automatically
-            and should be included in filename.
+            Load the Calset from the given file.  Note that the suggested
+            extension of .vnacal is not added automatically.
     """
     cdef vnacal_t *vcp
     cdef object _properties
@@ -1836,6 +2262,219 @@ cdef class Calset:
         """
         return CorrelatedParameter(self, other, frequency_vector, sigma_vector)
 
+    def parameter_matrix(self: Calset, array) -> ParameterMatrix:
+        """
+        Return an array of Parameter objects representing the S-parameters
+        of a calibration standard constructed from the given array.
+
+        Parameters:
+            array:
+                an array-like object or an NPData object
+
+                When an array is given, the elements may be complex
+                scalar, ``(frequency_vector, value_vector)`` tuple, or
+                ``Parameter``.
+        """
+        if isinstance(array, NPData):
+            return DataStandard(self, array)
+
+        return ParameterMatrix.from_array(self, array)
+
+    def short_standard(
+        self: Calset,
+        offset_delay: float = 0.0,
+        offset_loss: float = 0.0,
+        offset_z0: float = 50.0,
+        fmin: float = 0.0,
+        fmax: float = INFINITY,
+        traditional: bool = False,
+        L=None
+    ) -> ShortStandard:
+        """
+        Return a calkit short standard.
+
+        Parameters:
+            offset_delay (float, optional):
+                delay in seconds (default 0.0)
+
+            offset_loss (float, optional):
+                loss in ohms per second (default 0.0)
+
+            offset_z0 (float, optional):
+                lossless characteristic impedance in ohms (default 50.0)
+
+            fmin (float, optional):
+                minimum usable frequency of the standard in Hz (default 0.0)
+
+            fmax (float, optional):
+                maximum usable frequency of the standard in Hz (default
+                infinity)
+
+            traditional (bool, optional):
+                Use the traditional transmission line model described in
+                Agilent note AN-1287-11 where an approximation was used to
+                avoid the need for complex square root.  By default, the
+                Keysight revised transmission model is used. (default False)
+
+            L (array-like of float, optional):
+                vector of up to four polynomial coefficients modeling the
+                inductance of the standard as a function of frequency with
+                element units in Henries, Henries/Hz, Henries/Hz^2 and
+                Henries/Hz^3, respectively
+        """
+        return ShortStandard(
+            self, offset_delay, offset_loss, offset_z0,
+            fmin, fmax, traditional, L
+        )
+
+    def open_standard(
+        self: Calset,
+        offset_delay: float = 0.0,
+        offset_loss: float = 0.0,
+        offset_z0: float = 50.0,
+        fmin: float = 0.0,
+        fmax: float = INFINITY,
+        traditional: bool = False,
+        C=None
+    ) -> OpenStandard:
+        """
+        Return a calkit open standard.
+
+        Parameters:
+            offset_delay (float, optional):
+                delay in seconds (default 0.0)
+
+            offset_loss (float, optional):
+                loss in ohms per second (default 0.0)
+
+            offset_z0 (float, optional):
+                lossless characteristic impedance in ohms (default 50.0)
+
+            fmin (float, optional):
+                minimum usable frequency of the standard in Hz (default 0.0)
+
+            fmax (float, optional):
+                maximum usable frequency of the standard in Hz (default
+                infinity)
+
+            traditional (bool, optional):
+                Use the traditional transmission line model described in
+                Agilent note AN-1287-11 where an approximation was used to
+                avoid the need for complex square root.  By default, the
+                Keysight revised transmission model is used. (default False)
+
+            C (array-like of float, optional):
+                vector of up to four polynomial coefficients modeling the
+                capacitance of the standard as a function of frequency with
+                element units in Farads, Farads/Hz, Farads/Hz^2 and
+                Farads/Hz^3, respectively
+        """
+        return OpenStandard(
+            self, offset_delay, offset_loss, offset_z0,
+            fmin, fmax, traditional, C
+        )
+
+    def load_standard(
+        self: Calset,
+        offset_delay: float = 0.0,
+        offset_loss: float = 0.0,
+        offset_z0: float = 50.0,
+        fmin: float = 0.0,
+        fmax: float = INFINITY,
+        traditional: bool = False,
+        Zl: complex = 50.0
+    ) -> LoadStandard:
+        """
+        Return a calkit load standard.
+
+        Parameters:
+            offset_delay (float, optional):
+                delay in seconds (default 0.0)
+
+            offset_loss (float, optional):
+                loss in ohms per second (default 0.0)
+
+            offset_z0 (float, optional):
+                lossless characteristic impedance in ohms (default 50.0)
+
+            fmin (float, optional):
+                minimum usable frequency of the standard in Hz (default 0.0)
+
+            fmax (float, optional):
+                maximum usable frequency of the standard in Hz (default
+                infinity)
+
+            traditional (bool, optional):
+                Use the traditional transmission line model described in
+                Agilent note AN-1287-11 where an approximation was used to
+                avoid the need for complex square root.  By default, the
+                Keysight revised transmission model is used. (default False)
+
+            Zl (complex, optional):
+                The impedance of the load in ohms.  This parameter can
+                in general be complex.  If not given, defaults to 50 ohms.
+        """
+        return LoadStandard(
+            self, offset_delay, offset_loss, offset_z0,
+            fmin, fmax, traditional, Zl
+        )
+
+    def through_standard(
+        self: Calset,
+        offset_delay: float = 0.0,
+        offset_loss: float = 0.0,
+        offset_z0: float = 50.0,
+        fmin: float = 0.0,
+        fmax: float = INFINITY,
+        traditional: bool = False
+    ) -> ThroughStandard:
+        """
+        Return a calkit through standard.
+
+        Parameters:
+            offset_delay (float, optional):
+                delay in seconds (default 0.0)
+
+            offset_loss (float, optional):
+                loss in ohms per second (default 0.0)
+
+            offset_z0 (float, optional):
+                lossless characteristic impedance in ohms (default 50.0)
+
+            fmin (float, optional):
+                minimum usable frequency of the standard in Hz (default 0.0)
+
+            fmax (float, optional):
+                maximum usable frequency of the standard in Hz (default
+                infinity)
+
+            traditional (bool, optional):
+                Use the traditional transmission line model described in
+                Agilent note AN-1287-11 where an approximation was used to
+                avoid the need for complex square root.  By default, the
+                Keysight revised transmission model is used. (default False)
+        """
+        return ThroughStandard(
+            self, offset_delay, offset_loss, offset_z0,
+            fmin, fmax, traditional
+        )
+
+    def data_standard(self, npdata: NPData) -> DataStandard:
+        """
+        A data-based standard from an NPData object
+
+        Parameters:
+            npdata:
+                an NPData object representing the standard
+
+        Frequencies must span the calibration frequency range,
+        but frequency points do not have to match: the library uses
+        rational function interpolation to interpolate frequencies
+        as needed.  Conversion to S-parameters and reference impedance
+        re-normalization is done automatically.
+        """
+        return DataStandard(self, npdata)
+
     def solver(
         self, CalType ctype, int rows, int columns, frequency_vector,
         double complex z0 = 50.0
@@ -1918,8 +2557,9 @@ cdef class Calset:
                 vector of frequency points to be used in the calibration.
                 Must be monotonically increasing
 
+            # TODO: fix this
             z0 (complex, optional):
-                feference impedance of the VNA ports.  All ports must
+                reference impedance of the VNA ports.  All ports must
                 have the same reference impedance.  If not specified,
                 *z0* defaults to 50 ohms.
 
@@ -1939,9 +2579,10 @@ cdef class Calset:
 
         Parameters:
             filename (str):
-                pathname of the save file.  The recommended file
-                extension, ".vnacal", is not added automatically and
-                should included in *filename*.
+                pathname of the save file
+
+                Note that the suggested file extension of .vnacal is
+                not added automatically.
         """
         self._put_all_properties()
         if isinstance(filename, str):
@@ -1970,10 +2611,10 @@ cdef class Calset:
     @property
     def calibrations(self):
         """
-        Vector of solved Calibration objects in this Calset.
-        This attribute is indexable, iterable, and the elements can
-        be deleted.  The index can be either int, or a str containing
-        the name of the calibration.
+        Vector of solved Calibration objects in this Calset.  Behaves like
+        an ordered dictionary where calibrations can be indexed by int, or
+        a str containing the name of the calibration.  Supports iteration,
+        index, contains and del.
         """
         helper = _CalList()
         helper.calset = self
@@ -1982,11 +2623,10 @@ cdef class Calset:
     @property
     def properties(self):
         """
-        A tree of nested dictionaries, lists, scalars and None values
-        representing arbitrary user-defined global properties of the
-        calibration set, for example, the model and serial number of
-        the instrument, test fixture used, and other conditions under
-        which the calibration was made.
+        Tree of nested dictionaries, lists, scalars and None values
+        representing arbitrary user-defined metadata to be saved with
+        the Calset.  Examples might include model and serial number and
+        capabilities of the instrament.
 
         Also see the calibration-specific properties,
         Calibration.properties.
