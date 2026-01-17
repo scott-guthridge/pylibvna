@@ -1,6 +1,6 @@
 %# Imports for the error term and test data generator.
 %[
-from libvna.cal import CalType, Calset, VectorParameter
+from libvna.cal import CalType, Calset
 from libvna.data import NPData, PType
 from libvna.conv import ztos
 import math
@@ -49,17 +49,17 @@ actual_S3 = [-1 + et.random_complex(rng, σ) for σ in σ_vector]
 actual_O3 = [+1 + et.random_complex(rng, σ) for σ in σ_vector]
 actual_M4 = [ 0 + et.random_complex(rng, σ) for σ in σ_vector]
 actual_M5 = [ 0 + et.random_complex(rng, σ) for σ in σ_vector]
-M1a = VectorParameter(calset, f_vector, actual_M1)
-S1a = VectorParameter(calset, f_vector, actual_S1)
-O1a = VectorParameter(calset, f_vector, actual_O1)
-M2a = VectorParameter(calset, f_vector, actual_M2)
-S2a = VectorParameter(calset, f_vector, actual_S2)
-O2a = VectorParameter(calset, f_vector, actual_O2)
-M3a = VectorParameter(calset, f_vector, actual_M3)
-S3a = VectorParameter(calset, f_vector, actual_S3)
-O3a = VectorParameter(calset, f_vector, actual_O3)
-M4a = VectorParameter(calset, f_vector, actual_M4)
-M5a = VectorParameter(calset, f_vector, actual_M5)
+M1a = calset.vector_parameter(f_vector, actual_M1)
+S1a = calset.vector_parameter(f_vector, actual_S1)
+O1a = calset.vector_parameter(f_vector, actual_O1)
+M2a = calset.vector_parameter(f_vector, actual_M2)
+S2a = calset.vector_parameter(f_vector, actual_S2)
+O2a = calset.vector_parameter(f_vector, actual_O2)
+M3a = calset.vector_parameter(f_vector, actual_M3)
+S3a = calset.vector_parameter(f_vector, actual_S3)
+O3a = calset.vector_parameter(f_vector, actual_O3)
+M4a = calset.vector_parameter(f_vector, actual_M4)
+M5a = calset.vector_parameter(f_vector, actual_M5)
 
 #
 # Find the actual through standard, modelling it as a length of
@@ -76,7 +76,7 @@ c = 2.9979246e+8		# speed of light (m/s)
 gl = [(lm * math.sqrt(f) + ld * f + 2.0j * math.pi * f / (vf * c)) * length
       for f in f_vector]
 γ_through_actual = np.exp(-np.asarray(gl))
-T_actual = VectorParameter(calset, f_vector, γ_through_actual)
+T_actual = calset.vector_parameter(f_vector, γ_through_actual)
 
 #
 # Create an NPData object for saving the measurements to files.
@@ -87,8 +87,7 @@ npd.frequency_vector = f_vector
 %O T16-EM-calibrate.py
 %############################ begin calibration ###############################
 %# Imports for calibration
-from libvna.cal import (Calset, CalType, Solver, CorrelatedParameter,
-	                UnknownParameter)
+from libvna.cal import Calset, CalType, Solver
 from libvna.data import NPData, PType
 import math
 import numpy as np
@@ -140,29 +139,29 @@ print('])', file=_file)
 #
 # Create correlated parameters for each connection of the reflect
 # standards.  Here, we assume that the standards are perfect on average.
-# The second parameter can be a VectorParameter instead of a constant
+# The second parameter can be a vector parameter instead of a constant
 # if we have a more trusted model of the standards.
 #
-M1 = CorrelatedParameter(calset,  0, f_vector, σ_vector)
-S1 = CorrelatedParameter(calset, -1, f_vector, σ_vector)
-O1 = CorrelatedParameter(calset, +1, f_vector, σ_vector)
-M2 = CorrelatedParameter(calset,  0, f_vector, σ_vector)
-S2 = CorrelatedParameter(calset, -1, f_vector, σ_vector)
-O2 = CorrelatedParameter(calset, +1, f_vector, σ_vector)
-M3 = CorrelatedParameter(calset,  0, f_vector, σ_vector)
-S3 = CorrelatedParameter(calset, -1, f_vector, σ_vector)
-O3 = CorrelatedParameter(calset, +1, f_vector, σ_vector)
+M1 = calset.correlated_parameter( 0, f_vector, σ_vector)
+S1 = calset.correlated_parameter(-1, f_vector, σ_vector)
+O1 = calset.correlated_parameter(+1, f_vector, σ_vector)
+M2 = calset.correlated_parameter( 0, f_vector, σ_vector)
+S2 = calset.correlated_parameter(-1, f_vector, σ_vector)
+O2 = calset.correlated_parameter(+1, f_vector, σ_vector)
+M3 = calset.correlated_parameter( 0, f_vector, σ_vector)
+S3 = calset.correlated_parameter(-1, f_vector, σ_vector)
+O3 = calset.correlated_parameter(+1, f_vector, σ_vector)
 
 #
 # Create two impedance match errors and an unknown parameter for the
 # through standard.  If the phase shift in the through remains safely
 # below 90 degrees, we can give 1 as the estimate.  For a larger phase
-# shift, we would have to provide a VectorParameter instead of 1 as the
+# shift, we would have to provide a vector parameter instead of 1 as the
 # initial guess and give a more accurate estimate for each frequency.
 #
-M4 = CorrelatedParameter(calset, 0, f_vector, σ_vector)
-M5 = CorrelatedParameter(calset, 0, f_vector, σ_vector)
-T = UnknownParameter(calset, 1)
+M4 = calset.correlated_parameter(0, f_vector, σ_vector)
+M5 = calset.correlated_parameter(0, f_vector, σ_vector)
+T = calset.unknown_parameter(1)
 
 #
 # Start with match on port 1 and short on port 2 (M-S).
@@ -319,10 +318,10 @@ npd.save('T16-EM-expected.s2p')
 %]
 # Measured response
 %[
-s = [[VectorParameter(calset, f_vector, expected[:, 0, 0]),
-      VectorParameter(calset, f_vector, expected[:, 0, 1])],
-     [VectorParameter(calset, f_vector, expected[:, 1, 0]),
-      VectorParameter(calset, f_vector, expected[:, 1, 1])]]
+s = [[calset.vector_parameter(f_vector, expected[:, 0, 0]),
+      calset.vector_parameter(f_vector, expected[:, 0, 1])],
+     [calset.vector_parameter(f_vector, expected[:, 1, 0]),
+      calset.vector_parameter(f_vector, expected[:, 1, 1])]]
 m = eterms.evaluate(calset, f_vector, s)
 npd.data_array = m
 npd.save('T16-EM-measured.s2p')

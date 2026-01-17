@@ -1,6 +1,6 @@
 %# Imports for the error term and test data generator.
 %[
-from libvna.cal import CalType, Calset, VectorParameter
+from libvna.cal import CalType, Calset
 from libvna.data import NPData, PType
 from libvna.conv import ztos
 import math
@@ -29,7 +29,7 @@ for i, f in enumerate(f_vector):
     jω = 2.0j * math.pi * f
     zr = 5.0 + 700e-12 * jω 
     r_vector.append(ztos([[zr]])[0, 0])
-R_actual = VectorParameter(calset, f_vector, r_vector)
+R_actual = calset.vector_parameter(f_vector, r_vector)
 
 # For the line standard, the effective permittivity is less than we
 # estimate, and there is some loss.
@@ -43,13 +43,13 @@ np_per_db = 0.11512925		# neper to dB
 gl = [(np_per_db + mm_per_m * line_loss * math.sqrt(f / 1.0e+9)
       + 2.0j * math.pi / (c * vf) * f) * line_length for f in f_vector]
 γ_line_actual = np.exp(-np.asarray(gl))
-L_actual = VectorParameter(calset, f_vector, γ_line_actual)
+L_actual = calset.vector_parameter(f_vector, γ_line_actual)
 
 %]
 %O TRL-calibrate.py
 %############################ begin calibration ###############################
 %# Imports for calibration
-from libvna.cal import Calset, CalType, Solver, UnknownParameter
+from libvna.cal import Calset, CalType, Solver
 from libvna.data import NPData, PType
 import math
 import numpy as np
@@ -75,10 +75,10 @@ vf = 1 / math.sqrt(εr_eff)	# velocity factor
 c = 2.9979246e+8		# speed of light (m/s)
 line_estimated = np.exp(-2.0j * math.pi / (c * vf) * line_length * f_vector)
 
-# Create Unknown parameters for the reflect and line, giving
+# Create unknown parameters for the reflect and line, giving
 # estimated values for each.
-R = UnknownParameter(calset, -1)
-L = UnknownParameter(calset, (f_vector, line_estimated))
+R = calset.unknown_parameter(-1)
+L = calset.unknown_parameter((f_vector, line_estimated))
 
 # Add measurement of the through standard.
 %[
@@ -159,10 +159,10 @@ npd.save('TRL-expected.s2p')
 %]
 # Measured response
 %[
-s = [[VectorParameter(calset, f_vector, expected[:, 0, 0]),
-      VectorParameter(calset, f_vector, expected[:, 0, 1])],
-     [VectorParameter(calset, f_vector, expected[:, 1, 0]),
-      VectorParameter(calset, f_vector, expected[:, 1, 1])]]
+s = [[calset.vector_parameter(f_vector, expected[:, 0, 0]),
+      calset.vector_parameter(f_vector, expected[:, 0, 1])],
+     [calset.vector_parameter(f_vector, expected[:, 1, 0]),
+      calset.vector_parameter(f_vector, expected[:, 1, 1])]]
 m = eterms.evaluate(calset, f_vector, s)
 npd.data_array = m
 npd.save('TRL-measured.s2p')

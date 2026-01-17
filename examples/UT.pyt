@@ -1,6 +1,6 @@
 %# Imports for the error term and test data generator.
 %[
-from libvna.cal import CalType, Calset, VectorParameter
+from libvna.cal import CalType, Calset
 from libvna.data import NPData, PType
 from libvna.conv import ztos
 import math
@@ -35,12 +35,12 @@ c = 2.9979246e+8		# speed of light (m/s)
 gl = [(lm * math.sqrt(f) + ld * f + 2.0j * math.pi * f / (vf * c)) * length
       for f in f_vector]
 γ_through_actual = np.exp(-np.asarray(gl))
-T_actual = VectorParameter(calset, f_vector, γ_through_actual)
+T_actual = calset.vector_parameter(f_vector, γ_through_actual)
 %]
 %O UT-calibrate.py
 %############################ begin calibration ###############################
 %# Imports for calibration
-from libvna.cal import Calset, CalType, Solver, UnknownParameter
+from libvna.cal import Calset, CalType, Solver
 from libvna.data import NPData, PType
 import math
 import numpy as np
@@ -60,7 +60,7 @@ solver = Solver(calset, CalType.TE10, rows=2, columns=2,
 # phase shift in the through remains safely below 90 degrees, we can
 # give 1 as the estimate.  For a larger phase shift, we would need to
 # give a more accurate estimate for each frequency.
-T = UnknownParameter(calset, 1)
+T = calset.unknown_parameter(1)
 
 # Add measurement of the short-open standard.
 %[
@@ -144,10 +144,10 @@ npd.save('UT-expected.s2p')
 %]
 # Measured response
 %[
-s = [[VectorParameter(calset, f_vector, expected[:, 0, 0]),
-      VectorParameter(calset, f_vector, expected[:, 0, 1])],
-     [VectorParameter(calset, f_vector, expected[:, 1, 0]),
-      VectorParameter(calset, f_vector, expected[:, 1, 1])]]
+s = [[calset.vector_parameter(f_vector, expected[:, 0, 0]),
+      calset.vector_parameter(f_vector, expected[:, 0, 1])],
+     [calset.vector_parameter(f_vector, expected[:, 1, 0]),
+      calset.vector_parameter(f_vector, expected[:, 1, 1])]]
 m = eterms.evaluate(calset, f_vector, s)
 npd.data_array = m
 npd.save('UT-measured.s2p')

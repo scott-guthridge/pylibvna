@@ -1,6 +1,6 @@
 %# Imports for the error term and test data generator.
 %[
-from libvna.cal import Calset, CalType, VectorParameter
+from libvna.cal import Calset, CalType
 from libvna.data import NPData, PType
 import math
 import numpy as np
@@ -39,7 +39,7 @@ for i, f in enumerate(f_std):
     jω = 2j * math.pi * f
     z = parallel(5.0 + jω * 250e-9, 1.0 / (jω * 1.0e-12))
     d_short.data_array[i, 0, 0] = z
-s_short = [[VectorParameter(calset, f_std,
+s_short = [[calset.vector_parameter(f_std,
                             d_short.convert(PType.S).data_array[:, 0, 0])]]
 d_short.save('short.s1p')
 
@@ -50,7 +50,7 @@ for i, f in enumerate(f_std):
     jω = 2j * math.pi * f
     z = 1 / (jω * 100e-12) + jω * 2.5e-9
     d_open.data_array[i, 0, 0] = z
-s_open = [[VectorParameter(calset, f_std,
+s_open = [[calset.vector_parameter(f_std,
                            d_open.convert(PType.S).data_array[:, 0, 0])]]
 d_open.save('open.s1p')
 
@@ -61,14 +61,14 @@ for i, f in enumerate(f_std):
     jω = 2j * math.pi * f
     z = parallel(75.0, 1.0 / (jω  * 5.0e-12))
     d_open.data_array[i, 0, 0] = z
-s_load = [[VectorParameter(calset, f_std,
+s_load = [[calset.vector_parameter(f_std,
                            d_load.convert(PType.S).data_array[:, 0, 0])]]
 d_load.save('load.s1p')
 %]
 %O 1x1m-calibrate.py
 %############################ begin calibration ###############################
 %# Imports for calibration
-from libvna.cal import Calset, CalType, Solver, VectorParameter
+from libvna.cal import Calset, CalType, Solver
 from libvna.data import NPData, PType
 import numpy as np
 
@@ -84,11 +84,10 @@ solver = Solver(calset, CalType.E12, rows=1, columns=1,
                 frequency_vector=f_vector)
 
 # Load the parameters of the short standard, convert to S-parameters
-# (if not already in S), and form into a VectorParameter.
+# (if not already in S), and form into a vector parameter.
 short = NPData(filename='short.s1p', ptype=PType.S)
-s11 = VectorParameter(calset,
-                      short.frequency_vector,
-                      short.data_array[:, 0, 0])
+s11 = calset.vector_parameter(short.frequency_vector,
+                              short.data_array[:, 0, 0])
 
 # Add measurement of the short standard.
 %[
@@ -98,11 +97,10 @@ et.print_matrix(m, file=_file, indent=_indent)
 solver.add_single_reflect(m, s11)
 
 # Load the parameters of the open standard, convert to S-parameters,
-# and form into a VectorParameter.
+# and form into a vector parameter.
 open = NPData(filename='open.s1p', ptype=PType.S)
-s11 = VectorParameter(calset,
-                      open.frequency_vector,
-                      open.data_array[:, 0, 0])
+s11 = calset.vector_parameter(open.frequency_vector,
+                              open.data_array[:, 0, 0])
 
 # Add measurement of the open standard.
 %[
@@ -112,11 +110,10 @@ et.print_matrix(m, file=_file, indent=_indent)
 solver.add_single_reflect(m, s11)
 
 # Load the parameters of the load standard, convert to S-parameters,
-# and form into a VectorParameter.
+# and form into a vector parameter.
 load = NPData(filename='load.s1p', ptype=PType.S)
-s11 = VectorParameter(calset,
-                      load.frequency_vector,
-                      load.data_array[:, 0, 0])
+s11 = calset.vector_parameter(load.frequency_vector,
+                              load.data_array[:, 0, 0])
 
 # Add measurement of the load standard.
 %[

@@ -44,14 +44,14 @@ class TestModule(unittest.TestCase):
         r_dut2     = np.exp(-2.0j * math.pi * delay_dut2    * f_vector)
 
         # Add short standard.
-        s11 = VectorParameter(calset, f_vector, r_short * -1.0)
+        s11 = calset.vector_parameter(f_vector, r_short * -1.0)
         s = [[s11, 0.0],
              [0.0, 0.0]]
         m = eterms.evaluate(calset, f_vector, s)
         solver.add_single_reflect(m, -1.0, delay=delay_short)
 
         # Add open standard.
-        s11 = VectorParameter(calset, f_vector, r_open * 1.0)
+        s11 = calset.vector_parameter(f_vector, r_open * 1.0)
         s = [[s11, 0.0],
              [0.0, 0.0]]
         m = eterms.evaluate(calset, f_vector, s)
@@ -65,7 +65,7 @@ class TestModule(unittest.TestCase):
         solver.add_single_reflect(m, 0.0, delay=delay_match)
 
         # Add through standard.
-        s12 = VectorParameter(calset, f_vector, r_through)
+        s12 = calset.vector_parameter(f_vector, r_through)
         s = [[0.0, s12],
              [s12, 0.0]]
         m = eterms.evaluate(calset, f_vector, s)
@@ -91,10 +91,10 @@ class TestModule(unittest.TestCase):
             r2 = r_dut2[i]
             delayed[i, ...] = s * [[r1 * r1, r1 * r2],
                                    [r1 * r2, r2 * r2]]
-        s = [[VectorParameter(calset, f_vector, delayed[:, 0, 0]),
-              VectorParameter(calset, f_vector, delayed[:, 0, 1])],
-             [VectorParameter(calset, f_vector, delayed[:, 1, 0]),
-              VectorParameter(calset, f_vector, delayed[:, 1, 1])]]
+        s = [[calset.vector_parameter(f_vector, delayed[:, 0, 0]),
+              calset.vector_parameter(f_vector, delayed[:, 0, 1])],
+             [calset.vector_parameter(f_vector, delayed[:, 1, 0]),
+              calset.vector_parameter(f_vector, delayed[:, 1, 1])]]
         m1 = eterms.evaluate(calset, f_vector, s)
         m2 = eterms.evaluate(calset, f_vector, np.flipud(np.fliplr(s)))
         m = np.concatenate((m1, np.flip(m2, axis=1)), axis=2)
@@ -124,8 +124,8 @@ class TestModule(unittest.TestCase):
         r_dut2     = np.exp(-2.0j * math.pi * delay_dut2    * f_vector)
 
         # Add short-open standard.
-        s11 = VectorParameter(calset, f_vector, r_short * -1.0)
-        s22 = VectorParameter(calset, f_vector, r_open  *  1.0)
+        s11 = calset.vector_parameter(f_vector, r_short * -1.0)
+        s22 = calset.vector_parameter(f_vector, r_open  *  1.0)
         s = [[s11, 0.0],
              [0.0, s22]]
         m = eterms.evaluate(calset, f_vector, s)
@@ -134,7 +134,7 @@ class TestModule(unittest.TestCase):
 
         # Add match-short standard.
         s11 = 0
-        s22 = VectorParameter(calset, f_vector, r_short * -1.0)
+        s22 = calset.vector_parameter(f_vector, r_short * -1.0)
         s = [[s11, 0.0],
              [0.0, s22]]
         m = eterms.evaluate(calset, f_vector, s)
@@ -142,7 +142,7 @@ class TestModule(unittest.TestCase):
                                   delay1=delay_match, delay2=delay_short)
 
         # Add through standard (using line).
-        s12 = VectorParameter(calset, f_vector, r_through)
+        s12 = calset.vector_parameter(f_vector, r_through)
         s = [[0.0, s12],
              [s12, 0.0]]
         m = eterms.evaluate(calset, f_vector, s)
@@ -169,10 +169,10 @@ class TestModule(unittest.TestCase):
             r2 = r_dut2[i]
             delayed[i, ...] = s * [[r1 * r1, r1 * r2],
                                    [r1 * r2, r2 * r2]]
-        s = [[VectorParameter(calset, f_vector, delayed[:, 0, 0]),
-              VectorParameter(calset, f_vector, delayed[:, 0, 1])],
-             [VectorParameter(calset, f_vector, delayed[:, 1, 0]),
-              VectorParameter(calset, f_vector, delayed[:, 1, 1])]]
+        s = [[calset.vector_parameter(f_vector, delayed[:, 0, 0]),
+              calset.vector_parameter(f_vector, delayed[:, 0, 1])],
+             [calset.vector_parameter(f_vector, delayed[:, 1, 0]),
+              calset.vector_parameter(f_vector, delayed[:, 1, 1])]]
         m = eterms.evaluate(calset, f_vector, s)
         calibration = calset.calibrations[0]
         result = calibration.apply(f_vector, m,
@@ -235,7 +235,7 @@ class TestModule(unittest.TestCase):
         r = [r11, r12, r13]
         for i in range(3):
             for j in range(3):
-                s_delayed[i, j] = VectorParameter(calset, f_vector,
+                s_delayed[i, j] = calset.vector_parameter(f_vector,
                                                   r[i] * r[j] * s_matrix[i, j])
         m = eterms.evaluate(calset, f_vector, s_delayed)
         # map = [2, 3, 1]
@@ -261,7 +261,7 @@ class TestModule(unittest.TestCase):
         r = [r21, r22, r23]
         for i in range(3):
             for j in range(3):
-                s_delayed[i, j] = VectorParameter(calset, f_vector,
+                s_delayed[i, j] = calset.vector_parameter(f_vector,
                                                   r[i] * r[j] * s_matrix[i, j])
         m = eterms.evaluate(calset, f_vector, s_delayed)
         # map = [3, 1, 2]
@@ -287,7 +287,7 @@ class TestModule(unittest.TestCase):
         r = [r31, r32, r33]
         for i in range(3):
             for j in range(3):
-                s_delayed[i, j] = VectorParameter(calset, f_vector,
+                s_delayed[i, j] = calset.vector_parameter(f_vector,
                                                   r[i] * r[j] * s_matrix[i, j])
         m = eterms.evaluate(calset, f_vector, s_delayed)
         # map = [3, 2, 1]
@@ -313,7 +313,7 @@ class TestModule(unittest.TestCase):
         r = [r41, r42, r43]
         for i in range(3):
             for j in range(3):
-                s_delayed[i, j] = VectorParameter(calset, f_vector,
+                s_delayed[i, j] = calset.vector_parameter(f_vector,
                                                   r[i] * r[j] * s_matrix[i, j])
         m = eterms.evaluate(calset, f_vector, s_delayed)
         # map = [2, 1, 3]
@@ -341,7 +341,7 @@ class TestModule(unittest.TestCase):
         r = [r51, r52, r53]
         for i in range(3):
             for j in range(3):
-                s_delayed[i, j] = VectorParameter(calset, f_vector,
+                s_delayed[i, j] = calset.vector_parameter(f_vector,
                                                   r[i] * r[j] * s_matrix[i, j])
         m = eterms.evaluate(calset, f_vector, s_delayed)
         # map = [2, 1, 3]
@@ -392,7 +392,7 @@ class TestModule(unittest.TestCase):
         s_delayed = np.empty((3, 3), dtype=object)
         for i in range(3):
             for j in range(3):
-                s_delayed[i, j] = VectorParameter(calset, f_vector,
+                s_delayed[i, j] = calset.vector_parameter(f_vector,
                                                   delayed[:, i, j])
         m = eterms.evaluate(calset, f_vector, s_delayed)
         calibration = calset.calibrations[0]

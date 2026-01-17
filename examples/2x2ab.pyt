@@ -1,6 +1,6 @@
 %# Imports for the error term and test data generator.
 %[
-from libvna.cal import CalType, Calset, VectorParameter
+from libvna.cal import CalType, Calset
 from libvna.data import NPData, PType
 from libvna.conv import ztos
 import math
@@ -102,10 +102,10 @@ npd.save('2x2ab-expected.s2p')
 %]
 # Measured response
 %[
-s = [[VectorParameter(calset, f_vector, expected[:, 0, 0]),
-      VectorParameter(calset, f_vector, expected[:, 0, 1])],
-     [VectorParameter(calset, f_vector, expected[:, 1, 0]),
-      VectorParameter(calset, f_vector, expected[:, 1, 1])]]
+s = [[calset.vector_parameter(f_vector, expected[:, 0, 0]),
+      calset.vector_parameter(f_vector, expected[:, 0, 1])],
+     [calset.vector_parameter(f_vector, expected[:, 1, 0]),
+      calset.vector_parameter(f_vector, expected[:, 1, 1])]]
 a, b = eterms.evaluate(calset, f_vector, s, ab=True)
 et.print_matrix(a, file=_file, name='a', indent=_indent)
 et.print_matrix(b, file=_file, name='b', indent=_indent)
