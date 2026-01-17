@@ -221,7 +221,7 @@ cdef class Parameter:
     An element of the S-parameter matrix describing a calibration
     standard.  The Parameter is an abstraction that can represent a
     single complex scalar such as -1 for short, a vector of (frequency,
-    gamma) tuples representing a reflect with complex impedance or the
+    value) tuples representing a reflect with complex impedance or the
     through component of a transmission line, or an unknown parameter
     the library must solve, e.g. the R or L parameters in TRL.
 
@@ -261,10 +261,10 @@ cdef class Parameter:
         if isinstance(value, tuple):
             if len(value) != 2:
                 raise ValueError("expected Parameter, number or "
-                                 "tuple(frequency_vector, gamma_vector)")
+                                 "tuple(frequency_vector, value_vector)")
             return VectorParameter(calset, *value)
         raise ValueError("value must be class Parameter, a number, or "
-                         "tuple(frequency_vector, gamma_vector)")
+                         "tuple(frequency_vector, value_vector)")
 
     @staticmethod
     def from_value(Calset calset, value):
@@ -276,7 +276,7 @@ cdef class Parameter:
                 The associated calibration set.
             value:
                 If number, return a ScalarParameter.  If
-                tuple(frequency_vector, gamma_vector), return a
+                tuple(frequency_vector, value_vector), return a
                 VectorParameter.  If Parameter, return the argument.
         """
         return Parameter._from_value(calset, value)
@@ -306,8 +306,8 @@ cdef class Parameter:
         Return the value of the parameter at each given frequency,
         with output in the same shape as frequencies.  For a scalar
         parameter, the function ignores *frequency* and simply returns
-        the fixed gamma value.  For a vector parameter, it returns the
-        gamma value at the given frequency, interpolating as necessary.
+        the fixed value value.  For a vector parameter, it returns the
+        value value at the given frequency, interpolating as necessary.
         If the parameter is unknown and :func:`Solver.solve` has completed
         successfully, :func:`get_value` returns the solved value, again
         interpolating as necessary.
@@ -328,23 +328,23 @@ cdef class ScalarParameter(Parameter):
     Parameters:
         calset (Calset):
             The associated calibration set.
-        gamma (complex):
+        value (complex):
             an element of the S parameter matrix of the standard
             that doesn't depend on frequency, e.g. 0 for match.
     """
-    def __cinit__(self, Calset calset, gamma):
+    def __cinit__(self, Calset calset, value):
         if calset is None:
             raise ValueError("calset cannot be None")
         cdef vnacal_t *vcp = calset.vcp
         cdef int rc
-        if gamma == 0.0:        # special-case these values
+        if value == 0.0:        # special-case these values
             rc = VNACAL_MATCH
-        elif gamma == +1.0:
+        elif value == +1.0:
             rc = VNACAL_OPEN
-        elif gamma == -1.0:
+        elif value == -1.0:
             rc = VNACAL_SHORT
         else:
-            rc = vnacal_make_scalar_parameter(vcp, gamma)
+            rc = vnacal_make_scalar_parameter(vcp, value)
             calset._check_error(rc)
         self.calset = calset
         self.pindex = rc
@@ -363,7 +363,7 @@ cdef class VectorParameter(Parameter):
             The associated calibration set.
         frequency_vector (vector of float):
             monotonically increasing list of frequencies
-        gamma_vector (vector of complex):
+        value_vector (vector of complex):
             list or array of complex values corresponding
             to each frequency in *frequency_vector*
 
@@ -372,7 +372,7 @@ cdef class VectorParameter(Parameter):
     frequencies -- the library uses rational function interpolation
     as needed to interpolate between frequency points.
     """
-    def __cinit__(self, Calset calset, frequency_vector, gamma_vector):
+    def __cinit__(self, Calset calset, frequency_vector, value_vector):
         if calset is None:
             raise ValueError("calset cannot be None")
         cdef vnacal_t *vcp = calset.vcp
@@ -382,14 +382,14 @@ cdef class VectorParameter(Parameter):
         if frequency_vector.ndim != 1:
             raise ValueError("frequency_vector must be a one-dimensional "
                              "array")
-        gamma_vector = np.ascontiguousarray(gamma_vector, dtype=np.cdouble)
-        if gamma_vector.ndim != 1:
-            raise ValueError("gamma_vector must be a one-dimensional array")
-        if len(gamma_vector) != len(frequency_vector):
-            raise ValueError("gamma_vector must be same length as "
+        value_vector = np.ascontiguousarray(value_vector, dtype=np.cdouble)
+        if value_vector.ndim != 1:
+            raise ValueError("value_vector must be a one-dimensional array")
+        if len(value_vector) != len(frequency_vector):
+            raise ValueError("value_vector must be same length as "
                              "frequency_vector")
         cdef const double [::1] fv_view = frequency_vector
-        cdef const double complex [::1] gv_view = gamma_vector
+        cdef const double complex [::1] gv_view = value_vector
         cdef int rc = vnacal_make_vector_parameter(vcp, &fv_view[0],
                                                    len(frequency_vector),
                                                    &gv_view[0])
@@ -409,7 +409,7 @@ cdef class UnknownParameter(Parameter):
     Parameters:
         calset (Calset):
             The associated calibration set.
-        initial_guess (complex, (frequency_vector, gamma_vector) tuple, or Parameter):
+        initial_guess (complex, (frequency_vector, value_vector) tuple, or Parameter):
             Approximate value of the unknown parameter
     """
     def __cinit__(self, Calset calset, initial_guess):
@@ -436,7 +436,7 @@ cdef class CorrelatedParameter(Parameter):
     Parameters:
         calset (Calset):
             The associated calibration set.
-        other (complex, (frequency_vector, gamma_vector) tuple, or Parameter):
+        other (complex, (frequency_vector, value_vector) tuple, or Parameter):
             Another Parameter to which this
             Parameter is known to be correlated
         frequency_vector (vector of float):
@@ -709,7 +709,7 @@ cdef class Solver:
         Parameters:
             b (frequencies long vector of complex matrix):
                 root power received into each VNA port
-            s11 (complex, (frequency_vector, gamma_vector) tuple, or Parameter):
+            s11 (complex, (frequency_vector, value_vector) tuple, or Parameter):
                 :math:`S_{11}` parameter of the the calibration standard
             a (frequencies long vector of complex matrix, optional):
                 incident root power out of each VNA port, or None if
@@ -781,9 +781,9 @@ cdef class Solver:
         Parameters:
             b (frequencies long vector of complex matrix):
                 root power received into each VNA port
-            s11 (complex, (frequency_vector, gamma_vector) tuple, or Parameter):
+            s11 (complex, (frequency_vector, value_vector) tuple, or Parameter):
                 the :math:`S_{11}` parameter of the the calibration standard
-            s22 (complex, (frequency_vector, gamma_vector) tuple, or Parameter):
+            s22 (complex, (frequency_vector, value_vector) tuple, or Parameter):
                 the :math:`S_{22}` parameter of the calibration standard
             a (frequencies long vector of complex matrix, optional):
                 incident root power out of each VNA port, or None if
@@ -932,7 +932,7 @@ cdef class Solver:
             s (2x2 matrix):
                 S-parameter matrix of the standard, where each element
                 of the matrix can be a complex, (frequency_vector,
-                gamma_vector) tuple, or Parameter
+                value_vector) tuple, or Parameter
             a (frequencies long vector of complex matrix, optional):
                 incident root power out of each VNA port, or None if
                 not available
@@ -1020,7 +1020,7 @@ cdef class Solver:
             s (matrix):
                 S-parameter matrix of the standard, where each element
                 of the matrix can be a complex, (frequency_vector,
-                gamma_vector) tuple, or Parameter
+                value_vector) tuple, or Parameter
             a (frequencies long vector of complex matrix, optional):
                 incident root power out of each VNA port, or None if
                 not available
