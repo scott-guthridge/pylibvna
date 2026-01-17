@@ -63,6 +63,8 @@ cdef extern from "<vnadata.h>":
     int vnadata_get_columns(const vnadata_t *vdp)
     vnadata_parameter_type_t vnadata_get_type(const vnadata_t *vdp)
     int vnadata_set_type(vnadata_t *vdp, vnadata_parameter_type_t type)
+    const char *vnadata_get_name(const vnadata_t *vdp)
+    int vnadata_set_name(vnadata_t *vdp, const char *name)
     double vnadata_get_fmin(const vnadata_t *vdp)
     double vnadata_get_fmax(const vnadata_t *vdp)
     double vnadata_get_frequency(const vnadata_t *vdp, int findex)

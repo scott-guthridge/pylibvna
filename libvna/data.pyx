@@ -1306,6 +1306,30 @@ cdef class NPData:
         """
         return vnadata_get_frequencies(self.vdp)
 
+    @property
+    def name(self):
+        """
+        A meaningful name for this object used in some error messages.
+        If not set, a default name based on the filename or dimensions
+        is provided.  Caution: when setting this property, the underlying
+        C library truncates the name at 31 bytes.  This can cause unicode
+        decode errors if the encoded string length exceeds this.
+
+        Type: str
+        """
+        cdef const char *cp = vnadata_get_name(self.vdp)
+        return cp.decode("UTF-8")
+
+    @name.setter
+    def name(self, value):
+        # no docstring for setter
+        cdef int rc
+
+        if isinstance(value, str):
+            value = value.encode("utf-8")
+        rc = vnadata_set_name(self.vdp, value)
+        self._check_error(rc)
+
     def _get_vdp(self):
         # """
         # PyCapsule containing the C vnadata_t pointer
