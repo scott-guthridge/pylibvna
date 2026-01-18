@@ -25,7 +25,8 @@ to measurements of devices under test to correct for the errors.
 
 The basic sequence for generating a new calibration is:
 
-#. Create a *Calset* object, then a *Solver* object.
+#. Create a *Calset* object, then use calset.solver() to make a *Solver*
+   object.
 #. Make measurements of calibration standards and add them using the
    Solver.add_* methods.
 #. Solve using `Solver.solve()`
@@ -220,18 +221,18 @@ cdef class Parameter:
     """
     An element of the S-parameter matrix describing a calibration
     standard.  The Parameter is an abstraction that can represent a
-    single complex scalar such as -1 for short, a vector of (frequency,
-    value) tuples representing a reflect with complex impedance or the
+    single complex scalar such as -1 for short, a tuple(frequency_vector,
+    value_vector) representing a reflect with complex impedance or the
     through component of a transmission line, or an unknown parameter
-    the library must solve, e.g. the R or L parameters in TRL.
+    the library will solve for, e.g. the R or L parameters in TRL.
 
     Note: this class cannot be instantiated directly.  Use the
     factory methods:
+    :func:`Calset.parameter`,
     :func:`Calset.scalar_parameter`,
     :func:`Calset.vector_parameter`,
-    :func:`Calset.unknown_parameter`,
-    :func:`Calset.correlated_parameter`, or
-    :func:`Parameter.from_value`.
+    :func:`Calset.unknown_parameter`, or
+    :func:`Calset.correlated_parameter`.
     """
     cdef Calset calset
     cdef int pindex
@@ -291,18 +292,19 @@ cdef class Parameter:
 
     def get_value(self, frequencies):
         """
+        Return the value of the parameter at each given frequency,
+        with output in the same shape as frequencies.
+
         Parameters:
             frequencies (float or array of float):
-                Frequencies at which to evaluate the value.
+                frequencies at which to evaluate the value.
 
-        Return the value of the parameter at each given frequency,
-        with output in the same shape as frequencies.  For a scalar
-        parameter, the function ignores *frequency* and simply returns
-        the fixed value value.  For a vector parameter, it returns the
-        value value at the given frequency, interpolating as necessary.
-        If the parameter is unknown and :func:`Solver.solve` has completed
-        successfully, :func:`get_value` returns the solved value, again
-        interpolating as necessary.
+        For a scalar parameter, the function ignores *frequency* and
+        simply returns the fixed value value.  For a vector parameter, it
+        returns the value value at the given frequency, interpolating as
+        necessary.  If the parameter is unknown and :func:`Solver.solve`
+        has completed successfully, :func:`get_value` returns the solved
+        value, again interpolating as necessary.
         """
         cdef bool is_scalar = np.isscalar(frequencies)
         f_array = np.ascontiguousarray(frequencies, dtype=np.double)
@@ -545,14 +547,24 @@ cdef class Solver:
         Parameters:
             b (frequencies long vector of complex matrix):
                 root power received into each VNA port
-            s11 (complex, (frequency_vector, value_vector) tuple, or Parameter):
+
+            s11:
                 :math:`S_{11}` parameter of the the calibration standard
+
+                Can be:
+                - a scalar
+                - a tuple(frequency_vector, value_vector),
+                - a Parameter,
+                - a 1x1 Standard
+
             a (frequencies long vector of complex matrix, optional):
                 incident root power out of each VNA port, or None if
                 not available
+
             delay (float, optional):
                 Delay in seconds between the reference plane and the
                 standard.  Can be negative.
+
             port (int, optional):
                 VNA port number connected to the standard.  If not given,
                 defaults to 1.
@@ -617,25 +629,38 @@ cdef class Solver:
         Parameters:
             b (frequencies long vector of complex matrix):
                 root power received into each VNA port
+
             s11 (complex, (frequency_vector, value_vector) tuple, or Parameter):
                 the :math:`S_{11}` parameter of the the calibration standard
+
             s22 (complex, (frequency_vector, value_vector) tuple, or Parameter):
                 the :math:`S_{22}` parameter of the calibration standard
+
             a (frequencies long vector of complex matrix, optional):
                 incident root power out of each VNA port, or None if
                 not available
+
             delay1 (float, optional):
-                Delay in seconds between the reference plane and port
+                delay in seconds between the reference plane and port
                 1 of the standard.  Can be negative.
+
             delay2 (float, optional):
-                Delay in seconds between the reference plane and port
+                delay in seconds between the reference plane and port
                 2 of the standard.  Can be negative.
+
             port1 (int, optional):
                 VNA port number connected to port 1 of the calibration
                 standard.  If not given, defaults to 1.
+
             port2 (int, optional):
                 VNA port number connected to port 2 of the calibration
                 standard.  If not given, defaults to 2.
+
+            The s11 and s22 parameters can be:
+                - a scalar
+                - a tuple(frequency_vector, value_vector),
+                - a Parameter,
+                - a 1x1 Standard
         """
         cdef int a_rows = 0
         cdef int a_columns = 0
@@ -703,16 +728,20 @@ cdef class Solver:
         Parameters:
             b (frequencies long vector of complex matrix):
                 root power received into each VNA port
+
             a (frequencies long vector of complex matrix, optional):
                 incident root power out of each VNA port, or None if
                 not available
+
             delay (float, optional):
-                Delay in seconds of the standard.  Can be negative.
+                delay in seconds of the standard.  Can be negative.
+
             port1 (int, optional):
-                First VNA port connected to the through standard.
+                first VNA port connected to the through standard.
                 If not given, defaults to 1.
+
             port2 (int, optional):
-                Second VNA port connected to the through standard.
+                second VNA port connected to the through standard.
                 If not given, defaults to 2.
         """
         cdef int a_rows = 0
@@ -765,22 +794,35 @@ cdef class Solver:
         Parameters:
             b (frequencies long vector of complex matrix):
                 root power received into each VNA port
+
             s (2x2 matrix):
                 S-parameter matrix of the standard, where each element
                 of the matrix can be a complex, (frequency_vector,
                 value_vector) tuple, or Parameter
+
+                Can be:
+                - 2x2 Standard
+                - 2x2 array of:
+                    - scalar
+                    - tuple(frequency_vector, value_vector)
+                    - Parameter
+
             a (frequencies long vector of complex matrix, optional):
                 incident root power out of each VNA port, or None if
                 not available
+
             delay1 (float, optional):
-                Delay in seconds between the reference plane and port
+                delay in seconds between the reference plane and port
                 1 of the standard.  Can be negative.
+
             delay2 (float, optional):
-                Delay in seconds between the reference plane and port
+                delay in seconds between the reference plane and port
                 2 of the standard.  Can be negative.
+
             port1 (int, optional):
                 VNA port number connected to port 1 of the calibration
                 standard.  If not given, defaults to 1.
+
             port2 (int, optional):
                 VNA port number connected to port 2 of the calibration
                 standard.  If not given, defaults to 2.
@@ -853,18 +895,25 @@ cdef class Solver:
         Parameters:
             b (frequencies long vector of complex matrix):
                 root power received into each VNA port
+
             s (matrix):
-                S-parameter matrix of the standard, where each element
-                of the matrix can be a complex, (frequency_vector,
-                value_vector) tuple, or Parameter
+                S-parameter matrix of the standard
+
+                Can be a Standard or an array where each element is:
+                - a scalar
+                - a tuple(frequency_vector, value_vector),
+                - a Parameter,
+
             a (frequencies long vector of complex matrix, optional):
                 incident root power out of each VNA port, or None if
                 not available
+
             delay_vector (list/array of float, optional):
-                Vector of delays in seconds between the reference plane
+                vector of delays in seconds between the reference plane
                 and each port of the standard.  Delays can be negative.
+
             port_map (list/array of int, optional):
-                List of the VNA port numbers attached to each port of
+                list of the VNA port numbers attached to each port of
                 the standard in order.  Optional if the standard has
                 the same number of ports as the VNA and the ports of
                 the VNA are attached to the corresponding port numbers
@@ -1110,10 +1159,10 @@ cdef class Solver:
 
         Parameters:
             name:
-                Name for the calibration.
+                name for the calibration
 
         Returns:
-            Index of the new entry in Calset.calibrations
+            index of the new entry in Calset.calibrations
         """
         cdef vnacal_new_t *vnp = self.vnp
         cdef Calset calset = self.calset
@@ -1238,13 +1287,16 @@ cdef class Calibration:
             f (array of float or None):
                 vector of frequencies at which the measurements were made,
                 or None if measured at the calibration frequencies
+
             b (frequencies long vector of complex matrix):
                 root power received into each VNA port
+
             a (frequencies long vector of complex matrix, optional):
                 incident root power out of each VNA port, or None if
                 not available
+
             delay_vector (list/array of float, optional):
-                Delay in seconds between the reference plane and each
+                delay in seconds between the reference plane and each
                 port of the DUT.  Delays can be negative.
 
         Return:
@@ -1355,6 +1407,9 @@ cdef class Calibration:
         self.calset._set_properties(ci, value)
 
     def __str__(self):
+        return self.name
+
+    def __repr__(self):
         return f"name=\"{self.name}\", ctype={self.ctype.name}, " \
                f"rows={self.rows}, columns={self.columns}, " \
                f"fmin={self.frequency_vector[0]:.3e}, " \
@@ -1552,7 +1607,7 @@ cdef class Calset:
     any number of related calibrations, for example, covering different
     frequency bands or test set configurations.
 
-    Args:
+    Parameters:
         filename (str, optional):
             Load the Calset from the given file.  Note that the
             recommended .vnacal extension is not added automatically
@@ -1599,6 +1654,29 @@ cdef class Calset:
 
     def __dealloc__(self):
         vnacal_free(self.vcp)
+
+    cdef void _check_error(self, int rc):
+        # """
+        # Check if _error_fn has saved an exception for this thread or
+        # if rc is -1.  In either case, raise an exception or warning.
+        #
+        # Parameters:
+        #    self:  libvna.cal.Calset class reference
+        #    rc:    return value from C function
+        #
+        # Raises:
+        #    See exceptions in _error_fn.
+        # """
+        exception = self._thread_local._vna_cal_exception
+        warning = self._thread_local._vna_cal_warning
+        self._thread_local._vna_cal_exception = None
+        self._thread_local._vna_cal_warning = None
+        if exception is not None:
+            raise exception
+        if rc == -1:
+            raise OSError(errno, "libvna call failed")
+        if warning is not None:
+            warnings.warn(warning)
 
     def _extend_properties(self, int ci):
         # """
@@ -1767,9 +1845,6 @@ cdef class Calset:
         of calibration standards.
 
         Parameters:
-            calset (Calset):
-                The associated calibration set.
-
             ctype (CalType):
                 The calibration type determines which error terms the
                 library corrects.  Valid values are:
@@ -1822,7 +1897,7 @@ cdef class Calset:
                     through) are needed to solve the 2x2 E12 calibration.
 
             rows (int):
-                Number of rows in the calibration, where *rows* is the
+                number of rows in the calibration, where *rows* is the
                 number of VNA ports that detect signal.  Normally, *rows*
                 and *columns* are both simply the number of VNA ports.
                 Some simple VNAs, however, measure only a subset of the
@@ -1836,15 +1911,15 @@ cdef class Calset:
                 T or U parameters may be used.
 
             columns (int):
-                Number columns in the calibration, where *columns* is
+                number columns in the calibration, where *columns* is
                 the number of VNA ports that transmit signal.  See *rows*.
 
             frequency_vector (list/array of float):
-                Vector of frequency points to be used in the calibration.
-                Must be monotonically increasing.
+                vector of frequency points to be used in the calibration.
+                Must be monotonically increasing
 
             z0 (complex, optional):
-                Reference impedance of the VNA ports.  All ports must
+                feference impedance of the VNA ports.  All ports must
                 have the same reference impedance.  If not specified,
                 *z0* defaults to 50 ohms.
 
@@ -1864,7 +1939,7 @@ cdef class Calset:
 
         Parameters:
             filename (str):
-                Pathname of the save file.  The recommended file
+                pathname of the save file.  The recommended file
                 extension, ".vnacal", is not added automatically and
                 should included in *filename*.
         """
@@ -1921,30 +1996,3 @@ cdef class Calset:
     @properties.setter
     def properties(self, value):
         self._set_properties(-1, value)
-
-    ######################################################################
-    # Internal Functions
-    ######################################################################
-
-    cdef void _check_error(self, int rc):
-        # """
-        # Check if _error_fn has saved an exception for this thread or
-        # if rc is -1.  In either case, raise an exception or warning.
-        #
-        # Parameters:
-        #    self:  libvna.cal.Calset class reference
-        #    rc:    return value from C function
-        #
-        # Raises:
-        #    See exceptions in _error_fn.
-        # """
-        exception = self._thread_local._vna_cal_exception
-        warning = self._thread_local._vna_cal_warning
-        self._thread_local._vna_cal_exception = None
-        self._thread_local._vna_cal_warning = None
-        if exception is not None:
-            raise exception
-        if rc == -1:
-            raise OSError(errno, "libvna call failed")
-        if warning is not None:
-            warnings.warn(warning)
