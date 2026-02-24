@@ -888,7 +888,7 @@ cdef class Solver:
     cdef int iteration_limit
 
     def __cinit__(self, Calset calset, CalType ctype, int rows, int columns,
-                  frequency_vector, double complex z0 = 50.0):
+                  frequency_vector, z0=50.0):
         if calset is None:
             raise ValueError("calset cannot be None")
 
@@ -898,10 +898,12 @@ cdef class Solver:
         if frequency_vector.ndim != 1:
             raise ValueError("frequency_vector must be 1 dimensional "
                              "array-like")
+        cdef int frequencies = len(frequency_vector)
+        cdef int ports = max(rows, columns)
         cdef vnacal_t *vcp = calset.vcp
         cdef vnacal_new_t *vnp = NULL
         vnp = vnacal_new_alloc(vcp, <vnacal_type_t>ctype, rows, columns,
-                               len(frequency_vector))
+                               frequencies)
         if vnp == NULL:
             calset._check_error(-1)
         cdef int rc
@@ -910,13 +912,56 @@ cdef class Solver:
         if rc == -1:
             vnacal_new_free(vnp)
             calset._check_error(-1)
-        if z0 != 50.0:
-            rc = vnacal_new_set_z0(vnp, z0)
-            if rc == -1:
+
+        # Handle z0: scalar, 1D (ports,), or 2D (frequencies, ports)
+        cdef double complex [::1] z0_1d_view
+        cdef double complex [:, ::1] z0_2d_view
+        cdef double complex scalar_z0
+        if np.isscalar(z0):
+            scalar_z0 = complex(z0)
+            if scalar_z0 != 50.0:
+                rc = vnacal_new_set_z0(vnp, scalar_z0)
+                if rc == -1:
+                    vnacal_new_free(vnp)
+                    calset._check_error(-1)
+        else:
+            z0_array = np.ascontiguousarray(z0, dtype=np.cdouble)
+            if z0_array.ndim == 1:
+                if z0_array.shape[0] != ports:
+                    vnacal_new_free(vnp)
+                    raise ValueError(
+                        f"z0 vector length {z0_array.shape[0]} "
+                        f"does not match number of ports {ports}"
+                    )
+                z0_1d_view = z0_array
+                rc = vnacal_new_set_z0_vector(vnp, &z0_1d_view[0], ports)
+                if rc == -1:
+                    vnacal_new_free(vnp)
+                    calset._check_error(-1)
+            elif z0_array.ndim == 2:
+                if (z0_array.shape[0] != frequencies
+                        or z0_array.shape[1] != ports):
+                    vnacal_new_free(vnp)
+                    raise ValueError(
+                        f"z0 matrix shape {z0_array.shape} does not match "
+                        f"(frequencies={frequencies}, ports={ports})"
+                    )
+                z0_2d_view = z0_array
+                rc = vnacal_new_set_z0_vector(
+                    vnp, &z0_2d_view[0, 0], frequencies * ports
+                )
+                if rc == -1:
+                    vnacal_new_free(vnp)
+                    calset._check_error(-1)
+            else:
                 vnacal_new_free(vnp)
-                calset._check_error(-1)
+                raise ValueError(
+                    f"z0 must be scalar, 1D array (ports,), or "
+                    f"2D array (frequencies, ports)"
+                )
+
         self.calset = calset
-        self.frequencies = len(frequency_vector)
+        self.frequencies = frequencies
         self.frequency_vector = frequency_vector
         self.vnp = vnp
         self.pvalue_limit = 0.001
@@ -1683,7 +1728,6 @@ cdef class Calibration:
         memcpy(&v[0], lfp, frequencies * sizeof(double))
         return result
 
-    # TODO: return vector or matrix as needed
     @property
     def z0(self) -> complex:
         """
@@ -2473,7 +2517,7 @@ cdef class Calset:
 
     def solver(
         self, CalType ctype, int rows, int columns, frequency_vector,
-        double complex z0 = 50.0
+        z0=50.0
     ) -> Solver:
         """
         Error Term Solver: solve for VNA error terms from measurements
@@ -2553,11 +2597,19 @@ cdef class Calset:
                 vector of frequency points to be used in the calibration.
                 Must be monotonically increasing
 
-            # TODO: fix this
-            z0 (complex, optional):
-                reference impedance of the VNA ports.  All ports must
-                have the same reference impedance.  If not specified,
-                *z0* defaults to 50 ohms.
+            z0 (complex or array-like of complex, optional):
+                reference impedance of the VNA ports.  Can be specified
+                as:
+
+                - A scalar complex value if all ports have the same
+                  impedance at all frequencies.
+                - A 1D array of length *ports* (where *ports* is
+                  ``max(rows, columns)``) if each port has a different
+                  but frequency-independent impedance.
+                - A 2D array of shape (*frequencies*, *ports*) if the
+                  impedance varies by both port and frequency.
+
+                If not specified, *z0* defaults to 50 ohms.
 
         Note that the calibration method used, e.g. LRL, LRM, LRRL, LRRM,
         LXYZ, SOLT, TRD, TRL, TRM, TXYZ, UXYZ, etc., does not have to be
