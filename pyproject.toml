@@ -9,7 +9,7 @@ requires = [
 
 [project]
 name         = "libvna"
-version      = "0.2.2"
+dynamic      = ["version"]
 description  = "Vector network analyzer calibration, load, store and convert"
 readme = { file = "README", content-type = "text/plain" }
 requires-python = ">=3.10"
@@ -53,7 +53,6 @@ Documentation = "https://libvna.readthedocs.io/en/latest/"
 Repository = "https://github.com/scott-guthridge/pylibvna"
 
 [project.optional-dependencies]
-test = ["unittest"]
 docs = [
     "sphinx",
     "sphinx_rtd_theme",
@@ -98,7 +97,7 @@ environment = """\
     PKG_CONFIG_PATH='C:/opt/libvna/lib/pkgconfig'\n\
 """
 before-build = """\
-  pip install numpy meson-python meson-python cython>=3.0.8 ninja\n\
+  pip install numpy meson-python cython>=3.0.8 ninja\n\
 """
 repair-wheel-command = "bash tools/repair-windows {wheel} {dest_dir}"
 

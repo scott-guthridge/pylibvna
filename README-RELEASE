@@ -3,7 +3,7 @@ To create a new release:
 - Make your code changes on the development branch.
 - Push the development branch: `git push`
 - Switch to the main branch and run `git rebase development`
-- Update the version number in both pyproject.toml and meson.build
+- Update the version number in meson.build
 - Commit the version number with first line in this format (filling
   in the new version number):
 
