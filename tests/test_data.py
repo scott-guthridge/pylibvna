@@ -83,7 +83,16 @@ class TestNPD:
         """
         Resize this object.
         """
-        self.frequency_vector.resize((frequencies,))
+        # Find the number of frequency rows and ports to preserve.
+        min_frequencies = min(len(self.frequency_vector), frequencies)
+        ports = max(rows, columns)
+        min_ports = min(self.ports, ports)
+
+        # Create new vector rather than resize to avoid problems with
+        # existing references.
+        new_fv = np.zeros((frequencies,), dtype=np.double, order="C")
+        new_fv[:min_frequencies] = self.frequency_vector[:min_frequencies]
+        self.frequency_vector = new_fv
 
         dv = np.zeros((frequencies, rows, columns), dtype=complex, order="C")
         for findex in range(min(self.frequencies, frequencies)):
@@ -94,42 +103,33 @@ class TestNPD:
 
         ports = max(rows, columns)
         if has_fz0:
-            fz0v = np.zeros((frequencies, ports))
+            new_fz0_array = np.zeros((frequencies, ports))
+            new_fz0_array.fill(50.0)
             if self.has_fz0:
-                # preserve values
-                for findex in range(min(self.ports, ports)):
-                    v = np.array(self.fz0_array[findex])
-                    v.resize((ports,))
-                    fz0v[findex] = v
-                    for port in range(self.ports, ports):
-                        fz0v[findex, port] = 50.0
-                self.fz0_array = fz0v
+                # copy existing data
+                for findex in range(min_frequencies):
+                    new_fz0_array[findex, :min_ports] = (
+                        self.fz0_array[findex, :min_ports]
+                    )
 
             else:
-                # duplicate z0_vector into new matrix
-                for findex in range(min(self.ports, ports)):
-                    v = np.array(self.fz0_array)
-                    v.resize((ports,))
-                    fz0v[findex] = v
-                    for port in range(self.ports, ports):
-                        fz0v[findex, port] = 50.0
-                self.fz0_array = fz0v
+                # duplicate existing vector into each row
+                for findex in range(min(self.frequencies, frequencies)):
+                    new_fz0_array[findex, :min_ports] = (
+                        self.z0_vector[:min_ports]
+                    )
 
+            self.fz0_array = new_fz0_array
             self.z0_vector = None
 
         else:
-            if self.has_fz0:
-                # no preservation in this case
-                z0v = np.zeros((ports,))
-                z0v.fill(50)
-                self.z0_vector = z0v
+            new_z0_vector = np.zeros((ports,), dtype=np.complex128, order="C")
+            new_z0_vector.fill(50.0)
+            if not self.has_fz0:
+                # copy existing data
+                new_z0_vector[:min_ports] = self.z0_vector[:min_ports]
 
-            else:
-                # resize and init any new elements to 50.0
-                self.z0_vector.resize((ports,))
-                for port in range(self.ports, ports):
-                    self.fz0_array[findex, port] = 50.0
-
+            self.z0_vector = new_z0_vector
             self.fz0_array = None
 
         self.ptype = ptype
