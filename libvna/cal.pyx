@@ -501,7 +501,7 @@ class ParameterMatrix(np.ndarray):
         cdef int columns = self.shape[1]
         if rows == 0 or rows != columns:
             raise ValueError(
-                "ParameterMatrix.to_npdata: matrix must non-empty and square"
+                "ParameterMatrix.to_npdata: matrix must be non-empty and square"
             )
         cdef int ports = max(rows, columns)
         frequency_vector = np.ascontiguousarray(
@@ -1065,10 +1065,6 @@ cdef class Solver:
             port2 (int, optional):
                 VNA port number connected to port 2 of the calibration
                 standard.  If not given, defaults to 2.
-
-            The s11 and s22 parameters can be: scalar,
-            tuple(frequency_vector, value_vector), Parameter, or 1x1
-            ParameterMatrix.
         """
         cdef int a_rows = 0
         cdef int a_columns = 0
@@ -1534,7 +1530,7 @@ cdef class Solver:
         has no effect if there are no unknown parameters in the S matrix.
         Default is 1.0e-6.
         """
-        return self.et_tolerance
+        return self.p_tolerance
 
     @p_tolerance.setter
     def p_tolerance(self, double value):
@@ -1691,7 +1687,7 @@ cdef class Calibration:
     @property
     def z0(self) -> complex:
         """
-        reference frequency of all ports in the calibration (complex,
+        reference impedance of all ports in the calibration (complex,
         readonly)
         """
         cdef vnacal_t *vcp = self.calset.vcp
@@ -1801,7 +1797,7 @@ cdef class Calibration:
             if delay_vector is not None:
                 b_ports = max(b_rows, b_columns)
                 if len(delay_vector) != b_ports:
-                    raise f"delay_vector must have length {b_ports}"
+                    raise ValueError(f"delay_vector must have length {b_ports}")
                 f_vector = result.frequency_vector[...]
                 for i in range(b_ports):
                     for j in range(b_ports):
@@ -2626,7 +2622,7 @@ cdef class Calset:
         Tree of nested dictionaries, lists, scalars and None values
         representing arbitrary user-defined metadata to be saved with
         the Calset.  Examples might include model and serial number and
-        capabilities of the instrament.
+        capabilities of the instrument.
 
         Also see the calibration-specific properties,
         Calibration.properties.
