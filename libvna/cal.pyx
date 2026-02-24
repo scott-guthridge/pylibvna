@@ -1276,13 +1276,20 @@ cdef class Solver:
                 ports at that excitation.
 
             delay (float, optional):
-                Delay in seconds between the reference plane and the
-                standard.  Can be negative.
+                **Deprecated.** Delay in seconds between the reference
+                plane and the standard.  Can be negative.
 
             port (int, optional):
                 VNA port number connected to the standard.  If not given,
                 defaults to 1.
         """
+        if delay != 0.0:
+            warnings.warn(
+                "The delay parameter is deprecated and will be removed "
+                "in a future release.",
+                DeprecationWarning,
+                stacklevel=2
+            )
         cdef int a_rows = 0
         cdef int a_columns = 0
         cdef int b_rows
@@ -1369,12 +1376,12 @@ cdef class Solver:
                 ports at that excitation.
 
             delay1 (float, optional):
-                delay in seconds between the reference plane and port
-                1 of the standard.  Can be negative.
+                **Deprecated.** Delay in seconds between the reference
+                plane and port 1 of the standard.  Can be negative.
 
             delay2 (float, optional):
-                delay in seconds between the reference plane and port
-                2 of the standard.  Can be negative.
+                **Deprecated.** Delay in seconds between the reference
+                plane and port 2 of the standard.  Can be negative.
 
             port1 (int, optional):
                 VNA port number connected to port 1 of the calibration
@@ -1384,6 +1391,13 @@ cdef class Solver:
                 VNA port number connected to port 2 of the calibration
                 standard.  If not given, defaults to 2.
         """
+        if delay1 != 0.0 or delay2 != 0.0:
+            warnings.warn(
+                "The delay1 and delay2 parameters are deprecated and "
+                "will be removed in a future release.",
+                DeprecationWarning,
+                stacklevel=2
+            )
         cdef int a_rows = 0
         cdef int a_columns = 0
         cdef int b_rows
@@ -1462,7 +1476,8 @@ cdef class Solver:
                 ports at that excitation.
 
             delay (float, optional):
-                delay in seconds of the standard.  Can be negative.
+                **Deprecated.** Delay in seconds of the standard.
+                Can be negative.
 
             port1 (int, optional):
                 first VNA port connected to the through standard.
@@ -1472,6 +1487,13 @@ cdef class Solver:
                 second VNA port connected to the through standard.
                 If not given, defaults to 2.
         """
+        if delay != 0.0:
+            warnings.warn(
+                "The delay parameter is deprecated and will be removed "
+                "in a future release.",
+                DeprecationWarning,
+                stacklevel=2
+            )
         cdef int a_rows = 0
         cdef int a_columns = 0
         cdef int b_rows
@@ -1541,12 +1563,12 @@ cdef class Solver:
                 ports at that excitation.
 
             delay1 (float, optional):
-                delay in seconds between the reference plane and port
-                1 of the standard.  Can be negative.
+                **Deprecated.** Delay in seconds between the reference
+                plane and port 1 of the standard.  Can be negative.
 
             delay2 (float, optional):
-                delay in seconds between the reference plane and port
-                2 of the standard.  Can be negative.
+                **Deprecated.** Delay in seconds between the reference
+                plane and port 2 of the standard.  Can be negative.
 
             port1 (int, optional):
                 VNA port number connected to port 1 of the calibration
@@ -1556,6 +1578,13 @@ cdef class Solver:
                 VNA port number connected to port 2 of the calibration
                 standard.  If not given, defaults to 2.
         """
+        if delay1 != 0.0 or delay2 != 0.0:
+            warnings.warn(
+                "The delay1 and delay2 parameters are deprecated and "
+                "will be removed in a future release.",
+                DeprecationWarning,
+                stacklevel=2
+            )
         cdef int a_rows = 0
         cdef int a_columns = 0
         cdef int b_rows
@@ -1642,8 +1671,9 @@ cdef class Solver:
                 ports at that excitation.
 
             delay_vector (list/array of float, optional):
-                vector of delays in seconds between the reference plane
-                and each port of the standard.  Delays can be negative.
+                **Deprecated.** Vector of delays in seconds between
+                the reference plane and each port of the standard.
+                Delays can be negative.
 
             port_map (list/array of int, optional):
                 list of the VNA port numbers attached to each port of
@@ -1652,6 +1682,13 @@ cdef class Solver:
                 the VNA are attached to the corresponding port numbers
                 of the standard.  VNA port numbers start with 1.
         """
+        if delay_vector is not None:
+            warnings.warn(
+                "The delay_vector parameter is deprecated and will be "
+                "removed in a future release.",
+                DeprecationWarning,
+                stacklevel=2
+            )
         cdef int a_rows = 0
         cdef int a_columns = 0
         cdef int b_rows
@@ -2034,12 +2071,19 @@ cdef class Calibration:
                 here must match use of the **a** matrix during calibration.
 
             delay_vector (list/array of float, optional):
-                delay in seconds between the reference plane and each
-                port of the DUT.  Delays can be negative.
+                **Deprecated.** Delay in seconds between the reference
+                plane and each port of the DUT.  Delays can be negative.
 
         Return:
             NPData object containing the corrected parameters
         """
+        if delay_vector is not None:
+            warnings.warn(
+                "The delay_vector parameter is deprecated and will be "
+                "removed in a future release.",
+                DeprecationWarning,
+                stacklevel=2
+            )
         cdef vnacal_t *vcp = self.calset.vcp
         cdef int ci = self.ci
         cdef int frequencies
