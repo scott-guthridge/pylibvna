@@ -1,7 +1,17 @@
 - Split the simulated VNA code out of the example scripts so that the
   example code isn't cluttered with simulation details.
+  DONE
 
 - Improve the build.
+  DONE
 
 - Improve the documentation.
   DONE
+
+- Add embed/de-embed operations, then deprecate the delays.
+
+- Switch the examples to use new calkit and other new functionality.
+
+- Improve the advanced calibration example.  Use more realistic
+  error measurements.  Look into why we're getting such extreme
+  outliers without measurement error modeling.
