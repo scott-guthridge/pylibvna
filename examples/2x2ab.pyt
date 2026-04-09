@@ -19,6 +19,34 @@ points = 10
 f_vector = np.logspace(np.log10(fmin), np.log10(fmax), num=points)
 eterms = et.RandomErrorTerms(rng, CalType.TE10, 2, 2, fmin, fmax)
 calset = Calset()
+
+%# Test harness needs the standards, too.
+short_std = calset.short_standard(
+    offset_z0=51.259595,
+    offset_delay=33.340790e-12,
+    offset_loss=5.460953e+9,
+    fmax=8.5e+9,
+    L=[-119.006943e-12, -1.310397249e-21, 1.511773982e-31, -91.480400e-42]
+)
+open_std = calset.open_standard(
+    offset_z0=51.635682,
+    offset_delay=37.636850e-12,
+    offset_loss=5.611771e+9,
+    fmax=8.5e+9,
+    C=[-93.936119e-15, 151.860439e-27, -786.852853e-36, 46.121820e-45]
+)
+load_std = calset.load_standard(
+    offset_z0=50.0,
+    offset_delay=0.0,
+    offset_loss=0.0,
+    fmax=8.5e+9,
+    Zl=50.0
+)
+through_std = calset.through_standard(
+    offset_z0=50.280012,
+    offset_delay=75.191505e-12,
+    offset_loss=6.731522e+9
+)
 %]
 %O 2x2ab-calibrate.py
 %############################ begin calibration ###############################
@@ -31,40 +59,68 @@ fmin = %{fmin:7.1e%}
 fmax = %{fmax:7.1e%}
 f_vector = np.logspace(np.log10(fmin), np.log10(fmax), num=%{points%})
 
-# Set up libvna.cal's error term solver.
+# Create the calibration container and error term solver.
 calset = Calset()
 solver = Solver(calset, CalType.TE10, rows=2, columns=2,
                 frequency_vector=f_vector)
 
+# Define the standards for our calibration kit.
+short_std = calset.short_standard(
+    offset_z0=51.259595,
+    offset_delay=33.340790e-12,
+    offset_loss=5.460953e+9,
+    fmax=8.5e+9,
+    L=[-119.006943e-12, -1.310397249e-21, 1.511773982e-31, -91.480400e-42]
+)
+open_std = calset.open_standard(
+    offset_z0=51.635682,
+    offset_delay=37.636850e-12,
+    offset_loss=5.611771e+9,
+    fmax=8.5e+9,
+    C=[-93.936119e-15, 151.860439e-27, -786.852853e-36, 46.121820e-45]
+)
+load_std = calset.load_standard(
+    offset_z0=50.0,
+    offset_delay=0.0,
+    offset_loss=0.0,
+    fmax=8.5e+9,
+    Zl=50.0
+)
+through_std = calset.through_standard(
+    offset_z0=50.280012,
+    offset_delay=75.191505e-12,
+    offset_loss=6.731522e+9
+)
+
 # Add measurement of the short-open standard..
 %[
-s = [[-1, 0],
-     [ 0, 1]]
+s = [[short_std, 0],
+     [ 0, open_std]]
 a, b = eterms.evaluate(calset, f_vector, s, ab=True)
 et.print_matrix(a, file=_file, name='a', indent=_indent)
 et.print_matrix(b, file=_file, name='b', indent=_indent)
 %]
-solver.add_double_reflect(a=a, b=b, s11=-1, s22=1)
+solver.add_double_reflect(a=a, b=b, s11=short_std, s22=open_std)
 
-# Add measurement of the short-match stnadard.
+# Add measurement of the short-load stnadard.
 %[
-s = [[-1, 0],
-     [0, 0]]
+s = [[short_std, 0],
+     [0, load_std]]
 a, b = eterms.evaluate(calset, f_vector, s, ab=True)
 et.print_matrix(a, file=_file, name='a', indent=_indent)
 et.print_matrix(b, file=_file, name='b', indent=_indent)
 %]
-solver.add_double_reflect(a=a, b=b, s11=-1, s22=0)
+solver.add_double_reflect(a=a, b=b, s11=short_std, s22=load_std)
 
-# Add measurement of the through standard.
+# Add measurement of the through standard.  Notice that we have to add
+# the calkit standard as a 'line'.
 %[
-s = [[0, 1],
-     [1, 0]]
+s = through_std
 a, b = eterms.evaluate(calset, f_vector, s, ab=True)
 et.print_matrix(a, file=_file, name='a', indent=_indent)
 et.print_matrix(b, file=_file, name='b', indent=_indent)
 %]
-solver.add_through(a=a, b=b)
+solver.add_line(a=a, b=b, s=through_std)
 
 # Solve, add to Calset and save.
 solver.solve()

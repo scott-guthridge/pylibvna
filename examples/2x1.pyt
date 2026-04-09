@@ -32,7 +32,7 @@ fmin = %{fmin:7.1e%}
 fmax = %{fmax:7.1e%}
 f_vector = np.logspace(np.log10(fmin), np.log10(fmax), num=%{points%})
 
-# Set up libvna.cal's error term solver.
+# Create the calibration container and error term solver.
 calset = Calset()
 solver = Solver(calset, CalType.E12, rows=2, columns=1,
                 frequency_vector=f_vector)

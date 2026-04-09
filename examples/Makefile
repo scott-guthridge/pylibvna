@@ -36,11 +36,16 @@ TRL-corrected.s2p: TRL-apply.py
 	python TRL-apply.py
 	python compare-same.py --atol=0.001 --rtol=0.001 \
 		TRL-expected.s2p TRL-corrected.s2p
+	python compare-same.py --atol=0.001 --rtol=0.001 \
+		TRL-R.s1p TRL-Ra.s1p
+	python compare-same.py --atol=0.001 --rtol=0.001 \
+		TRL-L.s2p TRL-La.s2p
 
 UT-corrected.s2p: UT-apply.py
 	python UT-calibrate.py
 	python UT-apply.py
 	python compare-same.py UT-expected.s2p UT-corrected.s2p
+	python compare-same.py UT-T.s2p UT-Ta.s2p
 
 2PR2-corrected.s1p: 2PR-apply.py
 	python 2PR-calibrate.py

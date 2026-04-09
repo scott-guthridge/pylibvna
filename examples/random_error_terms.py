@@ -187,7 +187,7 @@ class RandomErrorTerms:
         m_cols = self.m_cols
         s_rows = self.s_rows
         s_cols = self.s_cols
-        s_matrix = [[Parameter.from_value(calset, s_matrix[i][j])
+        s_matrix = [[calset.parameter(s_matrix[i][j])
                     for j in range(s_rows)] for i in range(s_cols)]
         n_systems = len(self.systems)
         frequencies = len(f_vector)
@@ -195,10 +195,7 @@ class RandomErrorTerms:
         result = np.empty((frequencies, m_rows, result_cols), dtype=complex)
         for sindex, system in enumerate(self.systems):
             for findex, f in enumerate(f_vector):
-                s = np.empty(shape=(s_rows, s_cols), dtype=complex)
-                for i in range(s_rows):
-                    for j in range(s_cols):
-                        s[i, j] = s_matrix[i][j].get_value(f)
+                s = calset.parameter_matrix(s_matrix).eval(f, z0=50.0)
                 el, er, et, em = self.get_eterms(sindex, f)
 
                 # Compute the measured values and place them into

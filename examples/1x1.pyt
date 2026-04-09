@@ -18,6 +18,29 @@ points = 10
 f_vector = np.logspace(np.log10(fmin), np.log10(fmax), num=points)
 eterms = et.RandomErrorTerms(rng, CalType.E12, 1, 1, fmin, fmax)
 calset = Calset()
+
+%# Test harness needs the standards, too.
+short_std = calset.short_standard(
+    offset_z0=51.259595,
+    offset_delay=33.340790e-12,
+    offset_loss=5.460953e+9,
+    fmax=8.5e+9,
+    L=[-119.006943e-12, -1.310397249e-21, 1.511773982e-31, -91.480400e-42]
+)
+open_std = calset.open_standard(
+    offset_z0=51.635682,
+    offset_delay=37.636850e-12,
+    offset_loss=5.611771e+9,
+    fmax=8.5e+9,
+    C=[-93.936119e-15, 151.860439e-27, -786.852853e-36, 46.121820e-45]
+)
+load_std = calset.load_standard(
+    offset_z0=50.0,
+    offset_delay=0.0,
+    offset_loss=0.0,
+    fmax=8.5e+9,
+    Zl=50.0
+)
 %]
 %O 1x1-calibrate.py
 %############################ begin calibration ###############################
@@ -31,34 +54,57 @@ fmin = %{fmin:7.1e%}
 fmax = %{fmax:7.1e%}
 f_vector = np.logspace(np.log10(fmin), np.log10(fmax), num=%{points%})
 
-# Set up libvna.cal's error term solver.
+# Create the calibration container and error term solver.
 calset = Calset()
 solver = Solver(calset, CalType.E12, rows=1, columns=1,
                 frequency_vector=f_vector)
 
+# Define the calibration standards for out calibration kit.
+short_std = calset.short_standard(
+    offset_z0=51.259595,
+    offset_delay=33.340790e-12,
+    offset_loss=5.460953e+9,
+    fmax=8.5e+9,
+    L=[-119.006943e-12, -1.310397249e-21, 1.511773982e-31, -91.480400e-42]
+)
+open_std = calset.open_standard(
+    offset_z0=51.635682,
+    offset_delay=37.636850e-12,
+    offset_loss=5.611771e+9,
+    fmax=8.5e+9,
+    C=[-93.936119e-15, 151.860439e-27, -786.852853e-36, 46.121820e-45]
+)
+load_std = calset.load_standard(
+    offset_z0=50.0,
+    offset_delay=0.0,
+    offset_loss=0.0,
+    fmax=8.5e+9,
+    Zl=50.0
+)
+
 # Add measurement of the short standard.
 %[
-s = [[-1]]
+s = [[short_std]]
 m = eterms.evaluate(calset, f_vector, s)
 et.print_matrix(m, file=_file, indent=_indent)
 %]
-solver.add_single_reflect(m, s11=-1)
+solver.add_single_reflect(m, s11=short_std)
 
 # Add measurement of the open standard.
 %[
-s = [[1]]
+s = [[open_std]]
 m = eterms.evaluate(calset, f_vector, s)
 et.print_matrix(m, file=_file, indent=_indent)
 %]
-solver.add_single_reflect(m, s11=1)
+solver.add_single_reflect(m, s11=open_std)
 
 # Add measurement of the load standard.
 %[
-s = [[0]]
+s = [[load_std]]
 m = eterms.evaluate(calset, f_vector, s)
 et.print_matrix(m, file=_file, indent=_indent)
 %]
-solver.add_single_reflect(m, s11=0)
+solver.add_single_reflect(m, s11=load_std)
 
 # Solve, add to Calset and save.
 solver.solve()

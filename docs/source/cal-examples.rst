@@ -4,7 +4,8 @@ Calibration Examples
 One-Port Reflect Only
 ---------------------
 
-Create the calibration from measurements of short, open and load standards.
+Calibrate the VNA from measurements of short, open and load standards
+using Agilent calibration kit models.
 
 .. literalinclude:: ../../examples/1x1-calibrate.py
    :language: python
@@ -18,9 +19,8 @@ Apply the calibration to a device under test.
 One-Port Reflect Only with Measured Standards
 ---------------------------------------------
 
-Create the calibration from measurements of imperfect standards that have
-been measured on a more trusted instrument, loading the S-parameters of
-each standard from a file.
+Calibrate the VNA from measurements of short, open and load standards
+using measured values of the standards.
 
 .. literalinclude:: ../../examples/1x1m-calibrate.py
    :language: python
@@ -35,7 +35,9 @@ Apply the calibration to a device under test.
 --------
 
 Example of SOLT calibration for a VNA that measures only :math:`S_{11}`
-and :math:`S_{21}`
+and :math:`S_{21}`.  In this example, we use perfect standards: -1 for
+short, 1 for open, 0 for load, and solver.add_through() for a perfect
+through.
 
 .. literalinclude:: ../../examples/2x1-calibrate.py
    :language: python
@@ -56,10 +58,11 @@ solve for the full S-parameters of the device.
 In this example, our VNA measures full S parameters.  In addition, it
 measures the transmitted power (`a` matrix) as well as the reflected power
 (`b` matrix).  Having the `a` matrix makes it possible to compensate for
-errors in the RF switch(es) without requiring separate calibration error
-terms for each switch setting.  We use the `TE10` calibration type which
-consists of 8-term T error terms and two internal leakage terms.  For the
-calibration, we use three standards: short-open, short-match and through.
+errors in the RF switches without requiring separate calibration error
+terms for each switch setting.  We use the `TE10` calibration type,
+which consists of 8-term T error terms and two internal leakage terms.
+To reduce the number of calibration steps, we measure one-port standards
+two at a time: short-open, short-load and through.
 
 .. literalinclude:: ../../examples/2x2ab-calibrate.py
    :language: python
@@ -70,13 +73,14 @@ Apply the calibration to a device under test.
    :language: python
 
 
-Two Port Reflect Only
+Two-Port Reflect Only
 ---------------------
 
 In this example, we calibrate a two-port VNA for reflection measurements
 only, useful in cases where we don't need to make through measurements.
 This example demonstrates using multiple solvers simultaneously and
-saving more than one calibration in the same calibration file.
+saving more than one calibration in the same calibration file.  To keep
+the example simple, we're using perfect standards.
 
 .. literalinclude:: ../../examples/2PR-calibrate.py
    :language: python
@@ -110,8 +114,8 @@ Unknown Through
 Example of unknown through calibration.  For this calibration, we need
 three reflect standards on each port and the unknown through between
 them.  To reduce calibration steps, we measure two reflect standards
-at a time.  We have arbitrarily selected them as short-open, open-match,
-and match-short.
+at a time.  We have arbitrarily selected them as short-open, open-load,
+and load-short.
 
 .. literalinclude:: ../../examples/UT-calibrate.py
    :language: python
@@ -153,11 +157,11 @@ are unknown.  The transmission term of the through standard is an
 `UnknownParameter` as in the unknown-through example; all others are
 `CorrelatedParameters`, known only to be statistically related to
 other parameters, in this case, to known perfect short, open, and
-match standards.  Calibration must not only solve for the 16 error terms
+load standards.  Calibration must not only solve for the 16 error terms
 (really 15, because one is a free variable), but also for the 12 unknown
 non-repeatable connection parameters of the calibration standards.
 
-We start the calibration by connecting port 1 to a match standard and
+We start the calibration by connecting port 1 to a load standard and
 port 2 to a short standard.  From there, we change one connection at
 a time, providing two measurements of most parameters.  Finally, we
 connect the unknown through, not assuming perfect impedance matches.

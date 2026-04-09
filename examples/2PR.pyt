@@ -20,6 +20,29 @@ f_vector = np.logspace(np.log10(fmin), np.log10(fmax), num=points)
 eterms1 = et.RandomErrorTerms(rng, CalType.E12, 1, 1, fmin, fmax)
 eterms2 = et.RandomErrorTerms(rng, CalType.E12, 1, 1, fmin, fmax)
 calset = Calset()
+
+%# Test harness needs the standards, too.
+short_std = calset.short_standard(
+    offset_z0=51.259595,
+    offset_delay=33.340790e-12,
+    offset_loss=5.460953e+9,
+    fmax=8.5e+9,
+    L=[-119.006943e-12, -1.310397249e-21, 1.511773982e-31, -91.480400e-42]
+)
+open_std = calset.open_standard(
+    offset_z0=51.635682,
+    offset_delay=37.636850e-12,
+    offset_loss=5.611771e+9,
+    fmax=8.5e+9,
+    C=[-93.936119e-15, 151.860439e-27, -786.852853e-36, 46.121820e-45]
+)
+load_std = calset.load_standard(
+    offset_z0=50.0,
+    offset_delay=0.0,
+    offset_loss=0.0,
+    fmax=8.5e+9,
+    Zl=50.0
+)
 %]
 %O 2PR-calibrate.py
 %############################ begin calibration ###############################
@@ -40,41 +63,64 @@ solver1 = Solver(calset, CalType.E12, rows=1, columns=1,
 solver2 = Solver(calset, CalType.E12, rows=1, columns=1,
                  frequency_vector=f_vector)
 
+# Define the standards for our calibration kit.
+short_std = calset.short_standard(
+    offset_z0=51.259595,
+    offset_delay=33.340790e-12,
+    offset_loss=5.460953e+9,
+    fmax=8.5e+9,
+    L=[-119.006943e-12, -1.310397249e-21, 1.511773982e-31, -91.480400e-42]
+)
+open_std = calset.open_standard(
+    offset_z0=51.635682,
+    offset_delay=37.636850e-12,
+    offset_loss=5.611771e+9,
+    fmax=8.5e+9,
+    C=[-93.936119e-15, 151.860439e-27, -786.852853e-36, 46.121820e-45]
+)
+load_std = calset.load_standard(
+    offset_z0=50.0,
+    offset_delay=0.0,
+    offset_loss=0.0,
+    fmax=8.5e+9,
+    Zl=50.0
+)
+
 # Add measurement of load standard on port 1 and short standard on port 2.
 %[
-s = [[0]]
+s = [[load_std]]
 m1 = eterms1.evaluate(calset, f_vector, s)
-s = [[-1]]
+s = [[short_std]]
 m2 = eterms2.evaluate(calset, f_vector, s)
 m = np.concatenate((m1, m2), axis=2)
 et.print_matrix(m, file=_file, indent=_indent, asarray=True)
 %]
-solver1.add_single_reflect(m[:, :, 0].reshape((len(f_vector), 1, 1)), s11=0)
-solver2.add_single_reflect(m[:, :, 1].reshape((len(f_vector), 1, 1)), s11=-1)
+solver1.add_single_reflect(m[:, :, 0].reshape((len(f_vector), 1, 1)), s11=load_std)
+solver2.add_single_reflect(m[:, :, 1].reshape((len(f_vector), 1, 1)), s11=short_std)
 
 # Add measurement of short standard on port 1 and open standard on port 2.
 %[
-s = [[-1]]
+s = [[short_std]]
 m1 = eterms1.evaluate(calset, f_vector, s)
-s = [[1]]
+s = [[open_std]]
 m2 = eterms2.evaluate(calset, f_vector, s)
 m = np.concatenate((m1, m2), axis=2)
 et.print_matrix(m, file=_file, indent=_indent, asarray=True)
 %]
-solver1.add_single_reflect(m[:, :, 0].reshape((len(f_vector), 1, 1)), s11=-1)
-solver2.add_single_reflect(m[:, :, 1].reshape((len(f_vector), 1, 1)), s11=1)
+solver1.add_single_reflect(m[:, :, 0].reshape((len(f_vector), 1, 1)), s11=short_std)
+solver2.add_single_reflect(m[:, :, 1].reshape((len(f_vector), 1, 1)), s11=open_std)
 
 # Add measurement of open standard on port 1 and load standard on port 2.
 %[
-s = [[1]]
+s = [[open_std]]
 m1 = eterms1.evaluate(calset, f_vector, s)
-s = [[0]]
+s = [[load_std]]
 m2 = eterms2.evaluate(calset, f_vector, s)
 m = np.concatenate((m1, m2), axis=2)
 et.print_matrix(m, file=_file, indent=_indent, asarray=True)
 %]
-solver1.add_single_reflect(m[:, :, 0].reshape((len(f_vector), 1, 1)), s11=1)
-solver2.add_single_reflect(m[:, :, 1].reshape((len(f_vector), 1, 1)), s11=0)
+solver1.add_single_reflect(m[:, :, 0].reshape((len(f_vector), 1, 1)), s11=open_std)
+solver2.add_single_reflect(m[:, :, 1].reshape((len(f_vector), 1, 1)), s11=load_std)
 
 # Solve both calibrations, add to Calset and save.
 solver1.solve()

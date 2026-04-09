@@ -262,6 +262,9 @@ cdef class Parameter:
         # is found, automatically convert it to a vector parameter.
         # """
         assert calset is not None
+        if isinstance(value, NPData):
+            value = DataStandard(calset, value)
+
         if isinstance(value, ParameterMatrix):
             if value.shape != (1, 1):
                 raise ValueError(
@@ -326,12 +329,73 @@ cdef class Parameter:
         has completed successfully, :func:`get_value` returns the solved
         value, again interpolating as necessary.
         """
+        warnings.warn(
+            "Parameter.get_value is deprecated and will be removed in a "
+            "future release.  Use Parameter.eval instead.",
+            DeprecationWarning
+        )
         cdef bool is_scalar = np.isscalar(frequencies)
         f_array = np.ascontiguousarray(frequencies, dtype=np.double)
         if is_scalar:
             return self._get_simple_value(frequencies)
         else:
             return self._get_array_value(f_array)
+
+    cdef double complex _eval_simple_value(self, double frequency,
+            double complex z0):
+        # eval where frequency is a scalar
+        cdef vnacal_t *vcp = self.calset.vcp
+        cdef double complex result
+        result = vnacal_eval_parameter(vcp, self.pindex, frequency, z0)
+        self.calset._check_error(0)
+        return result
+
+    cdef _eval_array_value(self, f, z0):
+        # eval where f (and maybe z0) is a vector
+        assert f.ndim == 1
+        result = np.empty(f.shape, dtype=np.cdouble, order="C")
+        if np.isscalar(z0):
+            for i in range(f.shape[0]):
+                result[i] = self._eval_simple_value(f[i], z0)
+        else:
+            for i in range(f.shape[0]):
+                result[i] = self._eval_simple_value(f[i], z0[i])
+        return result
+
+    def eval(self, f, z0=50.0):
+        """
+        Return the value of the parameter at each given frequency and
+        reference impedance with output in the same shape as frequencies.
+
+        Parameters:
+            frequencies (float or array of float):
+                frequencies at which to evaluate the value.
+            z0 (complex, optional)
+                reference impedance (defaults to 50 ohms)
+
+        For a scalar parameter, the function ignores *frequency* and
+        simply returns the fixed value value.  For a vector parameter, it
+        returns the value value at the given frequency, interpolating as
+        necessary.  If the parameter is unknown and :func:`Solver.solve`
+        has completed successfully, :func:`get_value` returns the solved
+        value, again interpolating as necessary.
+        """
+        if np.isscalar(f):
+            if not np.isscalar(z0):
+                raise ValueError("z0 must be a scalar when f is a scalar")
+            return self._eval_simple_value(f, z0)
+
+        f = np.ascontiguousarray(f, dtype=np.double)
+        if f.ndim != 1:
+            raise ValueError("f must be a scalar or vector")
+        if not np.isscalar(z0):
+            z0 = np.ascontiguousarray(z0, dtype=np.cdouble)
+            if z0.ndim != 1:
+                raise ValueError("z0 must be a scalar or vector")
+            if len(z0) != len(f):
+                raise ValueError("z0 must be a scalar or vector with "
+                                 "length same as f")
+        return self._eval_array_value(f, z0)
 
 
 cdef class ScalarParameter(Parameter):
@@ -439,6 +503,31 @@ cdef class _ParameterMatrixElement(Parameter):
         self.calset = calset
         self.pindex = pindex
 
+def _asarray_ndminmax2(arr):
+    """
+    Hack to emulate np.array with ndmax=2 in numpy versions
+    earlier than 2.3.
+    """
+    class _Barrier:
+        def __init__(self, value):
+            self.value = value
+
+    def unpack(x):
+        return x.value if isinstance(x, _Barrier) else x
+
+    def pack(obj, depth):
+        if depth == 2:
+            return _Barrier(obj)
+        try:
+            it = list(obj)
+        except TypeError:
+            return obj
+
+        return [pack(x, depth + 1) for x in it]
+
+    arr = np.array(pack(arr, 0), ndmin=2, dtype=object)
+    return np.vectorize(unpack, otypes=[object])(arr)
+
 
 class ParameterMatrix(np.ndarray):
     """
@@ -458,32 +547,29 @@ class ParameterMatrix(np.ndarray):
     @staticmethod
     def from_array(Calset calset, value):
         if isinstance(value, ParameterMatrix):
-            if not calset is value.calset:
+            if value.size != 0 and (<Parameter>value[0, 0]).calset != calset:
                 raise ValueError(
                     f"ParameterMatrix.from_array: existing "
                     f"{value.__class__.__name__} belongs to different Calset"
                 )
             return value
 
-        a = np.asarray(value, dtype=object).view(__class__)
-        if a.ndim == 0:
-            a.reshape((1, 1))
-        elif a.ndim == 2:
-            pass
-        else:
-            raise ValueError(
-                f"Expected a two-dimensional array: found {a.ndim} dimensions"
-            )
+        a = _asarray_ndminmax2(value).view(__class__)
+        assert a.ndim == 2
         cdef object [:, :] v = a
         cdef int r
         cdef int c
         for r in range(a.shape[0]):
             for c in range(a.shape[1]):
                 if not isinstance(a[r, c], Parameter):
-                    v[r, c] = Parameter._from_value(calset, v[r, c])
+                    p = Parameter._from_value(calset, v[r, c])
+                    v[r, c] = p
+                    if p.calset != calset:
+                        raise ValueError(f"Element at [{r}, {c}] belongs "
+                                         f"to a different Calset")
         return a
 
-    def eval(self, f, z0):
+    def eval(self, f, z0=50.0):
         """
         Evaluate the standard at one or more frequencies.
 
@@ -495,8 +581,8 @@ class ParameterMatrix(np.ndarray):
                 are provided, the result is 3D (frequencies × rows
                 × columns).
 
-            z0 (complex):
-                reference impedances
+            z0 (complex, optional):
+                reference impedances (defaults to 50 ohms)
 
                 Can be: a scalar (same impedance for all ports and
                 frequencies), a 1D array of length `ports` (same for
@@ -517,6 +603,8 @@ class ParameterMatrix(np.ndarray):
         frequency_vector = np.ascontiguousarray(
             f, dtype=np.double
         )
+        if frequency_vector.ndim != 1:
+            raise ValueError("f must be scalar or vector")
         cdef double[:] frequency_view = frequency_vector
         frequencies = len(frequency_vector)
 
@@ -575,7 +663,7 @@ class ParameterMatrix(np.ndarray):
         # Return 2D if scalar frequency
         return result[0] if is_scalar_freq else result
 
-    def to_npdata(self, frequency_vector, z0) -> NPData:
+    def to_npdata(self, frequency_vector, z0=50.0) -> NPData:
         """
         Construct an NPData object from the standard.
 
@@ -583,8 +671,8 @@ class ParameterMatrix(np.ndarray):
             frequency_vector (vector of float):
                 monotonically increasing list of frequencies
 
-            z0 (complex):
-                reference impedances
+            z0 (complex, optional):
+                reference impedances (defaults to 50 ohms)
 
                 z0 can be specified as a scalar, number of ports long
                 vector, or frequencies by ports matrix.
@@ -823,9 +911,7 @@ cdef object _prepare_C_array(object array, object name, int frequencies,
             r * c * sizeof(double complex *))
     if clfpp == NULL:
         raise MemoryError()
-    cdef int i
-    cdef int j
-    cdef int k
+    cdef int i, j, k
     try:
         k = 0
         for i in range(r):
@@ -1288,8 +1374,7 @@ cdef class Solver:
         cdef int b_columns
         cdef double complex **a_clfpp = NULL
         cdef double complex **b_clfpp = NULL
-        cdef int i
-        cdef int j
+        cdef int i, j
         cdef Parameter c_parameter
         cdef int si[2][2]
         cdef int rc
@@ -1388,9 +1473,7 @@ cdef class Solver:
         cdef int s_ports
         cdef double complex **a_clfpp = NULL
         cdef double complex **b_clfpp = NULL
-        cdef int i
-        cdef int j
-        cdef int k
+        cdef int i, j, k
         cdef Parameter c_parameter
         cdef int *sip = NULL
         cdef int *mip = NULL
@@ -1779,8 +1862,7 @@ cdef class Calibration:
         cdef int b_rows
         cdef int b_columns
         cdef int b_ports
-        cdef int i
-        cdef int j
+        cdef int i, j
         cdef double complex **a_clfpp = NULL
         cdef double complex **b_clfpp = NULL
         cdef vnadata_t *vdp

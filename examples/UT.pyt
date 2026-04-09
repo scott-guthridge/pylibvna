@@ -22,6 +22,29 @@ f_vector = np.logspace(np.log10(fmin), np.log10(fmax), num=points)
 eterms = et.RandomErrorTerms(rng, CalType.TE10, 2, 2, fmin, fmax)
 calset = Calset()
 
+%# Test harness needs the standards, too.
+short_std = calset.short_standard(
+    offset_z0=51.259595,
+    offset_delay=33.340790e-12,
+    offset_loss=5.460953e+9,
+    fmax=8.5e+9,
+    L=[-119.006943e-12, -1.310397249e-21, 1.511773982e-31, -91.480400e-42]
+)
+open_std = calset.open_standard(
+    offset_z0=51.635682,
+    offset_delay=37.636850e-12,
+    offset_loss=5.611771e+9,
+    fmax=8.5e+9,
+    C=[-93.936119e-15, 151.860439e-27, -786.852853e-36, 46.121820e-45]
+)
+load_std = calset.load_standard(
+    offset_z0=50.0,
+    offset_delay=0.0,
+    offset_loss=0.0,
+    fmax=8.5e+9,
+    Zl=50.0
+)
+
 # Find the actual through standard modelling it as a length of
 # transmission line with both metal and dielectric losses.
 length = 0.02			# length in meters
@@ -36,6 +59,9 @@ gl = [(lm * math.sqrt(f) + ld * f + 2.0j * math.pi * f / (vf * c)) * length
       for f in f_vector]
 γ_through_actual = np.exp(-np.asarray(gl))
 T_actual = calset.vector_parameter(f_vector, γ_through_actual)
+
+calset.parameter_matrix([[0, T_actual], [T_actual, 0]]) \
+    .to_npdata(f_vector).save("UT-Ta.s2p")
 %]
 %O UT-calibrate.py
 %############################ begin calibration ###############################
@@ -51,10 +77,33 @@ fmin = %{fmin:7.1e%}
 fmax = %{fmax:7.1e%}
 f_vector = np.logspace(np.log10(fmin), np.log10(fmax), num=%{points%})
 
-# Set up libvna.cal's error term solver.
+# Create the calibration container and error term solver.
 calset = Calset()
 solver = Solver(calset, CalType.TE10, rows=2, columns=2,
                 frequency_vector=f_vector)
+
+# Define the short, open and load standards from our calibration kit.
+short_std = calset.short_standard(
+    offset_z0=51.259595,
+    offset_delay=33.340790e-12,
+    offset_loss=5.460953e+9,
+    fmax=8.5e+9,
+    L=[-119.006943e-12, -1.310397249e-21, 1.511773982e-31, -91.480400e-42]
+)
+open_std = calset.open_standard(
+    offset_z0=51.635682,
+    offset_delay=37.636850e-12,
+    offset_loss=5.611771e+9,
+    fmax=8.5e+9,
+    C=[-93.936119e-15, 151.860439e-27, -786.852853e-36, 46.121820e-45]
+)
+load_std = calset.load_standard(
+    offset_z0=50.0,
+    offset_delay=0.0,
+    offset_loss=0.0,
+    fmax=8.5e+9,
+    Zl=50.0
+)
 
 # Create an unknown parameter for our through standard.  As long as the
 # phase shift in the through remains safely below 90 degrees, we can
@@ -64,30 +113,30 @@ T = calset.unknown_parameter(1)
 
 # Add measurement of the short-open standard.
 %[
-s = [[-1, 0],
-     [0, 1]]
+s = [[short_std, 0],
+     [0, open_std]]
 m = eterms.evaluate(calset, f_vector, s)
 et.print_matrix(m, file=_file, indent=_indent)
 %]
-solver.add_double_reflect(m, s11=-1, s22=1)
+solver.add_double_reflect(m, s11=short_std, s22=open_std)
 
-# Add measurement of the open-match standard.
+# Add measurement of the open-load standard.
 %[
-s = [[1, 0],
-     [0, 0]]
+s = [[open_std, 0],
+     [0, load_std]]
 m = eterms.evaluate(calset, f_vector, s)
 et.print_matrix(m, file=_file, indent=_indent)
 %]
-solver.add_double_reflect(m, s11=1, s22=0)
+solver.add_double_reflect(m, s11=open_std, s22=load_std)
 
-# Add measurement of the match-short standard.
+# Add measurement of the load-short standard.
 %[
-s = [[0, 0],
-     [0, -1]]
+s = [[load_std, 0],
+     [0, short_std]]
 m = eterms.evaluate(calset, f_vector, s)
 et.print_matrix(m, file=_file, indent=_indent)
 %]
-solver.add_double_reflect(m, s11=0, s22=-1)
+solver.add_double_reflect(m, s11=load_std, s22=short_std)
 
 
 # Add measurement of the unknown through standard.  Note that we
@@ -106,12 +155,7 @@ solver.add_to_calset('mycal')
 calset.save('UT.vnacal')
 
 # Save the solved T
-t_array = np.asarray(T.get_value(f_vector)).reshape((len(f_vector), 1, 1))
-t_data = NPData(PType.S, len(f_vector), 1, 1)
-t_data.frequency_vector = f_vector
-t_data.data_array = t_array
-t_data.format = "Sma"
-t_data.save('UT-T.s1p')
+calset.parameter_matrix([[0, T], [T, 0]]).to_npdata(f_vector).save("UT-T.s2p")
 %############################# end calibration ################################
 %#
 %#

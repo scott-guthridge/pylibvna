@@ -11,33 +11,25 @@ import random_error_terms as et
 # Set up random generator.
 rng = np.random.default_rng(seed=8)
 
-#
 # Set frequency range and number of points.
-#
 fmin = 1.0e+6
 fmax = 1.0e+8
 points = 10
 f_vector = np.linspace(fmin, fmax, num=points)
 
-#
 # Make measurement error and connection nonrepeatability error vectors.
 # These should really be measured values.
-#
 nf_vector = np.linspace(1.0e-4, 2.0e-4, num=len(f_vector))
 tr_vector = np.linspace(1.0e-3, 2.0e-3, num=len(f_vector))
 σ_vector = np.linspace(0.01, 0.02, points)
 
-#
 # Generate random error terms.
-#
 eterms = et.RandomErrorTerms(rng, CalType.T16, 2, 2, fmin, fmax,
  	                     nf_vector=nf_vector, tr_vector=tr_vector)
 calset = Calset()
 
-#
 # Generate the actual parameters of the standards, including random
 # connection non-repeatability errors.
-#
 actual_M1 = [ 0 + et.random_complex(rng, σ) for σ in σ_vector]
 actual_S1 = [-1 + et.random_complex(rng, σ) for σ in σ_vector]
 actual_O1 = [+1 + et.random_complex(rng, σ) for σ in σ_vector]
@@ -61,10 +53,8 @@ O3a = calset.vector_parameter(f_vector, actual_O3)
 M4a = calset.vector_parameter(f_vector, actual_M4)
 M5a = calset.vector_parameter(f_vector, actual_M5)
 
-#
 # Find the actual through standard, modelling it as a length of
 # transmission line with both metal and dielectric losses.
-#
 length = 0.01			# length in meters
 vf = 2.0 / 3.0			# velocity factor
 lm = 2.50e-4			# metal loss Np/m/Hz**(1/2)
@@ -78,9 +68,7 @@ gl = [(lm * math.sqrt(f) + ld * f + 2.0j * math.pi * f / (vf * c)) * length
 γ_through_actual = np.exp(-np.asarray(gl))
 T_actual = calset.vector_parameter(f_vector, γ_through_actual)
 
-#
 # Create an NPData object for saving the measurements to files.
-#
 npd = NPData(ptype=PType.S, frequencies=points, rows=2, columns=2)
 npd.frequency_vector = f_vector
 %]
@@ -93,25 +81,19 @@ import math
 import numpy as np
 
 
-#
 # Set the calibration frequency points.
-#
 fmin = %{fmin:7.1e%}
 fmax = %{fmax:7.1e%}
 f_vector = np.linspace(fmin, fmax, num=%{points%})
 
-#
-# Set up libvna.cal's error term solver.
-#
+# Create the calibration container and error term solver.
 calset = Calset()
 solver = Solver(calset, CalType.T16, rows=2, columns=2,
                 frequency_vector=f_vector)
 
-#
 # Set the measurement error.  First column is the noise floor of the
 # receiver with no input signal; second column is noise in the generator,
 # proportional to the received amplitude.
-#
 %[
 print('m_error = np.asarray([', file=_file)
 for i in range(len(f_vector)):
@@ -123,12 +105,10 @@ solver.set_m_error(f_vector, m_error[:, 0], m_error[:, 1])
 solver.et_tolerance = 1.0e-5	# set 10x smaller than error
 solver.p_tolerance = 1.0e-5
 
-#
 # Get the (measured) connection non-repeatability error for each frequency
 # and standard.  For simplicity, we assume the error is the same for all
 # our calibration standards; in practice, it's probably not.  A better
 # model would use different sigma values for each standard.
-#
 %[
 print('σ_vector = np.asarray([', file=_file)
 for i in range(len(f_vector)):
@@ -136,36 +116,30 @@ for i in range(len(f_vector)):
 print('])', file=_file)
 %]
 
-#
 # Create correlated parameters for each connection of the reflect
 # standards.  Here, we assume that the standards are perfect on average.
 # The second parameter can be a vector parameter instead of a constant
 # if we have a more trusted model of the standards.
-#
-M1 = calset.correlated_parameter( 0, f_vector, σ_vector)
+L1 = calset.correlated_parameter( 0, f_vector, σ_vector)
 S1 = calset.correlated_parameter(-1, f_vector, σ_vector)
 O1 = calset.correlated_parameter(+1, f_vector, σ_vector)
-M2 = calset.correlated_parameter( 0, f_vector, σ_vector)
+L2 = calset.correlated_parameter( 0, f_vector, σ_vector)
 S2 = calset.correlated_parameter(-1, f_vector, σ_vector)
 O2 = calset.correlated_parameter(+1, f_vector, σ_vector)
-M3 = calset.correlated_parameter( 0, f_vector, σ_vector)
+L3 = calset.correlated_parameter( 0, f_vector, σ_vector)
 S3 = calset.correlated_parameter(-1, f_vector, σ_vector)
 O3 = calset.correlated_parameter(+1, f_vector, σ_vector)
 
-#
 # Create two impedance match errors and an unknown parameter for the
 # through standard.  If the phase shift in the through remains safely
 # below 90 degrees, we can give 1 as the estimate.  For a larger phase
 # shift, we would have to provide a vector parameter instead of 1 as the
 # initial guess and give a more accurate estimate for each frequency.
-#
-M4 = calset.correlated_parameter(0, f_vector, σ_vector)
-M5 = calset.correlated_parameter(0, f_vector, σ_vector)
+L4 = calset.correlated_parameter(0, f_vector, σ_vector)
+L5 = calset.correlated_parameter(0, f_vector, σ_vector)
 T = calset.unknown_parameter(1)
 
-#
-# Start with match on port 1 and short on port 2 (M-S).
-#
+# Start with load on port 1 and short on port 2 (L-S).
 %[
 s = [[M1a, 0],
      [0, S1a]]
@@ -174,11 +148,9 @@ npd.data_array = m
 npd.save('T16-EM-MS1.s2p')
 %]
 m = NPData(ptype=PType.S, filename='T16-EM-MS1.s2p')
-solver.add_double_reflect(m.data_array, s11=M1, s22=S1)
+solver.add_double_reflect(m.data_array, s11=L1, s22=S1)
 
-#
 # Change port 1 to open (O-S).
-#
 %[
 s = [[O1a, 0],
      [0, S1a]]
@@ -189,9 +161,7 @@ npd.save('T16-EM-OS2.s2p')
 m = NPData(ptype=PType.S, filename='T16-EM-OS2.s2p')
 solver.add_double_reflect(m.data_array, s11=O1, s22=S1)
 
-#
-# Change port 2 to match (O-M).
-#
+# Change port 2 to load (O-L).
 %[
 s = [[O1a, 0],
      [0, M2a]]
@@ -200,11 +170,9 @@ npd.data_array = m
 npd.save('T16-EM-OM3.s2p')
 %]
 m = NPData(ptype=PType.S, filename='T16-EM-OM3.s2p')
-solver.add_double_reflect(m.data_array, s11=O1, s22=M2)
+solver.add_double_reflect(m.data_array, s11=O1, s22=L2)
 
-#
-# Change port 1 to short (S-M).
-#
+# Change port 1 to short (S-L).
 %[
 s = [[S2a, 0],
      [0, M2a]]
@@ -213,11 +181,9 @@ npd.data_array = m
 npd.save('T16-EM-SM4.s2p')
 %]
 m = NPData(ptype=PType.S, filename='T16-EM-SM4.s2p')
-solver.add_double_reflect(m.data_array, s11=S2, s22=M2)
+solver.add_double_reflect(m.data_array, s11=S2, s22=L2)
 
-#
 # Change port 2 to open (S-O).
-#
 %[
 s = [[S2a, 0],
      [0, O2a]]
@@ -228,9 +194,7 @@ npd.save('T16-EM-SO5.s2p')
 m = NPData(ptype=PType.S, filename='T16-EM-SO5.s2p')
 solver.add_double_reflect(m.data_array, s11=S2, s22=O2)
 
-#
-# Change port 1 to match (M-O).
-#
+# Change port 1 to load (L-O).
 %[
 s = [[M3a, 0],
      [0, O2a]]
@@ -239,11 +203,9 @@ npd.data_array = m
 npd.save('T16-EM-MO6.s2p')
 %]
 m = NPData(ptype=PType.S, filename='T16-EM-MO6.s2p')
-solver.add_double_reflect(m.data_array, s11=M3, s22=O2)
+solver.add_double_reflect(m.data_array, s11=L3, s22=O2)
 
-#
-# Change port 2 to short (M-S).
-#
+# Change port 2 to short (L-S).
 %[
 s = [[M3a, 0],
      [0, S3a]]
@@ -252,11 +214,9 @@ npd.data_array = m
 npd.save('T16-EM-MS7.s2p')
 %]
 m = NPData(ptype=PType.S, filename='T16-EM-MS7.s2p')
-solver.add_double_reflect(m.data_array, s11=M3, s22=S3)
+solver.add_double_reflect(m.data_array, s11=L3, s22=S3)
 
-#
 # Change port 1 to open (O-S).
-#
 %[
 s = [[O3a, 0],
      [0, S3a]]
@@ -267,9 +227,7 @@ npd.save('T16-EM-OS8.s2p')
 m = NPData(ptype=PType.S, filename='T16-EM-OS8.s2p')
 solver.add_double_reflect(m.data_array, s11=O3, s22=S3)
 
-#
 # Add measurement of the through standard.
-#
 %[
 s = [[M4a, T_actual],
      [T_actual, M5a]]
@@ -278,11 +236,9 @@ npd.data_array = m
 npd.save('T16-EM-T.s2p')
 %]
 m = NPData(ptype=PType.S, filename='T16-EM-T.s2p')
-solver.add_line(m.data_array, [[M4, T], [T, M5]])
+solver.add_line(m.data_array, [[L4, T], [T, L5]])
 
-#
 # Solve, add to Calset and save.
-#
 solver.solve()
 solver.add_to_calset('mycal')
 calset.save('T16-EM.vnacal')

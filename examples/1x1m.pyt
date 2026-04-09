@@ -78,49 +78,39 @@ fmin = %{fmin:7.1e%}
 fmax = %{fmax:7.1e%}
 f_vector = np.logspace(np.log10(fmin), np.log10(fmax), num=%{points%})
 
-# Set up libvna.cal's error term solver.
+# Create the calibration container and error term solver.
 calset = Calset()
 solver = Solver(calset, CalType.E12, rows=1, columns=1,
                 frequency_vector=f_vector)
 
-# Load the parameters of the short standard, convert to S-parameters
-# (if not already in S), and form into a vector parameter.
-short = NPData(filename='short.s1p', ptype=PType.S)
-s11 = calset.vector_parameter(short.frequency_vector,
-                              short.data_array[:, 0, 0])
+# Load the measurement files for the standards.  We could use
+# calset.data_standard() to explicitly convert these NPData objects
+# to ParameterMatrix, but we don't have to because the solver_add_*
+# methods will do it for us.
+short_std = NPData(filename='short.s1p')
+open_std = NPData(filename='open.s1p')
+load_std = NPData(filename='load.s1p')
 
 # Add measurement of the short standard.
 %[
 m = eterms.evaluate(calset, f_vector, s_short)
 et.print_matrix(m, file=_file, indent=_indent)
 %]
-solver.add_single_reflect(m, s11)
-
-# Load the parameters of the open standard, convert to S-parameters,
-# and form into a vector parameter.
-open = NPData(filename='open.s1p', ptype=PType.S)
-s11 = calset.vector_parameter(open.frequency_vector,
-                              open.data_array[:, 0, 0])
+solver.add_single_reflect(m, short_std)
 
 # Add measurement of the open standard.
 %[
 m = eterms.evaluate(calset, f_vector, s_open)
 et.print_matrix(m, file=_file, indent=_indent)
 %]
-solver.add_single_reflect(m, s11)
-
-# Load the parameters of the load standard, convert to S-parameters,
-# and form into a vector parameter.
-load = NPData(filename='load.s1p', ptype=PType.S)
-s11 = calset.vector_parameter(load.frequency_vector,
-                              load.data_array[:, 0, 0])
+solver.add_single_reflect(m, open_std)
 
 # Add measurement of the load standard.
 %[
 m = eterms.evaluate(calset, f_vector, s_load)
 et.print_matrix(m, file=_file, indent=_indent)
 %]
-solver.add_single_reflect(m, s11)
+solver.add_single_reflect(m, load_std)
 
 # Solve, add to Calset and save.
 solver.solve()

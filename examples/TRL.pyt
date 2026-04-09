@@ -45,6 +45,9 @@ gl = [(np_per_db + mm_per_m * line_loss * math.sqrt(f / 1.0e+9)
 γ_line_actual = np.exp(-np.asarray(gl))
 L_actual = calset.vector_parameter(f_vector, γ_line_actual)
 
+calset.parameter_matrix([[R_actual]]).to_npdata(f_vector).save("TRL-Ra.s1p")
+calset.parameter_matrix([[0, L_actual], [L_actual, 0]]) \
+    .to_npdata(f_vector).save("TRL-La.s2p")
 %]
 %O TRL-calibrate.py
 %############################ begin calibration ###############################
@@ -60,7 +63,7 @@ fmin = %{fmin:7.1e%}
 fmax = %{fmax:7.1e%}
 f_vector = np.linspace(fmin, fmax, num=%{points%})
 
-# Set up libvna.cal's error term solver.
+# Create the calibration container and error term solver.
 calset = Calset()
 solver = Solver(calset, CalType.TE10, rows=2, columns=2,
                 frequency_vector=f_vector)
@@ -113,20 +116,10 @@ solver.add_to_calset('mycal')
 calset.save('TRL.vnacal')
 
 # Save the solved R
-r_array = np.asarray(R.get_value(f_vector)).reshape((len(f_vector), 1, 1))
-r_data = NPData(PType.S, len(f_vector), 1, 1)
-r_data.frequency_vector = f_vector
-r_data.data_array = r_array
-r_data.format = "Sma"
-r_data.save('TRL-R.s1p')
+calset.parameter_matrix([[R]]).to_npdata(f_vector).save("TRL-R.s1p")
 
 # Save the solved L
-l_array = np.asarray(L.get_value(f_vector)).reshape((len(f_vector), 1, 1))
-l_data = NPData(PType.S, len(f_vector), 1, 1)
-l_data.frequency_vector = f_vector
-l_data.data_array = l_array
-l_data.format = "Sma"
-l_data.save('TRL-L.s1p')
+calset.parameter_matrix([[0, L], [L, 0]]).to_npdata(f_vector).save("TRL-L.s2p")
 %############################# end calibration ################################
 %#
 %#
