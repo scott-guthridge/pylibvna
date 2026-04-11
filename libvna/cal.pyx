@@ -483,79 +483,6 @@ class ParameterMatrix(np.ndarray):
                     v[r, c] = Parameter._from_value(calset, v[r, c])
         return a
 
-    def to_npdata(self, frequency_vector, z0) -> NPData:
-        """
-        Construct an NPData object from the standard.
-
-        Parameters:
-            frequency_vector (vector of float):
-                monotonically increasing list of frequencies
-
-            z0 (complex):
-                reference impedances
-
-                z0 can be specified as a scalar, number of ports long
-                vector, or frequencies by ports matrix.
-        """
-        cdef int rows = self.shape[0]
-        cdef int columns = self.shape[1]
-        if rows == 0 or rows != columns:
-            raise ValueError(
-                "ParameterMatrix.to_npdata: matrix must be non-empty and square"
-            )
-        cdef int ports = max(rows, columns)
-        frequency_vector = np.ascontiguousarray(
-            frequency_vector, dtype=np.double
-        )
-        frequencies = len(frequency_vector)
-        z0 = np.ascontiguousarray(z0, dtype=np.cdouble)
-        if (
-            z0.size != 1
-            and (
-                z0.ndim != 1
-                or z0.shape[0] != ports
-            )
-            and (
-                z0.ndim != 2
-                or z0.shape[0] != frequencies
-                or z0.shape[1] != ports
-            )
-        ):
-            raise ValueError(
-                f"z0 shape invalid: expected scalar, ({ports},) or "
-                f"({frequencies},{ports}), got {z0.shape}"
-            )
-
-        cdef Parameter parameter = self[0, 0]
-        cdef Calset calset = parameter.calset
-        cdef vnacal_t *vcp = calset.vcp
-        npdata = NPData(
-            ptype=PType.S,
-            frequencies=frequencies,
-            rows=rows,
-            columns=columns)
-        npdata.frequency_vector = frequency_vector
-        if z0.ndim != 2:
-            npdata.z0_vector = z0
-        else:
-            npdata.fz0_array = z0
-        cdef vnadata_t *vdp
-        vdp = <vnadata_t *>PyCapsule_GetPointer(npdata._get_vdp(), NULL)
-        parameter_matrix = np.ndarray(
-            (rows, columns), dtype=np.int32, order="C"
-        )
-        cdef int i, j
-        for i in range(rows):
-            for j in range(columns):
-                parameter_matrix[i, j] = (<Parameter>self[i, j]).pindex
-        cdef int [:, :] parameter_view = parameter_matrix
-        cdef int rc = vnacal_parameter_matrix_to_data(
-            vcp, &parameter_view[0][0], rows, columns, vdp
-        )
-        calset._check_error(rc)
-        return npdata
-
-
     def eval(self, f, z0):
         """
         Evaluate the standard at one or more frequencies.
@@ -647,6 +574,78 @@ class ParameterMatrix(np.ndarray):
 
         # Return 2D if scalar frequency
         return result[0] if is_scalar_freq else result
+
+    def to_npdata(self, frequency_vector, z0) -> NPData:
+        """
+        Construct an NPData object from the standard.
+
+        Parameters:
+            frequency_vector (vector of float):
+                monotonically increasing list of frequencies
+
+            z0 (complex):
+                reference impedances
+
+                z0 can be specified as a scalar, number of ports long
+                vector, or frequencies by ports matrix.
+        """
+        cdef int rows = self.shape[0]
+        cdef int columns = self.shape[1]
+        if rows == 0 or rows != columns:
+            raise ValueError(
+                "ParameterMatrix.to_npdata: matrix must be non-empty and square"
+            )
+        cdef int ports = max(rows, columns)
+        frequency_vector = np.ascontiguousarray(
+            frequency_vector, dtype=np.double
+        )
+        frequencies = len(frequency_vector)
+        z0 = np.ascontiguousarray(z0, dtype=np.cdouble)
+        if (
+            z0.size != 1
+            and (
+                z0.ndim != 1
+                or z0.shape[0] != ports
+            )
+            and (
+                z0.ndim != 2
+                or z0.shape[0] != frequencies
+                or z0.shape[1] != ports
+            )
+        ):
+            raise ValueError(
+                f"z0 shape invalid: expected scalar, ({ports},) or "
+                f"({frequencies},{ports}), got {z0.shape}"
+            )
+
+        cdef Parameter parameter = self[0, 0]
+        cdef Calset calset = parameter.calset
+        cdef vnacal_t *vcp = calset.vcp
+        npdata = NPData(
+            ptype=PType.S,
+            frequencies=frequencies,
+            rows=rows,
+            columns=columns)
+        npdata.frequency_vector = frequency_vector
+        if z0.ndim != 2:
+            npdata.z0_vector = z0
+        else:
+            npdata.fz0_array = z0
+        cdef vnadata_t *vdp
+        vdp = <vnadata_t *>PyCapsule_GetPointer(npdata._get_vdp(), NULL)
+        parameter_matrix = np.ndarray(
+            (rows, columns), dtype=np.int32, order="C"
+        )
+        cdef int i, j
+        for i in range(rows):
+            for j in range(columns):
+                parameter_matrix[i, j] = (<Parameter>self[i, j]).pindex
+        cdef int [:, :] parameter_view = parameter_matrix
+        cdef int rc = vnacal_parameter_matrix_to_data(
+            vcp, &parameter_view[0][0], rows, columns, vdp
+        )
+        calset._check_error(rc)
+        return npdata
 
 cdef class ShortStandard(Parameter):
     def __cinit__(
