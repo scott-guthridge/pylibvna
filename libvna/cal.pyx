@@ -397,6 +397,64 @@ cdef class Parameter:
                                  "length same as f")
         return self._eval_array_value(f, z0)
 
+    def embed(self, fixture) -> Parameter:
+        """
+        Embed the parameter in a two-port test fixture.
+
+        Parameters:
+            fixture (2x2 array of Parameter):
+                ParameterMatrix describing the test fixture.  The
+                first port faces the VNA; second port faces the DUT.
+
+        Returns:
+            A new Parameter, that when evaluated includes the effect of
+            the test fixture on the DUT.
+        """
+        cdef Calset calset = self.calset
+        cdef vnacal_t *vcp = calset.vcp
+        fixture = calset.parameter_matrix(fixture)
+        if fixture.shape != (2, 2):
+            raise ValueError(f"fixture dimensions must be 2x2")
+        if (<Parameter>fixture[0, 0]).calset != calset:
+            raise ValueError("fixture belongs to a different Calset")
+        cdef int fixture_matrix[2][2]
+        cdef int i, j
+        for i in range(2):
+            for j in range(2):
+                fixture_matrix[i][j] = (<Parameter>fixture[i, j]).pindex
+        cdef int rc = vnacal_embed_parameter(vcp, self.pindex, fixture_matrix)
+        calset._check_error(rc)
+        return EmbeddedParameter(calset, rc)
+
+    def deembed(self, fixture) -> Parameter:
+        """
+        De-embed the parameter out of a two-port test fixture.
+
+        Parameters:
+            fixture (2x2 array of Parameter):
+                ParameterMatrix describing the test fixture.  The
+                first port faces the VNA; second port faces the DUT.
+
+        Returns:
+            A new Parameter, that when evaluated removes the effect of
+            the test fixture.
+        """
+        cdef Calset calset = self.calset
+        cdef vnacal_t *vcp = calset.vcp
+        fixture = calset.parameter_matrix(fixture)
+        if fixture.shape != (2, 2):
+            raise ValueError(f"fixture dimensions must be 2x2")
+        if (<Parameter>fixture[0, 0]).calset != calset:
+            raise ValueError("fixture belongs to a different Calset")
+        cdef int fixture_matrix[2][2]
+        cdef int i, j
+        for i in range(2):
+            for j in range(2):
+                fixture_matrix[i][j] = (<Parameter>fixture[i, j]).pindex
+        cdef int rc = vnacal_deembed_parameter(vcp, self.pindex, fixture_matrix)
+        calset._check_error(rc)
+        return DeembeddedParameter(calset, rc)
+
 
 cdef class ScalarParameter(Parameter):
     def __cinit__(self, Calset calset, value):
@@ -496,6 +554,17 @@ cdef class CorrelatedParameter(Parameter):
     def __init__(self, *args, **kwargs):
         pass
 
+cdef class EmbeddedParameter(Parameter):
+    __slots__ = ()  # hide from python
+    def __init__(self, Calset calset, int pindex):
+        self.calset = calset
+        self.pindex = pindex
+
+cdef class DeembeddedParameter(Parameter):
+    __slots__ = ()  # hide from python
+    def __init__(self, Calset calset, int pindex):
+        self.calset = calset
+        self.pindex = pindex
 
 cdef class _ParameterMatrixElement(Parameter):
     __slots__ = ()  # hide from python
@@ -734,6 +803,125 @@ class ParameterMatrix(np.ndarray):
         )
         calset._check_error(rc)
         return npdata
+
+    def embed(self, fixture) -> ParameterMatrix:
+        """
+        Embed the parameter matrix in a test fixture.
+
+        Parameters:
+            fixture (array of Parameter):
+                Square ParameterMatrix describing the test fixture.
+                The number of rows and columns in fixture must be exactly
+                twice those of the DUT.  Indices 0..(n-1) face the VNA
+                while indices n..(2n-1) face the DUT, where n is the
+                number of DUT ports.
+
+        Returns:
+            A new ParameterMatrix, that when evaluated includes the
+            effect of the test fixture on the DUT.
+        """
+        if self.ndim != 2 or self.shape[0] != self.shape[1]:
+            raise ValueError("embed requires a square parameter matrix")
+        target_ports = self.shape[0]
+        if target_ports == 0:  # special-case empty (where no calset)
+            return self.copy()
+        cdef Parameter parameter = self[0, 0]
+        cdef Calset calset = parameter.calset
+        cdef vnacal_t *vcp = calset.vcp
+        fixture = calset.parameter_matrix(fixture)
+        if fixture.ndim != 2 or fixture.shape[0] != fixture.shape[1]:
+            raise ValueError("fixture matrix must be square")
+        fixture_ports = fixture.shape[0]
+        if fixture_ports != 2 * target_ports:
+            raise ValueError("fixture ports must be exactly twice "
+                             "parameter matrix ports")
+        if (<Parameter>fixture[0, 0]).calset != calset:
+            raise ValueError("fixture belongs to a different Calset")
+        target_matrix = np.empty(shape=(target_ports, target_ports),
+                                dtype=np.int32, order="C")
+        cdef int [:, :] target_view = target_matrix
+        cdef int i, j
+        for i in range(target_ports):
+            for j in range(target_ports):
+                target_view[i, j] = (<Parameter>self[i, j]).pindex
+        fixture_matrix = np.empty(shape=(fixture_ports, fixture_ports),
+                                    dtype=np.int32, order="C")
+        cdef int [:, :] fixture_view = fixture_matrix
+        for i in range(fixture_ports):
+            for j in range(fixture_ports):
+                fixture_view[i, j] = (<Parameter>fixture[i, j]).pindex
+        result_matrix = np.empty(shape=(target_ports, target_ports),
+                                   dtype=np.int32, order="C")
+        cdef int [:, :] result_view = result_matrix
+        cdef int rc = vnacal_embed_parameter_matrix(vcp,
+            &target_view[0, 0], target_ports, &fixture_view[0, 0],
+            &result_view[0, 0],
+            target_ports * target_ports * sizeof(double complex))
+        calset._check_error(rc)
+        for i in range(target_ports):
+            for j in range(target_ports):
+                self[i, j] = _ParameterMatrixElement(calset, result_view[i, j])
+        return self
+
+    def deembed(self, fixture) -> ParameterMatrix:
+        """
+        De-embed the parameter matrix from a test fixture.
+
+        Parameters:
+            fixture (array of Parameter):
+                Square ParameterMatrix describing the test fixture.
+                The number of rows and columns in fixture must be exactly
+                twice those of the DUT.  Indices 0..(n-1) face the VNA
+                while indices n..(2n-1) face the DUT, where n is the
+                number of DUT ports.
+
+        Returns:
+            A new ParameterMatrix, that when evaluated removes the
+            effect of the test fixture on the DUT.
+        """
+        if self.ndim != 2 or self.shape[0] != self.shape[1]:
+            raise ValueError("deembed requires a square parameter matrix")
+        target_ports = self.shape[0]
+        if target_ports == 0:  # special-case empty (where no calset)
+            return self.copy()
+        cdef Parameter parameter = self[0, 0]
+        cdef Calset calset = parameter.calset
+        cdef vnacal_t *vcp = calset.vcp
+        fixture = calset.parameter_matrix(fixture)
+        if fixture.ndim != 2 or fixture.shape[0] != fixture.shape[1]:
+            raise ValueError("fixture matrix must be square")
+        fixture_ports = fixture.shape[0]
+        if fixture_ports != 2 * target_ports:
+            raise ValueError("fixture ports must be exactly twice "
+                             "parameter matrix ports")
+        if (<Parameter>fixture[0, 0]).calset != calset:
+            raise ValueError("fixture belongs to a different Calset")
+        target_matrix = np.empty(shape=(target_ports, target_ports),
+                                dtype=np.int32, order="C")
+        cdef int [:, :] target_view = target_matrix
+        cdef int i, j
+        for i in range(target_ports):
+            for j in range(target_ports):
+                target_view[i, j] = (<Parameter>self[i, j]).pindex
+        fixture_matrix = np.empty(shape=(fixture_ports, fixture_ports),
+                                    dtype=np.int32, order="C")
+        cdef int [:, :] fixture_view = fixture_matrix
+        for i in range(fixture_ports):
+            for j in range(fixture_ports):
+                fixture_view[i, j] = (<Parameter>fixture[i, j]).pindex
+        result_matrix = np.empty(shape=(target_ports, target_ports),
+                                   dtype=np.int32, order="C")
+        cdef int [:, :] result_view = result_matrix
+        cdef int rc = vnacal_deembed_parameter_matrix(vcp,
+            &target_view[0, 0], target_ports, &fixture_view[0, 0],
+            &result_view[0, 0],
+            target_ports * target_ports * sizeof(double complex))
+        calset._check_error(rc)
+        for i in range(target_ports):
+            for j in range(target_ports):
+                self[i, j] = _ParameterMatrixElement(calset, result_view[i, j])
+        return self
+
 
 cdef class ShortStandard(Parameter):
     def __cinit__(
@@ -2595,6 +2783,45 @@ cdef class Calset:
         re-normalization is done automatically.
         """
         return DataStandard(self, npdata)
+
+    def embed_npdata(self, npdata: NPData, fixture) -> NPData:
+        """
+        Embed network parameter data in a test fixture
+
+        Parameters:
+            npdata:
+                an NPData object to embed
+            fixture:
+                a ParameterMatrix or NPData object representing the
+                test fixture.  First port faces the VNA; second port
+                faces the DUT.
+
+        Returns:
+            A new NPData object with the effect of the fixture added.
+        """
+        target = self.data_standard(npdata)
+        return target.embed(fixture).to_npdata(npdata.frequency_vector,
+                                               npdata.z0_vector)
+
+    def deembed_npdata(self, npdata: NPData, fixture) -> NPData:
+        """
+        De-embed network parameter data in a test fixture
+
+        Parameters:
+            npdata:
+                an NPData object to de-embed
+            fixture:
+                a ParameterMatrix or NPData object representing the
+                test fixture.  First port faces the VNA; second port
+                faces the DUT.
+
+        Returns:
+            A new NPData object with the effect of the fixture removed.
+        """
+        target = self.data_standard(npdata)
+        return target.deembed(fixture).to_npdata(npdata.frequency_vector,
+                                                 npdata.z0_vector)
+
 
     def solver(
         self, CalType ctype, int rows, int columns, frequency_vector,

@@ -126,6 +126,20 @@ Apply the calibration to a device under test.
    :language: python
 
 
+Test Fixture Embedding and De-Embedding
+---------------------------------------
+
+Calibrate the VNA, embedding a male-to-male coaxial adapter between VNA
+and standards.
+
+.. literalinclude:: ../../examples/embed-calibrate.py
+
+Measure the DUT with the same coaxial adapter and de-embed the adapter
+from the result.
+
+.. literalinclude:: ../../examples/embed-apply.py
+
+
 Advanced 16 Term with Measurement Error Modeling
 ------------------------------------------------
 

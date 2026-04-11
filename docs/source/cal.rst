@@ -74,11 +74,11 @@ Standard and Parameter Classes
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 .. autoclass:: libvna.cal.Parameter
-   :members: get_value
+   :members: eval, embed, deembed
 
 .. autoclass:: libvna.cal.ParameterMatrix()
    :show-inheritance:
-   :members: eval, to_npdata
+   :members: eval, to_npdata, embed, deembed
 
 .. py:class:: libvna.cal.ScalarParameter(calset: Calset, value) -> ScalarParameter
 
@@ -129,6 +129,11 @@ solves for the error terms and adds the new calibration to the Calset.
         add_mapped_matrix, set_m_error, et_tolerance, p_tolerance,
         iteration_limit, pvalue_limit, solve, add_to_calset
 
+Embedding and De-embedding Network Parameter Data
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+.. automethod:: libvna.cal.Calset.embed_npdata
+.. automethod:: libvna.cal.Calset.deembed_npdata
 
 Metadata and Persistence
 ^^^^^^^^^^^^^^^^^^^^^^^^

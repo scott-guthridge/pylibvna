@@ -147,8 +147,11 @@ examples/T16-EM-OS8.s2p
 examples/T16-EM-SM4.s2p
 examples/T16-EM-SO5.s2p
 examples/T16-EM-T.s2p
-examples/TRL-L.s1p
+examples/TRL-La.s2p
+examples/TRL-L.s2p
+examples/TRL-Ra.s1p
 examples/TRL-R.s1p
-examples/UT-T.s1p
+examples/UT-Ta.s2p
+examples/UT-T.s2p
 examples/*.vnacal
 /libvna.pc

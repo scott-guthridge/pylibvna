@@ -243,6 +243,25 @@ cdef extern from "<vnacal.h>":
                                           const vnadata_t *vcdp,
                                           int *parameter_matrix,
                                           size_t parameter_matrix_size)
+    int vnacal_load_data_parameter_matrix(vnacal_t *vcp,
+        const char *filename, int *parameter_matrix,
+        size_t parameter_matrix_size)
+    int vnacal_embed_parameter(vnacal_t *vcp, int dut,
+            const int (*fixture_matrix)[2])
+    int vnacal_embed_parameter_matrix(vnacal_t *vcp,
+        const int *dut_matrix, int dut_ports,
+        const int *fixture_matrix,
+        int *result_matrix, size_t result_matrix_size)
+    int vnacal_deembed_parameter(vnacal_t *vcp, int embedded,
+        const int (*fixture_matrix)[2])
+    int vnacal_deembed_parameter_matrix(vnacal_t *vcp,
+        const int *embedded_matrix, int embedded_ports,
+        const int *fixture_matrix,
+        int *result_matrix, size_t result_matrix_size)
+    int vnacal_embed(vnacal_t *vcp, vnadata_t *vdp_in, vnadata_t *vdp_out,
+        const int *fixture_matrix, int fixture_ports)
+    int vnacal_deembed(vnacal_t *vcp, vnadata_t *vdp_in, vnadata_t *vdp_out,
+        const int *fixture_matrix, int fixture_ports)
     int vnacal_make_unknown_parameter(vnacal_t *vcp, int initial_guess)
     int vnacal_make_correlated_parameter(vnacal_t *vcp, int other,
                                          const double *sigma_frequency_vector,
