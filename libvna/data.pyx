@@ -98,7 +98,7 @@ cdef void _error_fn(const char *message, void *error_arg,
         return
     umessage = message.decode("UTF-8")
     if   category == VNAERR_SYSTEM:
-        if errno == errno.ENOMEM:
+        if errno == ENOMEM:
             self._thread_local._vna_data_exception = MemoryError(umessage)
         else:
             self._thread_local._vna_data_exception = OSError(
