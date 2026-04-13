@@ -625,14 +625,13 @@ class ParameterMatrix(np.ndarray):
 
         a = _asarray_ndminmax2(value).view(__class__)
         assert a.ndim == 2
-        cdef object [:, :] v = a
         cdef int r
         cdef int c
         for r in range(a.shape[0]):
             for c in range(a.shape[1]):
                 if not isinstance(a[r, c], Parameter):
-                    p = Parameter._from_value(calset, v[r, c])
-                    v[r, c] = p
+                    p = Parameter._from_value(calset, a[r, c])
+                    a[r, c] = p
                     if p.calset != calset:
                         raise ValueError(f"Element at [{r}, {c}] belongs "
                                          f"to a different Calset")
